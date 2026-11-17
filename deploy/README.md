@@ -51,7 +51,7 @@ On first start the empty DB schema is created automatically from the EF model (`
 and leave types + admin user are seeded.
 
 ## 4. Updates
-Push to `main` locally, then on the VPS: `cd /opt/hrms/deploy && bash deploy.sh`
+Automatic — see "Auto-deploy" below. Manual fallback on the VPS: `cd /opt/hrms/deploy && bash deploy.sh`
 
 ## 5. Backups (nightly 02:30, 14 days kept in /opt/hrms-backups)
 ```bash
@@ -107,9 +107,9 @@ previous version.
 
 - Logs: `tail -f /var/log/hrms-uat-deploy.log` / `tail -f /var/log/hrms-prod-deploy.log`
 - Pause one: `crontab -e` and comment out its `auto-deploy.sh` line
-- Never push directly to `main` — merge from `uat` after testing.
+- `main` is protected on GitHub: direct pushes and force pushes are rejected, changes arrive only via Pull Request.
 
-**Release:** `git checkout main && git merge uat && git push` (or merge a uat → main Pull Request on GitHub).
+**Release:** on GitHub open a Pull Request **base `main` ← compare `uat`** (https://github.com/Mohanreddy88/mars-tech/compare/main...uat) and click **Merge**. Production deploys automatically.
 
 **Roll back production:** `git revert` the bad commit on `main` and push (auto-deploys), or restore the DB
 backup taken just before the release (see Backups).
