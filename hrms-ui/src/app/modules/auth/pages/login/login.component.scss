@@ -241,3 +241,12 @@
     font-size: 14px;
   }
 }
+
+// Uploaded company logos are often wide, so keep their proportions
+.brand-logo.company-logo img {
+  width: auto;
+  height: auto;
+  max-width: 240px;
+  max-height: 110px;
+  object-fit: contain;
+}

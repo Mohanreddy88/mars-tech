@@ -1,8 +1,19 @@
 <div class="sidebar" [class.mobile-open]="isMobileMenuOpen">
 
   <div class="sidebar-brand">
+    @if (branding?.logoUrl) {
+      <div class="brand-logo"><img [src]="branding!.logoUrl" alt="{{ branding!.displayName }} logo" /></div>
+    }
+    @if (branding?.isConfigured) {
+      <div class="brand-company">{{ branding!.displayName }}</div>
+    }
     <h2 class="brand-title">{{ isAdmin ? 'HR Dashboard' : 'My Portal' }}</h2>
     <p class="brand-subtitle">{{ isAdmin ? 'Manage Employees & Data' : 'Employee Self-Service' }}</p>
+    @if (isAdmin && branding && !branding.isConfigured) {
+      <a class="brand-setup" routerLink="/master/company-settings">
+        <i class="bi bi-exclamation-triangle-fill"></i> Set up company details
+      </a>
+    }
   </div>
 
   <ul class="menu-list">
@@ -160,6 +171,10 @@
       </li>
       @if (masterMenuOpen) {
         <ul class="submenu">
+          <li routerLink="/master/company-settings" routerLinkActive="active-submenu">
+            <i class="bi bi-building-fill-gear"></i>
+            <span>Company Settings</span>
+          </li>
           <li routerLink="/master/departments" routerLinkActive="active-submenu">
             <i class="bi bi-diagram-3-fill"></i>
             <span>Departments</span>

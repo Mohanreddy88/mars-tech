@@ -19,6 +19,7 @@ public class PayrollController : ControllerBase
     private readonly IPayrollCalculationService _payrollService;
     private readonly IAuditService _audit;
     private readonly INotificationService _notif;
+    private readonly ICompanySettingsService _company;
 
     public PayrollController(
         HrmsDbContext db,
@@ -26,8 +27,10 @@ public class PayrollController : ControllerBase
         IPdfService pdfService,
         IPayrollCalculationService payrollService,
         IAuditService audit,
-        INotificationService notif)
+        INotificationService notif,
+        ICompanySettingsService company)
     {
+        _company = company;
         _db             = db;
         _emailService   = emailService;
         _pdfService     = pdfService;
@@ -553,6 +556,7 @@ public class PayrollController : ControllerBase
             var fileName = $"Payslip_{payroll.Employee.Name.Replace(" ", "_")}_{monthName}.pdf";
 
             var monthLabel = new DateTime(payroll.Year, payroll.Month, 1).ToString("MMMM yyyy");
+            var company    = await _company.GetAsync();
             var subject    = $"Payslip for {monthLabel}";
             var body = $@"<!DOCTYPE html><html><head><style>
   body{{font-family:Arial,sans-serif;line-height:1.8;color:#1a1a1a;background:#f4f4f4;margin:0;padding:0;}}
@@ -567,7 +571,7 @@ public class PayrollController : ControllerBase
 </style></head><body>
   <div class=""wrap"">
     <div class=""header"">
-      <h2>ESYNC SOFTWARE SERVICES SDN.BHD</h2>
+      <h2>{System.Net.WebUtility.HtmlEncode(company.NameForDocuments)}</h2>
       <p>Payslip Notification — {monthLabel}</p>
     </div>
     <div class=""body"">
@@ -578,7 +582,7 @@ public class PayrollController : ControllerBase
       </div>
     </div>
     <div class=""footer"">
-      This is an auto-generated email. Please do not reply. &copy; {DateTime.Now.Year} ESYNC SOFTWARE SERVICES SDN.BHD
+      This is an auto-generated email. Please do not reply. &copy; {DateTime.Now.Year} {System.Net.WebUtility.HtmlEncode(company.NameForDocuments)}
     </div>
   </div>
 </body></html>";
@@ -807,11 +811,12 @@ public class PayrollController : ControllerBase
         // Taxable income = Gross - EPF (statutory relief already applied in PCB calc)
         var taxableIncome = totalGross - totalEpf;
 
+        var company = await _company.GetAsync();
         var eaForm = new
         {
             // Header
             formTitle        = $"EA FORM (BORANG EA) — Year of Assessment {year}",
-            employerId       = "ESYNC SOFTWARE SERVICES SDN.BHD",
+            employerId       = company.NameForDocuments,
             // Employee Details (Part A)
             employeeId,
             employeeName     = employee.Name,
@@ -969,6 +974,19 @@ public class PayrollController : ControllerBase
 
         var subject = $"EA Form for Year of Assessment {year}";
 
+        // Signature from company settings; lines without a value are left out
+        var company   = await _company.GetAsync();
+        Func<string?, string?> enc = System.Net.WebUtility.HtmlEncode;
+        var signature = $"<strong>HR Department</strong><br/>\n{enc(company.NameForDisplay)}";
+        if (!string.IsNullOrWhiteSpace(company.Phone))
+            signature += $"<br/>\nTel: {enc(company.Phone)}";
+        if (!string.IsNullOrWhiteSpace(company.Website))
+        {
+            var site = company.Website.Trim();
+            var href = site.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? site : "https://" + site;
+            signature += $"<br/>\nWebsite: <a href=\"{enc(href)}\">{enc(site)}</a>";
+        }
+
         var body = $@"<html><body style=""font-family:Arial,sans-serif;font-size:14px;color:#222;"">
 <p>Dear {firstName},</p>
 <p>Greetings from HR.</p>
@@ -976,10 +994,7 @@ public class PayrollController : ControllerBase
 <p>Kindly review the details and let us know if you require any clarification.</p>
 <p>Thank you and wish you a smooth tax filing process.</p>
 <br/>
-<p><strong>HR Department</strong><br/>
-Esync Software Services<br/>
-Tel: +603 8322 8593<br/>
-Website: <a href=""https://www.esyncsoftware.my"">www.esyncsoftware.my</a> | Global Business Services</p>
+<p>{signature}</p>
 <hr style=""border:none;border-top:1px solid #ddd;margin:16px 0;""/>
 <p style=""font-size:11px;color:#888;""><em>This email is confidential and is intended only for the individual or entity to which it is addressed.</em></p>
 </body></html>";

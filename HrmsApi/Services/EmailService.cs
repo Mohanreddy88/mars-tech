@@ -33,12 +33,14 @@ public class EmailService : IEmailService
     private readonly IConfiguration        _config;
     private readonly ILogger<EmailService> _logger;
     private readonly IHttpClientFactory    _httpClientFactory;
+    private readonly ICompanySettingsService _company;
 
     private const string BrevoApiUrl  = "https://api.brevo.com/v3/smtp/email";
-    private const string CompanyName  = "ESYNC SOFTWARE SERVICES SDN.BHD";
 
-    public EmailService(IConfiguration config, ILogger<EmailService> logger, IHttpClientFactory httpClientFactory)
+    public EmailService(IConfiguration config, ILogger<EmailService> logger, IHttpClientFactory httpClientFactory,
+        ICompanySettingsService company)
     {
+        _company           = company;
         _config            = config;
         _logger            = logger;
         _httpClientFactory = httpClientFactory;
@@ -66,7 +68,7 @@ public class EmailService : IEmailService
         string apiKey, byte[]? attachmentData = null, string? attachmentName = null)
     {
         var fromEmail = _config["Email:FromEmail"] ?? _config["SMTP_FROM"] ?? _config["Email:SmtpUser"] ?? "noreply@hrms.com";
-        var fromName  = _config["Email:FromName"] ?? CompanyName;
+        var fromName  = _config["Email:FromName"] ?? (await _company.GetAsync()).NameForDisplay;
 
         _logger.LogInformation("Brevo API send → to:{To} subject:{Subject}", toEmail, subject);
 
@@ -110,7 +112,7 @@ public class EmailService : IEmailService
         var user      = _config["Email:SmtpUser"]     ?? throw new InvalidOperationException("Email:SmtpUser not configured.");
         var password  = _config["Email:SmtpPassword"] ?? throw new InvalidOperationException("Email:SmtpPassword not configured.");
         var fromEmail = _config["Email:FromEmail"]    ?? user;
-        var fromName  = _config["Email:FromName"]     ?? CompanyName;
+        var fromName  = _config["Email:FromName"]     ?? (await _company.GetAsync()).NameForDisplay;
 
         _logger.LogInformation("SMTP send → {Host}:{Port} to:{To} subject:{Subject}", host, port, toEmail, subject);
 
@@ -165,7 +167,8 @@ public class EmailService : IEmailService
     public async Task SendPayslipEmailAsync(string toEmail, string employeeName, string month, string year, decimal netSalary)
     {
         var subject = $"Payslip for {month}/{year}";
-        var body    = GeneratePayslipEmailBody(employeeName, month, year, netSalary);
+        var company = await _company.GetAsync();
+        var body    = GeneratePayslipEmailBody(company.NameForDocuments, employeeName, month, year, netSalary);
         await SendEmailAsync(toEmail, subject, body);
     }
 
@@ -257,7 +260,7 @@ public class EmailService : IEmailService
 
     // ── HTML body generators ──────────────────────────────────────────────────
 
-    private string GeneratePayslipEmailBody(string employeeName, string month, string year, decimal netSalary) =>
+    private static string GeneratePayslipEmailBody(string companyName, string employeeName, string month, string year, decimal netSalary) =>
         $@"<!DOCTYPE html><html><head><style>
   body{{font-family:Arial,sans-serif;line-height:1.8;color:#1a1a1a;background:#f4f4f4;margin:0;padding:0;}}
   .wrap{{max-width:580px;margin:30px auto;background:white;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);}}
@@ -275,7 +278,7 @@ public class EmailService : IEmailService
 </style></head><body>
   <div class=""wrap"">
     <div class=""header"">
-      <h2>ESYNC SOFTWARE SERVICES SDN.BHD</h2>
+      <h2>{System.Net.WebUtility.HtmlEncode(companyName)}</h2>
       <p>Payslip Notification — {month} {year}</p>
     </div>
     <div class=""body"">
@@ -286,7 +289,7 @@ public class EmailService : IEmailService
       </div>
     </div>
     <div class=""footer"">
-      This is an auto-generated email. Please do not reply. &copy; {DateTime.Now.Year} {CompanyName}
+      This is an auto-generated email. Please do not reply. &copy; {DateTime.Now.Year} {System.Net.WebUtility.HtmlEncode(companyName)}
     </div>
   </div>
 </body></html>";

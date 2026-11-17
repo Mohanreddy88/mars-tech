@@ -160,6 +160,7 @@ builder.Services.AddScoped<ITimesheetService, TimesheetService>();
 builder.Services.AddScoped<ILeaveService, LeaveService>();
 builder.Services.AddScoped<IPayrollCalculationService, PayrollCalculationService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
+builder.Services.AddScoped<ICompanySettingsService, CompanySettingsService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 
 // Background email queue — singleton hosted service that survives request lifetime

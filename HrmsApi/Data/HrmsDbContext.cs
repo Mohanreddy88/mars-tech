@@ -26,10 +26,18 @@ public class HrmsDbContext : DbContext
     public DbSet<PayrollAdjustment>     PayrollAdjustments    => Set<PayrollAdjustment>();
     public DbSet<Notification>          Notifications         => Set<Notification>();
     public DbSet<AuditLog>              AuditLogs             => Set<AuditLog>();
+    public DbSet<CompanySettings>       CompanySettings       => Set<CompanySettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // ── CompanySettings (single row, Id = 1) ─────────────
+        modelBuilder.Entity<CompanySettings>(e =>
+        {
+            e.ToTable("CompanySettings");
+            e.Property(x => x.Id).ValueGeneratedNever();
+        });
 
         // ── BankMaster ────────────────────────────────────────
         modelBuilder.Entity<BankMaster>(e =>

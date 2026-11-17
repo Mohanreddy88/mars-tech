@@ -36,6 +36,7 @@ import { EmployeeDashboardComponent } from './modules/dashboard/pages/employee-d
 import { AdminDashboardComponent } from './modules/dashboard/pages/admin-dashboard-component/admin-dashboard-component';
 import { AnalyticsComponent } from './modules/analytics/pages/analytics-component/analytics-component';
 import { PublicHolidaysComponent } from './modules/master/pages/public-holidays-component/public-holidays-component';
+import { CompanySettingsComponent } from './modules/master/pages/company-settings-component/company-settings-component';
 import { NotificationsPageComponent } from './modules/notifications/pages/notifications-page/notifications-page.component';
 import { AuditLogComponent } from './modules/audit/pages/audit-log-component/audit-log-component';
 import { ChangePasswordComponent as ForceChangePasswordComponent } from './modules/auth/pages/change-password/change-password.component';
@@ -109,6 +110,7 @@ export const routes: Routes = [
       { path: 'master/users',            component: UserListComponent,         canActivate: [adminGuard] },
       { path: 'master/banks',            component: BankListComponent,         canActivate: [adminGuard] },
       { path: 'master/public-holidays',  component: PublicHolidaysComponent,   canActivate: [adminGuard] },
+      { path: 'master/company-settings', component: CompanySettingsComponent,  canActivate: [adminGuard] },
       
       // Notifications
       { path: 'notifications', component: NotificationsPageComponent },
