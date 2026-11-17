@@ -1,34 +1,34 @@
 # HTTPS certificates are issued and renewed automatically by Caddy (Let's Encrypt).
+# Both domains serve the same app (option B). DNS for every name below → 189.72.155.35
 
-# www → apex
-www.{$DOMAIN} {
-	redir https://{$DOMAIN}{uri} permanent
-}
-
-{$DOMAIN} {
+(security_headers) {
 	encode zstd gzip
-
 	header {
-		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"
 		X-Frame-Options "SAMEORIGIN"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		-Server
 	}
+}
 
+# ── Production ───────────────────────────────────────────────
+marstech.tech, marshrms.com {
+	import security_headers
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 	reverse_proxy app:8080
 }
 
-# UAT environment (separate stack: deploy/docker-compose.uat.yml, branch "uat")
-uat.{$DOMAIN} {
-	encode zstd gzip
+# www → apex (same domain)
+www.marstech.tech {
+	redir https://marstech.tech{uri} permanent
+}
+www.marshrms.com {
+	redir https://marshrms.com{uri} permanent
+}
 
-	header {
-		X-Content-Type-Options "nosniff"
-		X-Frame-Options "SAMEORIGIN"
-		X-Robots-Tag "noindex, nofollow"
-		-Server
-	}
-
+# ── UAT (separate stack: docker-compose.uat.yml, branch "uat") ──
+uat.marstech.tech, uat.marshrms.com {
+	import security_headers
+	header X-Robots-Tag "noindex, nofollow"
 	reverse_proxy uat-app:8080
 }
