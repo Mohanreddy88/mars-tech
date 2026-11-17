@@ -152,7 +152,7 @@
 
 <!-- ═══════════ New company wizard ═══════════ -->
 @if (wiz; as w) {
-  <div class="overlay" (click)="$event.target === $event.currentTarget && !w.creating && !w.result && closeWizard()">
+  <div class="overlay" (click)="onBackdrop($event, 'wizard')">
     <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="wz-title">
       <div class="head">
         <h2 id="wz-title">{{ w.result ? 'Company created' : 'New company' }}</h2>
@@ -328,7 +328,7 @@
 
 <!-- ═══════════ Edit drawer ═══════════ -->
 @if (edit; as e) {
-  <div class="overlay right" (click)="$event.target === $event.currentTarget && closeEdit()">
+  <div class="overlay right" (click)="onBackdrop($event, 'edit')">
     <form class="drawer" role="dialog" aria-modal="true" aria-labelledby="ed-title" (ngSubmit)="saveEdit()" novalidate>
       <div class="head">
         <h2 id="ed-title">Edit {{ e.displayName }}</h2>

@@ -393,6 +393,18 @@ export class PlatformPortalComponent implements OnInit, OnDestroy {
   }
 
   // ── helpers ──────────────────────────────────────────────
+
+  /**
+   * Click on the dark backdrop closes the dialog. Must return nothing: a template handler
+   * that evaluates to false makes Angular cancel the click, which blocked Save, file pickers
+   * and checkboxes inside the dialog.
+   */
+  onBackdrop(event: MouseEvent, which: 'wizard' | 'edit'): void {
+    if (event.target !== event.currentTarget) return;
+    if (which === 'edit') this.closeEdit();
+    else if (this.wiz && !this.wiz.creating && !this.wiz.result) this.closeWizard();
+  }
+
   @HostListener('document:keydown.escape')
   onEscape(): void {
     if (this.edit) this.closeEdit();
