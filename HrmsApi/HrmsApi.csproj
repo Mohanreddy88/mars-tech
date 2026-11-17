@@ -29,10 +29,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Copy logo asset to output directory so PdfService can load it at runtime -->
-    <Content Include="Assets\EsyncLogo.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
+    <!-- Assets\EsyncLogo.png is kept only as a source file to upload on the Company Settings
+         page; logos now live in each database (CompanySettings), not in the build output. -->
+    <None Remove="Assets\**" />
   </ItemGroup>
 
 </Project>

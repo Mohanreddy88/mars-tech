@@ -21,6 +21,7 @@ public class SelfServiceController : ControllerBase
     private readonly IPdfService _pdfService;
     private readonly IEmailQueue _emailQueue;
     private readonly INotificationService _notif;
+    private readonly ICompanySettingsService _company;
 
     public SelfServiceController(
         HrmsDbContext db,
@@ -29,8 +30,10 @@ public class SelfServiceController : ControllerBase
         IEmailService emailService,
         IPdfService pdfService,
         IEmailQueue emailQueue,
-        INotificationService notif)
+        INotificationService notif,
+        ICompanySettingsService company)
     {
+        _company = company;
         _db               = db;
         _logger           = logger;
         _timesheetService = timesheetService;
@@ -493,6 +496,7 @@ public class SelfServiceController : ControllerBase
             var fileName = $"Payslip_{payroll.Employee.Name.Replace(" ", "_")}_{monthName}.pdf";
 
             var monthLabel = new DateTime(payroll.Year, payroll.Month, 1).ToString("MMMM yyyy");
+            var company    = await _company.GetAsync();
             var subject    = $"Payslip for {monthLabel}";
             var body = $@"<!DOCTYPE html><html><head><style>
   body{{font-family:Arial,sans-serif;line-height:1.8;color:#1a1a1a;background:#f4f4f4;margin:0;padding:0;}}
@@ -507,7 +511,7 @@ public class SelfServiceController : ControllerBase
 </style></head><body>
   <div class=""wrap"">
     <div class=""header"">
-      <h2>ESYNC SOFTWARE SERVICES SDN.BHD</h2>
+      <h2>{System.Net.WebUtility.HtmlEncode(company.NameForDocuments)}</h2>
       <p>Payslip Notification — {monthLabel}</p>
     </div>
     <div class=""body"">
@@ -518,7 +522,7 @@ public class SelfServiceController : ControllerBase
       </div>
     </div>
     <div class=""footer"">
-      This is an auto-generated email. Please do not reply. &copy; {DateTime.Now.Year} ESYNC SOFTWARE SERVICES SDN.BHD
+      This is an auto-generated email. Please do not reply. &copy; {DateTime.Now.Year} {System.Net.WebUtility.HtmlEncode(company.NameForDocuments)}
     </div>
   </div>
 </body></html>";

@@ -2,12 +2,13 @@
 
   <div class="login-card">
 
+    @let brand = branding$ | async;
     <div class="login-brand">
-      <div class="brand-logo">
-        <img src="/img/hrms-logo.svg" alt="HRMS Logo" />
+      <div class="brand-logo" [class.company-logo]="brand?.logoUrl">
+        <img [src]="brand?.logoUrl || '/img/hrms-logo.svg'" [alt]="brand?.isConfigured ? brand!.displayName + ' logo' : 'HRMS logo'" />
       </div>
-      <h1 class="brand-name">HR Dashboard</h1>
-      <p class="brand-sub">Manage Employees &amp; Data</p>
+      <h1 class="brand-name">{{ brand?.isConfigured ? brand!.displayName : 'HR Dashboard' }}</h1>
+      <p class="brand-sub">{{ brand?.isConfigured ? 'HR & Payroll' : 'Manage Employees & Data' }}</p>
     </div>
 
     <h2 class="login-title">Sign in to your account</h2>

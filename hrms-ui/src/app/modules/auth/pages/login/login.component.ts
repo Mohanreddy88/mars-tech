@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { AuthService } from '../../../../core/services/auth.service';
+import { CompanySettingsService } from '../../../../core/services/company-settings.service';
 
 @Component({
   selector: 'app-login',
@@ -17,11 +18,15 @@ export class LoginComponent implements OnInit {
   errorMessage = '';
   sessionExpiredMessage = '';
 
+  /** Company name and logo for this site (each client's site shows its own). */
+  get branding$() { return this.companySettings.branding$; }
+
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
     private router: Router,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private companySettings: CompanySettingsService
   ) {
     this.loginForm = this.fb.group({
       username: ['', [Validators.required]],
@@ -30,6 +35,7 @@ export class LoginComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.companySettings.loadBranding();
     // Check if redirected due to session expiry (from localStorage)
     const sessionExpired = localStorage.getItem('session_expired');
     if (sessionExpired === 'true') {

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using HrmsApi.Platform;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HrmsApi.Controllers;
@@ -10,12 +11,19 @@ public class FileUploadController : ControllerBase
 {
     private readonly IWebHostEnvironment _env;
     private readonly ILogger<FileUploadController> _logger;
+    private readonly ITenantContext _tenant;
 
-    public FileUploadController(IWebHostEnvironment env, ILogger<FileUploadController> logger)
+    public FileUploadController(IWebHostEnvironment env, ILogger<FileUploadController> logger, ITenantContext tenant)
     {
+        _tenant = tenant;
         _env = env;
         _logger = logger;
     }
+
+    /// <summary>uploads/profiles, or uploads/{company}/profiles when several companies share the app.</summary>
+    private string UploadsSubPath => _tenant.MultiTenant && _tenant.Tenant != null
+        ? Path.Combine("uploads", _tenant.Tenant.Slug, "profiles")
+        : Path.Combine("uploads", "profiles");
 
     /// <summary>
     /// POST /api/fileupload/profile
@@ -42,8 +50,8 @@ public class FileUploadController : ControllerBase
         {
             // Generate unique filename
             var fileName = $"{Guid.NewGuid()}{extension}";
-            var uploadsFolder = Path.Combine(_env.WebRootPath, "uploads", "profiles");
-            
+            var uploadsFolder = Path.Combine(_env.WebRootPath, UploadsSubPath);
+
             // Ensure directory exists
             if (!Directory.Exists(uploadsFolder))
                 Directory.CreateDirectory(uploadsFolder);
@@ -57,7 +65,7 @@ public class FileUploadController : ControllerBase
             }
 
             // Return relative URL path
-            var fileUrl = $"/uploads/profiles/{fileName}";
+            var fileUrl = $"/{UploadsSubPath.Replace(Path.DirectorySeparatorChar, '/')}/{fileName}";
             
             _logger.LogInformation("Profile picture uploaded: {FileName}", fileName);
             
@@ -79,7 +87,8 @@ public class FileUploadController : ControllerBase
     {
         try
         {
-            var uploadsFolder = Path.Combine(_env.WebRootPath, "uploads", "profiles");
+            fileName = Path.GetFileName(fileName);   // no "../" tricks
+            var uploadsFolder = Path.Combine(_env.WebRootPath, UploadsSubPath);
             var filePath = Path.Combine(uploadsFolder, fileName);
 
             if (System.IO.File.Exists(filePath))

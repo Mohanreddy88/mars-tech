@@ -1,0 +1,161 @@
+<div class="company-page">
+
+  <div class="page-header">
+    <div>
+      <h3>Company Settings</h3>
+      <p>Your company's details on payslips, EA forms, emails and the login page</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-primary" (click)="save()" [disabled]="loading || saving">
+        @if (saving) { <span class="spinner-border spinner-border-sm me-1"></span> } @else { <i class="bi bi-check-lg"></i> }
+        Save changes
+      </button>
+    </div>
+  </div>
+
+  @if (loading) {
+    <div class="text-center py-5">
+      <div class="spinner-border text-primary" role="status"></div>
+      <p class="mt-2 text-muted">Loading company settings...</p>
+    </div>
+  } @else {
+
+    @if (!isConfigured) {
+      <div class="setup-banner">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <div>
+          <strong>Company details are not set up yet.</strong>
+          Payslips and EA forms show "COMPANY NAME NOT SET" until you enter at least the legal name and save.
+        </div>
+      </div>
+    }
+
+    @if (error) {
+      <div class="alert alert-danger py-2">{{ error }}</div>
+    }
+
+    <div class="layout">
+
+      <div class="sections">
+
+        <section class="card-section">
+          <h4>Company</h4>
+          <div class="grid">
+            <div class="form-group span-2">
+              <label for="cs-legal">Legal name <span class="req">*</span></label>
+              <input id="cs-legal" type="text" [(ngModel)]="form.legalName" maxlength="200"
+                     placeholder="e.g. ABC TECHNOLOGIES SDN. BHD." />
+              <small>Exactly as registered. Printed on payslips and EA forms.</small>
+            </div>
+            <div class="form-group">
+              <label for="cs-display">Short name</label>
+              <input id="cs-display" type="text" [(ngModel)]="form.displayName" maxlength="100"
+                     placeholder="e.g. ABC Technologies" />
+              <small>Shown in the app and email signatures.</small>
+            </div>
+            <div class="form-group">
+              <label for="cs-reg">SSM registration no.</label>
+              <input id="cs-reg" type="text" [(ngModel)]="form.registrationNo" maxlength="50" placeholder="e.g. 201901012345 (1234567-A)" />
+            </div>
+          </div>
+        </section>
+
+        <section class="card-section">
+          <h4>Income tax (EA form)</h4>
+          <div class="grid">
+            <div class="form-group">
+              <label for="cs-etax">Employer tax no. (E number)</label>
+              <input id="cs-etax" type="text" [(ngModel)]="form.employerTaxNo" maxlength="50" placeholder="e.g. E 1234567890" />
+            </div>
+            <div class="form-group">
+              <label for="cs-branch">LHDN branch</label>
+              <input id="cs-branch" type="text" [(ngModel)]="form.taxBranch" maxlength="100" placeholder="e.g. SELANGOR" />
+            </div>
+            <div class="form-group">
+              <label for="cs-officer">Officer name</label>
+              <input id="cs-officer" type="text" [(ngModel)]="form.hrOfficerName" maxlength="100" placeholder="e.g. HR DEPARTMENT" />
+            </div>
+            <div class="form-group">
+              <label for="cs-officer-pos">Officer position</label>
+              <input id="cs-officer-pos" type="text" [(ngModel)]="form.hrOfficerPosition" maxlength="100" placeholder="e.g. HR Manager" />
+            </div>
+          </div>
+        </section>
+
+        <section class="card-section">
+          <h4>Contact</h4>
+          <div class="grid">
+            <div class="form-group span-2">
+              <label for="cs-address">Address</label>
+              <textarea id="cs-address" rows="3" [(ngModel)]="form.address" maxlength="500"
+                        placeholder="Street, postcode, city, state"></textarea>
+            </div>
+            <div class="form-group">
+              <label for="cs-phone">Phone</label>
+              <input id="cs-phone" type="text" [(ngModel)]="form.phone" maxlength="50" placeholder="e.g. 03-1234 5678" />
+            </div>
+            <div class="form-group">
+              <label for="cs-web">Website</label>
+              <input id="cs-web" type="text" [(ngModel)]="form.website" maxlength="150" placeholder="e.g. www.example.com.my" />
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <aside class="side">
+        <section class="card-section">
+          <h4>Logo and colour</h4>
+
+          <div class="logo-row">
+            <div class="logo-box" [style.borderColor]="colorValid ? form.brandColor : null">
+              @if (logoUrl) {
+                <img [src]="logoUrl" alt="Company logo" />
+              } @else {
+                <span class="initials" [style.background]="colorValid ? form.brandColor : '#6b7280'">{{ initials }}</span>
+              }
+            </div>
+            <div class="logo-actions">
+              <label class="btn btn-outline-primary btn-sm mb-0" [class.disabled]="uploading" for="cs-logo">
+                <i class="bi bi-upload"></i> {{ logoUrl ? 'Replace logo' : 'Upload logo' }}
+              </label>
+              <input id="cs-logo" type="file" accept="image/png,image/jpeg" hidden (change)="onLogoSelected($event)" [disabled]="uploading" />
+              @if (logoUrl) {
+                <button class="btn btn-link btn-sm text-danger p-0" (click)="removeLogo()" [disabled]="uploading">Remove logo</button>
+              }
+              <small>PNG or JPEG, up to 1 MB. Uploads straight away.</small>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="cs-color">Brand colour</label>
+            <div class="color-row">
+              <input id="cs-color-picker" type="color" [ngModel]="colorValid ? form.brandColor : '#C62828'"
+                     (ngModelChange)="form.brandColor = $event.toUpperCase()" aria-label="Pick brand colour" />
+              <input id="cs-color" type="text" [(ngModel)]="form.brandColor" maxlength="7" [class.is-invalid]="!colorValid" />
+            </div>
+            <small>Used for the company name on payslips.</small>
+          </div>
+        </section>
+
+        <section class="card-section">
+          <h4>Payslip preview</h4>
+          <div class="preview">
+            <div class="preview-logo">
+              @if (logoUrl) { <img [src]="logoUrl" alt="" /> }
+              @else { <span class="initials sm" [style.background]="colorValid ? form.brandColor : '#6b7280'">{{ initials }}</span> }
+            </div>
+            <div class="preview-text">
+              <div class="preview-name" [style.color]="colorValid ? form.brandColor : null">
+                {{ form.legalName || 'COMPANY NAME NOT SET' }}
+              </div>
+              @if (form.registrationNo) { <div class="preview-reg">({{ form.registrationNo }})</div> }
+            </div>
+          </div>
+          <small class="d-block mt-2">The preview updates as you type. Save to apply it to payslips.</small>
+        </section>
+      </aside>
+
+    </div>
+  }
+</div>

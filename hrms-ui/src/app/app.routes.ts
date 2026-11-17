@@ -36,11 +36,17 @@ import { EmployeeDashboardComponent } from './modules/dashboard/pages/employee-d
 import { AdminDashboardComponent } from './modules/dashboard/pages/admin-dashboard-component/admin-dashboard-component';
 import { AnalyticsComponent } from './modules/analytics/pages/analytics-component/analytics-component';
 import { PublicHolidaysComponent } from './modules/master/pages/public-holidays-component/public-holidays-component';
+import { CompanySettingsComponent } from './modules/master/pages/company-settings-component/company-settings-component';
 import { NotificationsPageComponent } from './modules/notifications/pages/notifications-page/notifications-page.component';
 import { AuditLogComponent } from './modules/audit/pages/audit-log-component/audit-log-component';
 import { ChangePasswordComponent as ForceChangePasswordComponent } from './modules/auth/pages/change-password/change-password.component';
+import { PlatformLoginComponent } from './modules/platform/platform-login/platform-login.component';
+import { PlatformPortalComponent } from './modules/platform/platform-portal/platform-portal.component';
+import { superAdminGuard } from './core/guards/super-admin.guard';
+import { isPlatformHost } from './core/services/platform.service';
 
-export const routes: Routes = [
+/** A company's own site (esync.marshrms.com …). */
+const companyRoutes: Routes = [
   {
     path: 'login',
     component: LoginComponent
@@ -109,6 +115,7 @@ export const routes: Routes = [
       { path: 'master/users',            component: UserListComponent,         canActivate: [adminGuard] },
       { path: 'master/banks',            component: BankListComponent,         canActivate: [adminGuard] },
       { path: 'master/public-holidays',  component: PublicHolidaysComponent,   canActivate: [adminGuard] },
+      { path: 'master/company-settings', component: CompanySettingsComponent,  canActivate: [adminGuard] },
       
       // Notifications
       { path: 'notifications', component: NotificationsPageComponent },
@@ -125,3 +132,12 @@ export const routes: Routes = [
     redirectTo: ''
   }
 ];
+
+/** Super Admin portal (admin.marshrms.com): only these pages exist on that address. */
+const platformRoutes: Routes = [
+  { path: 'login', component: PlatformLoginComponent },
+  { path: '',      component: PlatformPortalComponent, canActivate: [superAdminGuard] },
+  { path: '**',    redirectTo: '' }
+];
+
+export const routes: Routes = isPlatformHost() ? platformRoutes : companyRoutes;

@@ -11,12 +11,13 @@ All in Docker; DB is not exposed to the internet. Railway deployment is untouche
 | SSH | `ssh root@189.72.155.35` (key-based; add keys in hPanel → VPS → SSH keys) |
 | Code on server | `/opt/hrms` (clone of this repo) |
 | Secrets | `/opt/hrms/deploy/.env` on the server only — DB password, JWT key, SMTP password |
-| DNS | both domains: `A @`, `A www` (or `CNAME www`), `A uat` → `189.72.155.35`; Hostinger mail MX/SPF/DKIM records unchanged |
+| DNS | both domains: `A @`, `A www` (or `CNAME www`), `A uat`, `A *`, `A *.uat` → `189.72.155.35`; Hostinger mail MX/SPF/DKIM records unchanged |
 | Email links | `FrontendUrl` (env `FRONTEND_URL` in `.env` / `.env.uat`) — default https://marshrms.com / https://uat.marshrms.com |
 | Email | Hostinger SMTP `smtp.hostinger.com:587` as `support@marstech.tech` |
 | HTTPS | Let's Encrypt via Caddy, renews automatically |
 | Firewall | ufw: SSH, 80, 443 only |
 | Backups | cron 02:30 daily → `/opt/hrms-backups` (14 days) |
+| Companies | one database per company (`hrms_<code>`), list in `hrms_master`; portal https://admin.marshrms.com |
 
 **Deploy an update:** push to `main`, then `ssh root@189.72.155.35 'cd /opt/hrms/deploy && bash deploy.sh'`
 
@@ -59,7 +60,11 @@ Automatic — see "Auto-deploy" below. Manual fallback on the VPS: `cd /opt/hrms
 chmod +x /opt/hrms/deploy/backup.sh
 (crontab -l 2>/dev/null; echo "30 2 * * * /opt/hrms/deploy/backup.sh >> /var/log/hrms-backup.log 2>&1") | crontab -
 ```
-Restore: `docker compose exec -T db pg_restore -U hrms -d hrms --clean < /opt/hrms-backups/db-XXXX.dump`
+Every database is dumped separately: `db-<database>-<stamp>.dump` (`hrms_master`, `hrms` = demo, `hrms_esync`, …),
+so one company can be restored without touching the others:
+```bash
+docker compose exec -T db pg_restore -U hrms -d hrms_esync --clean < /opt/hrms-backups/db-hrms_esync-XXXX.dump
+```
 
 ## Useful commands
 ```bash
@@ -70,8 +75,24 @@ docker compose restart app
 docker compose exec db psql -U hrms -d hrms
 ```
 
+## Companies (multi-tenant)
+One app, one database per company. The API picks the database from the host name
+(`HrmsApi/Platform/TenantResolutionMiddleware.cs`): `esync.marshrms.com` → company `esync` → `hrms_esync`;
+the bare domain → company `demo` (the original database); `admin.` → Super Admin portal.
+
+- Settings (compose env): `Tenancy__Enabled=true`, `Tenancy__BaseDomains` (`TENANT_DOMAINS`), `SUPERADMIN_PASSWORD`.
+- New company = portal → **New company** (creates the database, runs migrations, saves company details,
+  creates the admin). On every start the app migrates every company database.
+- HTTPS for company addresses: Caddy `on_demand_tls` issues a certificate on the first visit, but only after
+  asking the app (`/api/platform/domain-check`) that the name is the portal or a registered company.
+- Suspend (portal) blocks a company's logins and API; data is kept. Activate reverses it.
+- Super Admin password lost: `docker compose exec db psql -U hrms -d hrms_master -c 'DELETE FROM "PlatformUsers"'`,
+  set a new `SUPERADMIN_PASSWORD` in `.env`, `docker compose up -d app` (recreated on start).
+
 ## Troubleshooting
 - **HTTPS not working** → DNS not pointing to VPS yet, or ports 80/443 blocked. Check `docker compose logs caddy`.
+- **New company address shows a certificate error** → wildcard DNS `*` (or `*.uat`) missing, or the company
+  code is not registered. `docker compose logs caddy | grep -i on_demand`.
 - **Build killed / out of memory** → confirm swap: `swapon --show`.
 - **App can't reach DB** → `docker compose logs db`; passwords in `.env` must not change after first start
   (Postgres keeps the original password in the `pgdata` volume).

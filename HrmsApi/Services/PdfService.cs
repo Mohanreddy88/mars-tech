@@ -16,15 +16,12 @@ public interface IPdfService
 public class PdfService : IPdfService
 {
     private readonly HrmsDbContext _db;
-    private readonly IWebHostEnvironment _env;
+    private readonly ICompanySettingsService _company;
 
-    private const string CompanyName  = "ESYNC SOFTWARE SERVICES SDN.BHD";
-    private const string CompanyRegNo = "(1158750-D)";
-
-    public PdfService(HrmsDbContext db, IWebHostEnvironment env)
+    public PdfService(HrmsDbContext db, ICompanySettingsService company)
     {
-        _db  = db;
-        _env = env;
+        _db      = db;
+        _company = company;
         QuestPDF.Settings.License = LicenseType.Community;
     }
 
@@ -69,18 +66,11 @@ public class PdfService : IPdfService
                             DateTime.DaysInMonth(payroll.Year, payroll.Month));
         var monthName = new DateTime(payroll.Year, payroll.Month, 1).ToString("MMM, yyyy");
 
-        // Logo — try file system path (works both locally and in Docker/Railway)
-        byte[]? logoBytes = null;
-        var logoPaths = new[]
-        {
-            Path.Combine(_env.ContentRootPath, "Assets", "EsyncLogo.png"),
-            Path.Combine(AppContext.BaseDirectory, "Assets", "EsyncLogo.png"),
-            Path.Combine(_env.ContentRootPath, "EsyncLogo.png")
-        };
-        foreach (var lp in logoPaths)
-        {
-            if (File.Exists(lp)) { logoBytes = await File.ReadAllBytesAsync(lp); break; }
-        }
+        // Employer name, registration and logo come from this database's company settings
+        var company      = await _company.GetAsync();
+        var companyName  = company.NameForDocuments;
+        var companyRegNo = string.IsNullOrWhiteSpace(company.RegistrationNo) ? "" : $"({company.RegistrationNo})";
+        var logoBytes    = company.LogoData;
 
         // Leave balance helpers
         var ml = leaveBalances.FirstOrDefault(lb =>
@@ -118,15 +108,15 @@ public class PdfService : IPdfService
                                 img.Border(1).BorderColor(Colors.Grey.Medium)
                                    .Background(Colors.Grey.Lighten3)
                                    .AlignCenter().AlignMiddle()
-                                   .Text("eSYNC").Bold().FontSize(10);
+                                   .Text(Initials(company.NameForDisplay)).Bold().FontSize(10);
                         });
 
                         // Company name
                         row.RelativeItem().PaddingLeft(10).AlignMiddle().Column(c =>
                         {
-                            c.Item().Text(CompanyName)
-                                .FontSize(18).Bold().FontColor(Colors.Red.Darken2);
-                            c.Item().PaddingTop(3).Text(CompanyRegNo)
+                            c.Item().Text(companyName)
+                                .FontSize(18).Bold().FontColor(company.BrandColor);
+                            c.Item().PaddingTop(3).Text(companyRegNo)
                                 .FontSize(10).FontColor(Colors.Grey.Darken1);
                         });
                     });
@@ -332,7 +322,7 @@ public class PdfService : IPdfService
                             .Text("*** This is a computer-generated payslip. No signature is required. ***")
                             .FontSize(8).Bold().FontColor(Colors.Grey.Darken2);
                         c.Item().PaddingTop(3).AlignCenter()
-                            .Text($"Generated on: {DateTime.Now:dd MMM yyyy  HH:mm:ss}  |  HRMS Payroll System  |  {CompanyName}")
+                            .Text($"Generated on: {DateTime.Now:dd MMM yyyy  HH:mm:ss}  |  HRMS Payroll System  |  {companyName}")
                             .FontSize(7).FontColor(Colors.Grey.Medium);
                     });
                 });
@@ -367,10 +357,15 @@ public class PdfService : IPdfService
         var totalTax        = payrolls.Sum(p => p.TaxAmount);
         var totalDeductions = payrolls.Sum(p => p.Deductions);
 
-        const string companyAddress = "CT-09-12 CORPORATE TOWER SUBANG SQUARE JALAN SS15/4G\n47500 SUBANG JAYA SELANGOR";
-        const string companyPhone   = "0356326915";
-        const string companyRegNo   = "E 9145397208";
-        const string officerName    = "HR DEPARTMENT";
+        // Employer details for the EA form come from this database's company settings
+        var company        = await _company.GetAsync();
+        var companyName    = company.NameForDocuments;
+        var companyAddress = company.Address ?? "";
+        var companyPhone   = company.Phone ?? "";
+        var companyRegNo   = company.EmployerTaxNo ?? "";          // LHDN employer "E" number
+        var taxBranch      = company.TaxBranch ?? "";
+        var officerName    = company.HrOfficerName ?? "HR DEPARTMENT";
+        var officerPos     = company.HrOfficerPosition ?? "HR";
 
         string Amt(decimal v) => v == 0 ? "0.00" : v.ToString("N2");
         string AZ(decimal v)  => v == 0 ? "" : v.ToString("N2");
@@ -426,7 +421,7 @@ public class PdfService : IPdfService
                                 t.Span("IG ").FontSize(7);
                                 t.Span(string.IsNullOrEmpty(employee.TaxNumber) ? "—" : employee.TaxNumber).FontSize(7).Bold();
                             });
-                            c.Item().PaddingTop(2).Text("LHDNM Negeri SELANGOR").FontSize(7);
+                            c.Item().PaddingTop(2).Text($"LHDNM Negeri {taxBranch}".TrimEnd()).FontSize(7);
                         });
 
                         r.ConstantItem(30).AlignMiddle().AlignRight()
@@ -657,8 +652,8 @@ public class PdfService : IPdfService
                                 });
                             }
                             FRow("Name of officer", officerName);
-                            FRow("Position", "HR");
-                            FRow("Employer Name/ Address", $"{CompanyName}\n{companyAddress}");
+                            FRow("Position", officerPos);
+                            FRow("Employer Name/ Address", $"{companyName}\n{companyAddress}");
                             FRow("Employer Phone No.", companyPhone);
                         });
                     });
@@ -670,4 +665,8 @@ public class PdfService : IPdfService
 
         return doc.GeneratePdf();
     }
+
+    /// <summary>Up to two initials for the logo placeholder when no logo is uploaded.</summary>
+    private static string Initials(string name) =>
+        string.Concat(name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(w => char.ToUpperInvariant(w[0])));
 }

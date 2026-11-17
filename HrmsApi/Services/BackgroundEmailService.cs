@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using HrmsApi.Platform;
 
 namespace HrmsApi.Services;
 
@@ -12,6 +13,9 @@ public class EmailJob
     public string   Body           { get; set; } = string.Empty;
     public byte[]?  AttachmentData { get; set; }
     public string?  AttachmentName { get; set; }
+
+    /// <summary>Company the email belongs to (its name, settings and database). Filled in by Enqueue.</summary>
+    public string?  TenantSlug     { get; set; }
 }
 
 /// <summary>
@@ -33,9 +37,14 @@ public class BackgroundEmailService : BackgroundService, IEmailQueue
     private readonly Channel<EmailJob>          _channel;
     private readonly IServiceScopeFactory       _scopeFactory;
     private readonly ILogger<BackgroundEmailService> _logger;
+    private readonly IHttpContextAccessor       _http;
+    private readonly TenantCatalog              _catalog;
 
-    public BackgroundEmailService(IServiceScopeFactory scopeFactory, ILogger<BackgroundEmailService> logger)
+    public BackgroundEmailService(IServiceScopeFactory scopeFactory, ILogger<BackgroundEmailService> logger,
+        IHttpContextAccessor http, TenantCatalog catalog)
     {
+        _http         = http;
+        _catalog      = catalog;
         _scopeFactory = scopeFactory;
         _logger       = logger;
         // Unbounded channel — emails queue up without blocking the caller
@@ -51,6 +60,8 @@ public class BackgroundEmailService : BackgroundService, IEmailQueue
     /// </summary>
     public void Enqueue(EmailJob job)
     {
+        // Remember which company sent it: the job runs later, outside the request.
+        job.TenantSlug ??= (_http.HttpContext?.Items[nameof(TenantInfo)] as TenantInfo)?.Slug;
         _channel.Writer.TryWrite(job);
         _logger.LogInformation("[EmailQueue] Queued email to {ToEmail} subject: {Subject}", job.ToEmail, job.Subject);
     }
@@ -70,6 +81,12 @@ public class BackgroundEmailService : BackgroundService, IEmailQueue
 
                 // Create a fresh DI scope for each send — IEmailService is scoped
                 using var scope     = _scopeFactory.CreateScope();
+                if (job.TenantSlug != null)
+                {
+                    var tenant = await _catalog.FindAsync(job.TenantSlug)
+                                 ?? throw new InvalidOperationException($"Company '{job.TenantSlug}' not found");
+                    scope.ServiceProvider.GetRequiredService<ITenantContext>().Use(tenant);
+                }
                 var emailService    = scope.ServiceProvider.GetRequiredService<IEmailService>();
 
                 if (job.AttachmentData != null && job.AttachmentData.Length > 0)

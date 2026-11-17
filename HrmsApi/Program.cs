@@ -1,11 +1,15 @@
 using HrmsApi.Data;
 using HrmsApi.Middleware;
+using HrmsApi.Platform;
 using HrmsApi.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using System.Threading.RateLimiting;
 
 // Check for command-line utilities
 if (args.Length > 0 && args[0] == "generate-hash")
@@ -39,6 +43,13 @@ var jwtSecretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
 if (!string.IsNullOrEmpty(jwtSecretKey))
 {
     builder.Configuration["Jwt:Key"] = jwtSecretKey;
+}
+
+// Password for the first Super Admin account (created once, on first start with tenancy on)
+var superAdminPassword = Environment.GetEnvironmentVariable("SUPERADMIN_PASSWORD");
+if (!string.IsNullOrEmpty(superAdminPassword))
+{
+    builder.Configuration["Platform:SuperAdminPassword"] = superAdminPassword;
 }
 
 // ── Resend API config (replaces SMTP — works on Railway) ────────────────
@@ -80,16 +91,44 @@ var usePostgres = builder.Configuration.GetValue<bool>("UsePostgreSQL");
 // is 'timestamp with time zone' and all DateTimes should be treated as UTC.
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
-builder.Services.AddDbContext<HrmsDbContext>(options =>
+// ── Companies (tenancy) ─────────────────────────────────
+// Tenancy:Enabled=true → each company has its own database, picked from the web address
+// (see HrmsApi/Platform). Off → DefaultConnection is the only company, as before.
+builder.Services.Configure<TenancyOptions>(builder.Configuration.GetSection("Tenancy"));
+var tenancy = builder.Configuration.GetSection("Tenancy").Get<TenancyOptions>() ?? new TenancyOptions();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ITenantContext, TenantContext>();
+builder.Services.AddSingleton<TenantCatalog>();
+
+builder.Services.AddDbContext<HrmsDbContext>((sp, options) =>
 {
-    if (usePostgres || connectionString?.Contains("postgres") == true)
+    // The current company's database (or DefaultConnection when tenancy is off)
+    var cs = sp.GetRequiredService<ITenantContext>().ConnectionString;
+    if (usePostgres || cs.Contains("postgres", StringComparison.OrdinalIgnoreCase))
     {
-        options.UseNpgsql(connectionString);
+        options.UseNpgsql(cs);
     }
     else
     {
-        options.UseSqlServer(connectionString);
+        options.UseSqlServer(cs);
     }
+});
+
+if (usePostgres || connectionString?.Contains("postgres") == true)
+{
+    // Master database: list of companies + Super Admin accounts
+    builder.Services.AddDbContext<PlatformDbContext>(options =>
+        options.UseNpgsql(TenantContext.ForDatabase(connectionString!, tenancy.MasterDatabase)));
+}
+
+// Super Admin login: at most 10 attempts per minute per client address
+builder.Services.AddRateLimiter(o =>
+{
+    o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    o.AddPolicy("platform-login", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Request.Headers["X-Forwarded-For"].FirstOrDefault()?.Split(',')[0].Trim()
+            ?? ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
 });
 
 // ── JWT Authentication ──────────────────────────────────
@@ -113,6 +152,17 @@ builder.Services.AddAuthentication(options =>
         ValidAudience            = jwtConfig["Audience"],
         IssuerSigningKey         = new SymmetricSecurityKey(key),
         ClockSkew                = TimeSpan.Zero
+    };
+    options.Events = new JwtBearerEvents
+    {
+        // Every company shares the signing key, so a token is only valid on the site that issued it.
+        OnTokenValidated = ctx =>
+        {
+            var tenant = ctx.HttpContext.RequestServices.GetRequiredService<ITenantContext>();
+            if (tenant.MultiTenant && ctx.Principal?.FindFirst(TokenService.TenantClaim)?.Value != tenant.TokenScope)
+                ctx.Fail("This login belongs to a different company.");
+            return Task.CompletedTask;
+        }
     };
 });
 
@@ -160,6 +210,7 @@ builder.Services.AddScoped<ITimesheetService, TimesheetService>();
 builder.Services.AddScoped<ILeaveService, LeaveService>();
 builder.Services.AddScoped<IPayrollCalculationService, PayrollCalculationService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
+builder.Services.AddScoped<ICompanySettingsService, CompanySettingsService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 
 // Background email queue — singleton hosted service that survives request lifetime
@@ -199,97 +250,42 @@ builder.Services.AddSwaggerGen(c =>
 // ── Build ─────────────────────────────────────────────────
 var app = builder.Build();
 
-// ── Database schema: EF Core migrations on startup ─────
-// PostgreSQL (VPS: production, UAT, every client): apply pending migrations from
-// HrmsApi/Migrations. If this fails the app stops, so it never runs against a
-// schema it doesn't match; the auto-deploy log then shows the failure.
-// SQL Server (local dev): migrations are PostgreSQL-specific, so keep the old
-// behaviour — EnsureCreated when DB_AUTO_CREATE=true, otherwise the SQL script.
-using (var scope = app.Services.CreateScope())
+// ── Database schema + default data on startup ─────────
+// Several companies (VPS): master database, first Super Admin, then every company database
+//   gets its pending EF Core migrations. Any failure stops the app, so it never runs against a
+//   schema it doesn't match; the auto-deploy log then shows the failure.
+// One company (PostgreSQL): migrations on DefaultConnection.
+// SQL Server (local dev): migrations are PostgreSQL-specific — EnsureCreated when DB_AUTO_CREATE=true.
 {
-    var context = scope.ServiceProvider.GetRequiredService<HrmsDbContext>();
-    var logger  = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-
-    if (context.Database.IsNpgsql())
+    var logger = app.Services.GetRequiredService<ILogger<Program>>();
+    if (tenancy.Enabled)
     {
-        await DatabaseMigrator.BaselineLegacyDatabaseAsync(context, logger);
-        var pending = (await context.Database.GetPendingMigrationsAsync()).ToList();
-        logger.LogInformation(pending.Count == 0
-            ? "✅ Database schema up to date"
-            : $"🔄 Applying {pending.Count} migration(s): {string.Join(", ", pending)}");
-        await context.Database.MigrateAsync();
+        await PlatformStartup.InitializeAsync(app.Services, app.Configuration, logger);
     }
-    else if (Environment.GetEnvironmentVariable("DB_AUTO_CREATE") == "true")
+    else
     {
-        var created = await context.Database.EnsureCreatedAsync();
-        logger.LogInformation(created ? "✅ Database schema created" : "ℹ️ Schema already present — skipped");
-    }
-}
-
-// ── Seed data (leave types, default admin) ─────
-using (var scope = app.Services.CreateScope())
-{
-    var services = scope.ServiceProvider;
-    var logger = services.GetRequiredService<ILogger<Program>>();
-
-    try
-    {
-        var context = services.GetRequiredService<HrmsDbContext>();
-
-        logger.LogInformation("🔄 Checking database connection...");
-        var canConnect = await context.Database.CanConnectAsync();
-        if (!canConnect)
+        using var scope = app.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<HrmsDbContext>();
+        if (context.Database.IsNpgsql())
         {
-            throw new Exception("Cannot connect to database");
+            await TenantDatabase.MigrateAndSeedAsync(context, logger, "single", seedDefaultAdmin: true);
         }
-        
-        logger.LogInformation("✅ Database connected!");
-        
-        // Seed leave types if they don't exist
-        if (!context.LeaveTypes.Any())
+        else
         {
-            logger.LogInformation("🌱 Seeding leave types...");
-            context.LeaveTypes.AddRange(new[]
+            if (Environment.GetEnvironmentVariable("DB_AUTO_CREATE") == "true")
             {
-                new HrmsApi.Models.LeaveType { Name = "Annual Leave", Code = "AL", DefaultDaysPerYear = 14, IsActive = true, RequiresApproval = true, IsPaid = true, CreatedAt = DateTime.UtcNow },
-                new HrmsApi.Models.LeaveType { Name = "Medical Leave", Code = "ML", DefaultDaysPerYear = 14, IsActive = true, RequiresApproval = true, IsPaid = true, CreatedAt = DateTime.UtcNow },
-                new HrmsApi.Models.LeaveType { Name = "Emergency Leave", Code = "EL", DefaultDaysPerYear = 2, IsActive = true, RequiresApproval = true, IsPaid = true, CreatedAt = DateTime.UtcNow },
-                new HrmsApi.Models.LeaveType { Name = "Casual Leave", Code = "CL", DefaultDaysPerYear = 3, IsActive = true, RequiresApproval = true, IsPaid = true, CreatedAt = DateTime.UtcNow },
-                new HrmsApi.Models.LeaveType { Name = "Maternity Leave", Code = "MTL", DefaultDaysPerYear = 98, IsActive = true, RequiresApproval = true, IsPaid = true, CreatedAt = DateTime.UtcNow },
-                new HrmsApi.Models.LeaveType { Name = "Paternity Leave", Code = "PTL", DefaultDaysPerYear = 7, IsActive = true, RequiresApproval = true, IsPaid = true, CreatedAt = DateTime.UtcNow },
-                new HrmsApi.Models.LeaveType { Name = "Unpaid Leave", Code = "UL", DefaultDaysPerYear = 0, IsActive = true, RequiresApproval = true, IsPaid = false, CreatedAt = DateTime.UtcNow },
-                new HrmsApi.Models.LeaveType { Name = "Study Leave", Code = "SL", DefaultDaysPerYear = 5, IsActive = true, RequiresApproval = true, IsPaid = true, CreatedAt = DateTime.UtcNow },
-                new HrmsApi.Models.LeaveType { Name = "Hajj Leave", Code = "HL", DefaultDaysPerYear = 0, IsActive = true, RequiresApproval = true, IsPaid = false, CreatedAt = DateTime.UtcNow },
-                new HrmsApi.Models.LeaveType { Name = "Replacement Leave", Code = "RL", DefaultDaysPerYear = 0, IsActive = true, RequiresApproval = true, IsPaid = true, CreatedAt = DateTime.UtcNow }
-            });
-            context.SaveChanges();
-            logger.LogInformation("✅ Leave types seeded (10 types)");
-        }
-        
-        // Seed default admin user if no users exist
-        if (!context.Users.Any())
-        {
-            logger.LogInformation("🌱 Seeding default admin user...");
-            var adminUser = new HrmsApi.Models.User
+                var created = await context.Database.EnsureCreatedAsync();
+                logger.LogInformation(created ? "✅ Database schema created" : "ℹ️ Schema already present — skipped");
+            }
+            try
             {
-                Username = "admin",
-                Email = "admin@hrms.local",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123"),
-                Role = "Admin",
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
-            };
-            context.Users.Add(adminUser);
-            context.SaveChanges();
-            logger.LogInformation("✅ Default admin user created (Username: admin, Password: Admin@123)");
+                await DataSeeder.SeedAsync(context, logger, seedDefaultAdmin: true);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "❌ Database setup error - continuing anyway");
+            }
         }
-        
-        logger.LogInformation("🎉 Database ready!");
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "❌ Database setup error - continuing anyway");
-        // Don't throw - let app start
     }
 }
 
@@ -318,6 +314,10 @@ app.UseStaticFiles();
 // CORS MUST come before Authentication/Authorization so preflight OPTIONS
 // requests are handled before the JWT middleware can reject them.
 app.UseCors("AllowAngular");
+
+// Pick the company (and its database) from the host name — before login checks.
+app.UseMiddleware<TenantResolutionMiddleware>();
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();

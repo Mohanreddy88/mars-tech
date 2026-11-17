@@ -1,10 +1,11 @@
-import { Component, OnInit, Input } from '@angular/core';
+import { Component, OnInit, Input, ChangeDetectorRef } from '@angular/core';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../../core/services/auth.service';
 import { filter } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
+import { CompanySettingsService, CompanyBranding } from '../../../core/services/company-settings.service';
 
 @Component({
   selector: 'app-sidebar-component',
@@ -24,16 +25,23 @@ export class SidebarComponent implements OnInit {
 
   @Input() isMobileMenuOpen = false;
   pendingLeaveCount = 0;
+  branding: CompanyBranding | null = null;
 
   constructor(
     private authService: AuthService,
     private router: Router,
-    private http: HttpClient
+    private http: HttpClient,
+    private companySettings: CompanySettingsService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
     const user = this.authService.getUser();
     this.isAdmin = user?.role === 'Admin';
+
+    // Company name/logo for the sidebar header
+    this.companySettings.branding$.subscribe(b => { this.branding = b; this.cdr.markForCheck(); });
+    this.companySettings.loadBranding();
 
     // Load pending leave count for admin badge
     if (this.isAdmin) {

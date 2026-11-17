@@ -1,0 +1,22 @@
+<div class="wrap">
+  <form class="card" (ngSubmit)="submit()" novalidate>
+    <div class="top">
+      <span class="mark" aria-hidden="true">MH</span>
+      <h1>MarsHRMS</h1>
+      <p>Super Admin portal</p>
+    </div>
+
+    <label for="pl-user">Username</label>
+    <input id="pl-user" name="username" [(ngModel)]="username" autocomplete="username" autofocus />
+
+    <label for="pl-pass">Password</label>
+    <input id="pl-pass" name="password" type="password" [(ngModel)]="password" autocomplete="current-password" />
+
+    @if (error) {
+      <div class="error" role="alert"><i class="bi bi-exclamation-circle"></i> {{ error }}</div>
+    }
+
+    <button type="submit" [disabled]="loading">{{ loading ? 'Signing in…' : 'Sign in' }}</button>
+    <p class="note">Company staff sign in on their own company address, e.g. <span class="mono">yourcompany.marshrms.com</span>.</p>
+  </form>
+</div>
