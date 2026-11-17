@@ -6,12 +6,13 @@ All in Docker; DB is not exposed to the internet. Railway deployment is untouche
 ## Live server (deployed 2026-11-17)
 | Item | Value |
 |------|-------|
-| Site | https://marstech.tech (`www` redirects to apex) |
+| Site | https://marstech.tech and https://marshrms.com — same app (`www.` redirects to apex) |
 | VPS | Hostinger KVM 2 — `189.72.155.35`, Ubuntu 22.04, 2 vCPU / 8 GB / 100 GB, 4 GB swap |
 | SSH | `ssh root@189.72.155.35` (key-based; add keys in hPanel → VPS → SSH keys) |
 | Code on server | `/opt/hrms` (clone of this repo) |
 | Secrets | `/opt/hrms/deploy/.env` on the server only — DB password, JWT key, SMTP password |
-| DNS | `A @ → 189.72.155.35`; `CNAME www → marstech.tech`; Hostinger mail MX/SPF/DKIM records unchanged |
+| DNS | both domains: `A @`, `A www` (or `CNAME www`), `A uat` → `189.72.155.35`; Hostinger mail MX/SPF/DKIM records unchanged |
+| Email links | `FrontendUrl` (env `FRONTEND_URL` in `.env` / `.env.uat`) — default https://marstech.tech / https://uat.marstech.tech |
 | Email | Hostinger SMTP `smtp.hostinger.com:587` as `support@marstech.tech` |
 | HTTPS | Let's Encrypt via Caddy, renews automatically |
 | Firewall | ufw: SSH, 80, 443 only |
