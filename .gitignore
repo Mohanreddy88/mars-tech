@@ -12,6 +12,7 @@ node_modules/
 
 # Secrets — never commit (repo is public)
 deploy/.env
+deploy/.env.uat
 HrmsApi/appsettings.Development.json
 
 # Logs / scratch files

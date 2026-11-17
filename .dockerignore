@@ -6,6 +6,7 @@
 .git
 .vs
 deploy/.env
+deploy/.env.uat
 HrmsApi/HrmsApi.Tests
 HrmsApi/appsettings.Development.json
 HrmsApi/api_log.txt
