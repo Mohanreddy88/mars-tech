@@ -93,3 +93,11 @@ shared Docker network `web` (alias `uat-app`). UAT pages send `X-Robots-Tag: noi
 testers sign off on uat.marstech.tech → merge `uat` into `main` → `bash deploy.sh` in `/opt/hrms/deploy`.
 
 UAT logs: `cd /opt/hrms-uat/deploy && docker compose -f docker-compose.uat.yml --env-file .env.uat logs -f app`
+
+### UAT auto-deploy
+Every push to the `uat` branch is deployed automatically within ~2 minutes (+ build time, ~3-8 min).
+A cron job on the VPS runs `deploy/auto-deploy-uat.sh` every 2 minutes; it pulls and rebuilds only when
+`origin/uat` has a new commit. A failed commit is not retried until you push a newer one.
+
+- Log: `tail -f /var/log/hrms-uat-deploy.log`
+- Pause: `crontab -e` and comment out the `auto-deploy-uat.sh` line
