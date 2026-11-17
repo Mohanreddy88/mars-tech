@@ -270,11 +270,13 @@ export class EmployeeFormComponent implements OnInit {
     if (clean !== v) ctrl.setValue(clean);
   }
 
-  /** Typing filter: mobile number keeps digits only (max 12). */
+  /** Typing filter: mobile number keeps digits only (max 12); a pasted "+60 12-345 6789" loses its "+60". */
   onPhoneInput(): void {
     const ctrl = this.form.get('phone')!;
     const v = String(ctrl.value ?? '');
-    const clean = v.replace(/\D/g, '').slice(0, 12);
+    const code = String(this.form.get('phoneCountryCode')!.value ?? '');
+    const withoutCode = code && v.trim().startsWith(code) ? v.trim().slice(code.length) : v;
+    const clean = withoutCode.replace(/\D/g, '').slice(0, 12);
     if (clean !== v) ctrl.setValue(clean);
   }
 

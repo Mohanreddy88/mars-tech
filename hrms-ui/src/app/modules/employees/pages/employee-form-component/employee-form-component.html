@@ -67,7 +67,7 @@
                   <option [value]="d.dial">{{ d.label }}</option>
                 }
               </select>
-              <input id="emp-phone" type="text" inputmode="numeric" formControlName="phone" maxlength="12"
+              <input id="emp-phone" type="text" inputmode="numeric" formControlName="phone"
                 placeholder="e.g. 123456789" (input)="onPhoneInput()"
                 [class.is-invalid]="f['phone'].invalid && f['phone'].touched" />
             </div>
@@ -95,7 +95,6 @@
             <label for="emp-id">{{ isPassport ? 'Passport No.' : 'NRIC No.' }} <span class="req">*</span></label>
             <input id="emp-id" type="text" formControlName="icPassport" (input)="onIdInput()"
               [attr.inputmode]="isPassport ? 'text' : 'numeric'"
-              [attr.maxlength]="isPassport ? 10 : 12"
               [placeholder]="isPassport ? 'e.g. A12345678 (8–10 letters/numbers)' : 'e.g. 900101141234 (12 digits)'"
               [class.is-invalid]="f['icPassport'].invalid && f['icPassport'].touched" />
             @if (f['icPassport'].invalid && f['icPassport'].touched) {
