@@ -40,8 +40,13 @@ import { CompanySettingsComponent } from './modules/master/pages/company-setting
 import { NotificationsPageComponent } from './modules/notifications/pages/notifications-page/notifications-page.component';
 import { AuditLogComponent } from './modules/audit/pages/audit-log-component/audit-log-component';
 import { ChangePasswordComponent as ForceChangePasswordComponent } from './modules/auth/pages/change-password/change-password.component';
+import { PlatformLoginComponent } from './modules/platform/platform-login/platform-login.component';
+import { PlatformPortalComponent } from './modules/platform/platform-portal/platform-portal.component';
+import { superAdminGuard } from './core/guards/super-admin.guard';
+import { isPlatformHost } from './core/services/platform.service';
 
-export const routes: Routes = [
+/** A company's own site (esync.marshrms.com …). */
+const companyRoutes: Routes = [
   {
     path: 'login',
     component: LoginComponent
@@ -127,3 +132,12 @@ export const routes: Routes = [
     redirectTo: ''
   }
 ];
+
+/** Super Admin portal (admin.marshrms.com): only these pages exist on that address. */
+const platformRoutes: Routes = [
+  { path: 'login', component: PlatformLoginComponent },
+  { path: '',      component: PlatformPortalComponent, canActivate: [superAdminGuard] },
+  { path: '**',    redirectTo: '' }
+];
+
+export const routes: Routes = isPlatformHost() ? platformRoutes : companyRoutes;

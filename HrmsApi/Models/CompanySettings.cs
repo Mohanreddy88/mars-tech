@@ -50,6 +50,14 @@ public class CompanySettings
     /// <summary>Name to print: the legal name, or a visible reminder that it's missing.</summary>
     public string NameForDocuments => IsConfigured ? LegalName : "COMPANY NAME NOT SET";
 
+    public const int MaxLogoBytes = 1024 * 1024; // 1 MB
+
+    /// <summary>"image/png" or "image/jpeg" judged from the file's content (not its name), else null.</summary>
+    public static string? DetectLogoType(byte[] bytes) =>
+        bytes.Length > 8 && bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47 ? "image/png"
+      : bytes.Length > 3 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF ? "image/jpeg"
+      : null;
+
     /// <summary>Name for the UI and email signatures.</summary>
     public string NameForDisplay =>
         !string.IsNullOrWhiteSpace(DisplayName) ? DisplayName : IsConfigured ? LegalName : "HR & Payroll";

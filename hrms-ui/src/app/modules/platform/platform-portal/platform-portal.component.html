@@ -1,0 +1,384 @@
+<div class="portal">
+  <aside class="side">
+    <div class="brand">
+      <span class="mark" aria-hidden="true">MH</span>
+      <div><strong>MarsHRMS</strong><small>Super Admin</small></div>
+    </div>
+    <button type="button" class="nav" [attr.aria-current]="tab === 'companies'" (click)="setTab('companies')">
+      <i class="bi bi-buildings"></i> Companies
+    </button>
+    <button type="button" class="nav" [attr.aria-current]="tab === 'activity'" (click)="setTab('activity')">
+      <i class="bi bi-clock-history"></i> Activity
+    </button>
+    <button type="button" class="nav" [attr.aria-current]="tab === 'account'" (click)="setTab('account')">
+      <i class="bi bi-person-gear"></i> My account
+    </button>
+    <span class="spacer"></span>
+    <div class="who"><i class="bi bi-person-circle"></i> {{ username }}</div>
+    <button type="button" class="nav" (click)="logout()"><i class="bi bi-box-arrow-right"></i> Log out</button>
+  </aside>
+
+  <main class="main">
+
+    <!-- ═══════════ Companies ═══════════ -->
+    @if (tab === 'companies') {
+      <div class="head">
+        <div>
+          <h1>Companies</h1>
+          <span class="muted">Each company has its own web address and its own database.</span>
+        </div>
+        <button type="button" class="btn primary" (click)="openWizard()"><i class="bi bi-plus-lg"></i> New company</button>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><span>Companies</span><strong>{{ tenants.length }}</strong></div>
+        <div class="stat"><span>Active</span><strong>{{ activeCount }}</strong></div>
+        <div class="stat"><span>Employees, all companies</span><strong>{{ employeeTotal }}</strong></div>
+      </div>
+
+      @if (loadError) {
+        <div class="alert">{{ loadError }} <button type="button" class="btn sm" (click)="load()">Try again</button></div>
+      }
+
+      <div class="tablebox">
+        <table>
+          <thead>
+            <tr><th>Company</th><th>Web address</th><th>Employees</th><th>Status</th><th>Created</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            @if (loading && !tenants.length) {
+              <tr><td colspan="6" class="muted center">Loading…</td></tr>
+            }
+            @for (t of tenants; track t.slug) {
+              <tr>
+                <td>
+                  <div class="co">
+                    @if (logo(t); as src) {
+                      <span class="logo img"><img [src]="src" [alt]="t.name + ' logo'" /></span>
+                    } @else {
+                      <span class="logo" [style.background]="t.brandColor" aria-hidden="true">{{ initials(t.name) }}</span>
+                    }
+                    <div>
+                      <strong>{{ t.name }}</strong>
+                      @if (t.isRoot) { <span class="tag">Main site</span> }
+                      <small>{{ t.legalName || 'Company details not filled in' }}</small>
+                    </div>
+                  </div>
+                </td>
+                <td><a class="mono" [href]="t.url" target="_blank" rel="noopener">{{ host(t.url) }}</a></td>
+                <td class="num">{{ t.employees ?? '—' }}</td>
+                <td>
+                  @switch (t.status) {
+                    @case ('active') { <span class="pill ok">Active</span> }
+                    @case ('suspended') { <span class="pill bad">Suspended</span> }
+                    @default { <span class="pill warn">Being created</span> }
+                  }
+                  @if (t.error) { <small class="err">{{ t.error }}</small> }
+                </td>
+                <td class="muted">{{ t.createdAt | date:'d MMM y' }}</td>
+                <td>
+                  <div class="actions">
+                    <a class="btn sm" [href]="t.url" target="_blank" rel="noopener">Open</a>
+                    <button type="button" class="btn sm" (click)="openEdit(t)" [disabled]="t.status === 'provisioning'">Edit</button>
+                    @if (t.status === 'active') {
+                      <button type="button" class="btn sm danger" (click)="askSuspend(t)">Suspend</button>
+                    } @else if (t.status === 'suspended') {
+                      <button type="button" class="btn sm" (click)="activate(t)" [disabled]="busySlug === t.slug">Activate</button>
+                    }
+                  </div>
+                </td>
+              </tr>
+              @if (confirmSlug === t.slug) {
+                <tr class="confirm">
+                  <td colspan="6">
+                    <div class="row">
+                      <span><strong>Suspend {{ t.name }}?</strong> Their users can't log in until you activate them again. All data is kept.</span>
+                      <span class="actions">
+                        <button type="button" class="btn sm" (click)="cancelConfirm()">Cancel</button>
+                        <button type="button" class="btn sm solid-danger" (click)="suspend(t)" [disabled]="busySlug === t.slug">Suspend</button>
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="note">Open shows the company's own login page. Every change you make here is listed under Activity.</p>
+    }
+
+    <!-- ═══════════ Activity ═══════════ -->
+    @if (tab === 'activity') {
+      <div class="head"><div><h1>Activity</h1><span class="muted">What Super Admins did in this portal (latest 200)</span></div></div>
+      <div class="tablebox">
+        <table>
+          <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Company</th><th>Details</th></tr></thead>
+          <tbody>
+            @if (auditLoading && !audit.length) { <tr><td colspan="5" class="muted center">Loading…</td></tr> }
+            @for (a of audit; track $index) {
+              <tr>
+                <td class="muted nowrap">{{ a.at | date:'d MMM y, HH:mm' }}</td>
+                <td>{{ a.actor }}</td>
+                <td>{{ a.action }}</td>
+                <td>{{ a.tenantSlug || '—' }}</td>
+                <td class="muted">{{ a.details }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+
+    <!-- ═══════════ Account ═══════════ -->
+    @if (tab === 'account') {
+      <div class="head"><div><h1>My account</h1><span class="muted">Signed in as {{ username }}</span></div></div>
+      <form class="panel" (ngSubmit)="changePassword()" novalidate>
+        <h2>Change password</h2>
+        <div class="field"><label for="pw-cur">Current password</label>
+          <input id="pw-cur" name="current" type="password" [(ngModel)]="pw.current" autocomplete="current-password" /></div>
+        <div class="field"><label for="pw-new">New password</label>
+          <input id="pw-new" name="next" type="password" [(ngModel)]="pw.next" autocomplete="new-password" />
+          <span class="help">At least 10 characters.</span></div>
+        <div class="field"><label for="pw-conf">New password again</label>
+          <input id="pw-conf" name="confirm" type="password" [(ngModel)]="pw.confirm" autocomplete="new-password" /></div>
+        @if (pw.error) { <div class="alert">{{ pw.error }}</div> }
+        @if (pw.done) { <div class="success">{{ pw.done }}</div> }
+        <div><button type="submit" class="btn primary" [disabled]="pw.saving">{{ pw.saving ? 'Saving…' : 'Change password' }}</button></div>
+      </form>
+    }
+  </main>
+</div>
+
+<!-- ═══════════ New company wizard ═══════════ -->
+@if (wiz; as w) {
+  <div class="overlay" (click)="$event.target === $event.currentTarget && !w.creating && !w.result && closeWizard()">
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="wz-title">
+      <div class="head">
+        <h2 id="wz-title">{{ w.result ? 'Company created' : 'New company' }}</h2>
+        @if (!w.creating) { <button type="button" class="btn sm" (click)="closeWizard()">Close</button> }
+      </div>
+
+      @if (!w.result) {
+        <div class="steps">
+          @for (s of steps; track $index) {
+            <span [class.on]="$index === w.step" [class.done]="$index < w.step">{{ $index + 1 }}. {{ s }}</span>
+          }
+        </div>
+      }
+
+      <!-- 1. Company -->
+      @if (!w.result && w.step === 0) {
+        <div class="field">
+          <label for="wz-legal">Company legal name <span class="req">*</span></label>
+          <input id="wz-legal" name="legal" [(ngModel)]="w.req.legalName" (ngModelChange)="onLegalNameChange()"
+                 placeholder="e.g. Sunrise Kindergarten Sdn. Bhd." autofocus />
+          <span class="help">As registered with SSM. Printed on payslips and EA forms.</span>
+        </div>
+        <div class="grid2">
+          <div class="field">
+            <label for="wz-slug">Web address <span class="req">*</span></label>
+            <input id="wz-slug" name="slug" class="mono" [(ngModel)]="w.req.slug" (ngModelChange)="onSlugInput()" placeholder="sunrise" />
+            <span class="help mono">{{ slugHost(w.req.slug) }}</span>
+            @switch (w.slugStatus) {
+              @case ('checking') { <span class="help">Checking…</span> }
+              @case ('ok') { <span class="ok-text"><i class="bi bi-check-circle-fill"></i> Available</span> }
+              @case ('bad') { <span class="err">{{ w.slugMessage }}</span> }
+            }
+          </div>
+          <div class="field">
+            <label for="wz-short">Display name</label>
+            <input id="wz-short" name="short" [(ngModel)]="w.req.displayName" placeholder="Sunrise Kindergarten" />
+            <span class="help">Shown on screens and in emails.</span>
+          </div>
+          <div class="field">
+            <label for="wz-reg">SSM registration no.</label>
+            <input id="wz-reg" name="reg" [(ngModel)]="w.req.registrationNo" placeholder="202001012345 (1234567-A)" />
+          </div>
+          <div class="field">
+            <label for="wz-tax">LHDN employer no. (E number)</label>
+            <input id="wz-tax" name="tax" [(ngModel)]="w.req.employerTaxNo" placeholder="E 1234567890" />
+          </div>
+        </div>
+        <p class="help">You can fill in the rest (address, phone, EA officer) later, or the company admin can.</p>
+      }
+
+      <!-- 2. Branding -->
+      @if (!w.result && w.step === 1) {
+        <div class="field">
+          <label>Brand colour</label>
+          <div class="swatches">
+            @for (c of colors; track c) {
+              <button type="button" class="swatch" [style.background]="c" [attr.aria-pressed]="w.req.brandColor === c"
+                      [attr.aria-label]="'Colour ' + c" (click)="pickColor(c)"></button>
+            }
+            <input class="mono color-text" name="color" [(ngModel)]="w.req.brandColor" maxlength="7" aria-label="Colour code" />
+          </div>
+        </div>
+        <div class="field">
+          <label>Logo <span class="muted">(optional, PNG or JPEG up to 1 MB)</span></label>
+          <div class="logo-row">
+            <label class="btn sm">
+              <i class="bi bi-upload"></i> {{ w.logoFile ? 'Change logo' : 'Choose logo' }}
+              <input type="file" accept="image/png,image/jpeg" hidden (change)="onWizardLogo($event)" />
+            </label>
+            @if (w.logoFile) {
+              <span class="muted">{{ w.logoFile.name }}</span>
+              <button type="button" class="btn sm" (click)="clearWizardLogo()">Remove</button>
+            }
+          </div>
+        </div>
+        <div class="field">
+          <label>Payslip header preview</label>
+          <div class="ps-head" [style.border-bottom-color]="validColor(w.req.brandColor) ? w.req.brandColor : '#111827'">
+            @if (w.logoPreview) {
+              <span class="logo lg img"><img [src]="w.logoPreview" alt="Logo preview" /></span>
+            } @else {
+              <span class="logo lg" [style.background]="validColor(w.req.brandColor) ? w.req.brandColor : '#475569'">{{ initials(w.req.displayName || w.req.legalName) }}</span>
+            }
+            <div class="co-text">
+              <strong [style.color]="validColor(w.req.brandColor) ? w.req.brandColor : null">{{ w.req.legalName || 'Company name' }}</strong>
+              <span class="muted mono">{{ w.req.registrationNo || 'Registration no.' }}</span>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- 3. Admin user -->
+      @if (!w.result && w.step === 2) {
+        <p class="help">The company's first administrator. They manage employees, payroll and the company's other users.</p>
+        <div class="grid2">
+          <div class="field">
+            <label for="wz-an">Admin name</label>
+            <input id="wz-an" name="adminName" [(ngModel)]="w.req.adminName" placeholder="Grace Tan" />
+          </div>
+          <div class="field">
+            <label for="wz-ae">Admin email <span class="req">*</span></label>
+            <input id="wz-ae" name="adminEmail" type="email" [(ngModel)]="w.req.adminEmail" placeholder="hr@company.com.my" />
+          </div>
+          <div class="field">
+            <label for="wz-au">Username <span class="req">*</span></label>
+            <input id="wz-au" name="adminUsername" class="mono" [(ngModel)]="w.req.adminUsername" />
+          </div>
+        </div>
+        <label class="check">
+          <input type="checkbox" name="sendEmail" [(ngModel)]="w.req.sendWelcomeEmail" />
+          Email them a link to set their password
+        </label>
+      }
+
+      <!-- 4. Review -->
+      @if (!w.result && w.step === 3) {
+        <dl class="review">
+          <dt>Company</dt><dd>{{ w.req.legalName }}</dd>
+          <dt>Display name</dt><dd>{{ w.req.displayName }}</dd>
+          <dt>Web address</dt><dd class="mono">{{ slugHost(w.req.slug) }}</dd>
+          <dt>Database</dt><dd class="mono">hrms_{{ w.req.slug.split('-').join('_') }} (new, empty)</dd>
+          <dt>Registration / E no.</dt><dd>{{ w.req.registrationNo || '—' }} / {{ w.req.employerTaxNo || '—' }}</dd>
+          <dt>Admin</dt><dd>{{ w.req.adminUsername }} · {{ w.req.adminEmail }}</dd>
+          <dt>Welcome email</dt><dd>{{ w.req.sendWelcomeEmail ? 'Yes' : 'No' }}</dd>
+        </dl>
+        @if (w.creating) {
+          <div class="working"><span class="spin" aria-hidden="true"></span> Creating the database and setting up {{ w.req.displayName }}… this takes a few seconds.</div>
+        }
+      }
+
+      <!-- Done -->
+      @if (w.result; as r) {
+        <div class="done-box">
+          <i class="bi bi-check-circle-fill"></i>
+          <div><strong>{{ r.tenant.name }} is ready.</strong> Give the admin these details:</div>
+        </div>
+        <dl class="review">
+          <dt>Web address</dt>
+          <dd><a class="mono" [href]="r.tenant.url" target="_blank" rel="noopener">{{ r.tenant.url }}</a>
+            <button type="button" class="btn xs" (click)="copy(r.tenant.url)">Copy</button></dd>
+          <dt>Username</dt><dd class="mono">{{ r.adminUsername }}</dd>
+          <dt>Temporary password</dt>
+          <dd><span class="mono secret">{{ r.temporaryPassword }}</span>
+            <button type="button" class="btn xs" (click)="copy(r.temporaryPassword)">Copy</button></dd>
+        </dl>
+        <p class="help">
+          The temporary password is shown only now. They must change it at first login.
+          @if (r.emailQueued) { A welcome email with a "Set my password" link is on its way to {{ w.req.adminEmail }}. }
+        </p>
+        <p class="help">The web address may take up to a minute to work the first time while its HTTPS certificate is issued.</p>
+        @if (w.logoWarning) { <div class="alert">{{ w.logoWarning }}</div> }
+      }
+
+      @if (w.error) { <div class="alert" role="alert">{{ w.error }}</div> }
+
+      <div class="foot">
+        @if (w.result) {
+          <span></span>
+          <span class="actions">
+            <a class="btn" [href]="w.result.tenant.url" target="_blank" rel="noopener">Open {{ w.result.tenant.name }}</a>
+            <button type="button" class="btn primary" (click)="closeWizard()">Back to companies</button>
+          </span>
+        } @else {
+          <button type="button" class="btn" (click)="w.step ? back() : closeWizard()" [disabled]="w.creating">{{ w.step ? 'Back' : 'Cancel' }}</button>
+          <button type="button" class="btn primary" (click)="next()" [disabled]="w.creating">
+            {{ w.step === 3 ? (w.creating ? 'Creating…' : 'Create company') : 'Continue' }}
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ═══════════ Edit drawer ═══════════ -->
+@if (edit; as e) {
+  <div class="overlay right" (click)="$event.target === $event.currentTarget && closeEdit()">
+    <form class="drawer" role="dialog" aria-modal="true" aria-labelledby="ed-title" (ngSubmit)="saveEdit()" novalidate>
+      <div class="head">
+        <h2 id="ed-title">Edit {{ e.displayName }}</h2>
+        <button type="button" class="btn sm" (click)="closeEdit()">Close</button>
+      </div>
+      <div class="field"><label for="ed-short">Display name</label>
+        <input id="ed-short" name="displayName" [(ngModel)]="e.displayName" /></div>
+      <div class="field"><label for="ed-legal">Legal name (on payslips)</label>
+        <input id="ed-legal" name="legalName" [(ngModel)]="e.legalName" /></div>
+      <div class="grid2">
+        <div class="field"><label for="ed-reg">SSM registration no.</label>
+          <input id="ed-reg" name="reg" [(ngModel)]="e.registrationNo" /></div>
+        <div class="field"><label for="ed-tax">LHDN employer no.</label>
+          <input id="ed-tax" name="tax" [(ngModel)]="e.employerTaxNo" /></div>
+      </div>
+      <div class="field"><label for="ed-mail">Contact email</label>
+        <input id="ed-mail" name="contactEmail" type="email" [(ngModel)]="e.contactEmail" />
+        <span class="help">For your records only.</span></div>
+      <div class="field">
+        <label>Brand colour</label>
+        <div class="swatches">
+          @for (c of colors; track c) {
+            <button type="button" class="swatch" [style.background]="c" [attr.aria-pressed]="e.brandColor === c"
+                    [attr.aria-label]="'Colour ' + c" (click)="pickColor(c)"></button>
+          }
+          <input class="mono color-text" name="color" [(ngModel)]="e.brandColor" maxlength="7" aria-label="Colour code" />
+        </div>
+      </div>
+      <div class="field">
+        <label>Logo</label>
+        <div class="logo-row">
+          @if (logo(e); as src) {
+            <span class="logo lg img"><img [src]="src" alt="Current logo" /></span>
+          } @else {
+            <span class="logo lg" [style.background]="validColor(e.brandColor) ? e.brandColor : '#475569'">{{ initials(e.displayName) }}</span>
+          }
+          <label class="btn sm" [class.disabled]="e.uploading">
+            <i class="bi bi-upload"></i> {{ e.logoUrl ? 'Replace' : 'Upload' }}
+            <input type="file" accept="image/png,image/jpeg" hidden (change)="onEditLogo($event)" [disabled]="e.uploading" />
+          </label>
+          @if (e.logoUrl) { <button type="button" class="btn sm danger" (click)="removeLogo()" [disabled]="e.uploading">Remove</button> }
+        </div>
+      </div>
+      @if (e.error) { <div class="alert" role="alert">{{ e.error }}</div> }
+      <div class="foot">
+        <a class="mono muted" [href]="e.url" target="_blank" rel="noopener">{{ host(e.url) }}</a>
+        <button type="submit" class="btn primary" [disabled]="e.saving">{{ e.saving ? 'Saving…' : 'Save changes' }}</button>
+      </div>
+    </form>
+  </div>
+}
+
+@if (toast) { <div class="toast" role="status">{{ toast }}</div> }

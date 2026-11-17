@@ -31,6 +31,17 @@ export class AuthService {
     );
   }
 
+  /** Super Admin portal login (admin.marshrms.com). Same session storage, role "SuperAdmin". */
+  loginPlatform(payload: LoginRequest): Observable<LoginResponse> {
+    return this.http.post<LoginResponse>(`${environment.apiUrl}/platform/auth/login`, payload).pipe(
+      tap(res => {
+        this.setItem(this.TOKEN_KEY, res.token);
+        this.setItem(this.USER_KEY, JSON.stringify({ username: res.username, role: res.role }));
+        this.loggedIn$.next(true);
+      })
+    );
+  }
+
   mustChangePassword(): boolean {
     const user = this.getUser() as any;
     return user?.mustChangePassword === true;

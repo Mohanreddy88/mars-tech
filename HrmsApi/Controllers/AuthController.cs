@@ -1,5 +1,6 @@
 using HrmsApi.Data;
 using HrmsApi.Models;
+using HrmsApi.Platform;
 using HrmsApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,9 +16,11 @@ public class AuthController : ControllerBase
     private readonly TokenService _tokenService;
     private readonly IEmailService _emailService;
     private readonly IConfiguration _config;
+    private readonly ITenantContext _tenant;
 
-    public AuthController(HrmsDbContext db, TokenService tokenService, IEmailService emailService, IConfiguration config)
+    public AuthController(HrmsDbContext db, TokenService tokenService, IEmailService emailService, IConfiguration config, ITenantContext tenant)
     {
+        _tenant       = tenant;
         _db           = db;
         _tokenService = tokenService;
         _emailService = emailService;
@@ -63,7 +66,7 @@ public class AuthController : ControllerBase
         user.PasswordResetTokenExpiry = DateTime.UtcNow.AddHours(1);
         await _db.SaveChangesAsync();
 
-        var frontendUrl = _config["FrontendUrl"] ?? "http://localhost:4200";
+        var frontendUrl = _tenant.FrontendUrl;   // this company's own address
         var resetLink   = $"{frontendUrl}/reset-password?token={token}&email={Uri.EscapeDataString(user.Email)}";
 
         var body = $@"<!DOCTYPE html><html><head><style>

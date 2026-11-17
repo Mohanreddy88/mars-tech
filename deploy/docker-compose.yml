@@ -35,6 +35,11 @@ services:
       ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
       DB_AUTO_CREATE: "true"
       FrontendUrl: ${FRONTEND_URL:-https://marshrms.com}   # base URL for links in emails (password reset)
+      # Several companies, one database each, chosen by web address (esync.marshrms.com → hrms_esync).
+      # Super Admin portal: admin.marshrms.com — first login "superadmin" with SUPERADMIN_PASSWORD.
+      Tenancy__Enabled: "true"
+      Tenancy__BaseDomains: ${TENANT_DOMAINS:-marshrms.com,marstech.tech}
+      SUPERADMIN_PASSWORD: ${SUPERADMIN_PASSWORD:-}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-}

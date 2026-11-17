@@ -15,7 +15,7 @@ namespace HrmsApi.Controllers;
 [Route("api/company-settings")]
 public class CompanySettingsController : ControllerBase
 {
-    private const int MaxLogoBytes = 1024 * 1024; // 1 MB
+    private const int MaxLogoBytes = CompanySettings.MaxLogoBytes;
 
     private readonly HrmsDbContext _db;
     private readonly ICompanySettingsService _settings;
@@ -99,9 +99,7 @@ public class CompanySettingsController : ControllerBase
         var bytes = ms.ToArray();
 
         // Trust the file's content, not its name or declared type.
-        var type = bytes.Length > 8 && bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47 ? "image/png"
-                 : bytes.Length > 3 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF ? "image/jpeg"
-                 : null;
+        var type = CompanySettings.DetectLogoType(bytes);
         if (type == null)
             return BadRequest(new { message = "The logo must be a PNG or JPEG image." });
 
