@@ -7,7 +7,7 @@
 	# Certificates for company addresses are issued on first visit, but only for names the
 	# app confirms (the Super Admin portal or a registered company) — see :5555 below.
 	on_demand_tls {
-		ask http://localhost:5555/check
+		ask http://127.0.0.1:5555/check
 	}
 }
 
@@ -36,16 +36,6 @@ www.marshrms.com {
 	redir https://marshrms.com{uri} permanent
 }
 
-# Company addresses and the Super Admin portal (admin.marshrms.com)
-*.marshrms.com, *.marstech.tech {
-	tls {
-		on_demand
-	}
-	import security_headers
-	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
-	reverse_proxy app:8080
-}
-
 # ── UAT (separate stack: docker-compose.uat.yml, branch "uat") ──
 uat.marstech.tech, uat.marshrms.com {
 	import security_headers
@@ -53,18 +43,28 @@ uat.marstech.tech, uat.marshrms.com {
 	reverse_proxy uat-app:8080
 }
 
-*.uat.marshrms.com, *.uat.marstech.tech {
+# ── Company addresses + Super Admin portal (esync.marshrms.com, admin.marshrms.com, *.uat.…) ──
+# Catch-all for every other name: not wildcard site addresses, so the fixed names above keep
+# their own certificates. A certificate is issued on first visit only if the :5555 check approves.
+https:// {
 	tls {
 		on_demand
 	}
 	import security_headers
-	header X-Robots-Tag "noindex, nofollow"
-	reverse_proxy uat-app:8080
+	@uat host *.uat.marshrms.com *.uat.marstech.tech
+	handle @uat {
+		header X-Robots-Tag "noindex, nofollow"
+		reverse_proxy uat-app:8080
+	}
+	handle {
+		header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		reverse_proxy app:8080
+	}
 }
 
 # ── Certificate check (internal only) ───────────────────────
 # Caddy calls /check?domain=<name>; production or UAT answers whether that company exists.
-http://localhost:5555 {
+http://:5555 {
 	bind 127.0.0.1
 	@uat expression `{query.domain}.endsWith(".uat.marshrms.com") || {query.domain}.endsWith(".uat.marstech.tech")`
 	handle @uat {
