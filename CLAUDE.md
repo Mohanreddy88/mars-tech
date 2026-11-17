@@ -19,7 +19,8 @@ and is excluded from the API csproj.
   services `db` (Postgres 16), `app` (nginx + Angular + API), `caddy` (HTTPS for all domains).
 - UAT: `/opt/hrms-uat` on `uat`, compose project `hrms-uat` (`deploy/docker-compose.uat.yml` + `deploy/.env.uat`),
   own DB `hrms_uat`; reached by prod Caddy over external docker network `web` (alias `uat-app`).
-- Domains (option B, both serve the same apps): `marstech.tech`, `marshrms.com`, their `www.` (redirect) and `uat.`.
+- Domains (option B, both serve the same apps): `marstech.tech`, `marshrms.com`, their `www.` (redirect), `uat.`,
+  and wildcards `*.` / `*.uat.` for company addresses + `admin.` portal (Caddy on-demand TLS).
   Routing lives in `deploy/Caddyfile`; validate before releasing:
   `docker run --rm -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile`
 - Auto-deploy: root crontab runs `/opt/hrms/deploy/auto-deploy.sh uat|prod` every 2 min; it polls `origin/uat` /
@@ -27,7 +28,7 @@ and is excluded from the API csproj.
   `/var/log/hrms-uat-deploy.log`, `/var/log/hrms-prod-deploy.log`. Failed commits aren't retried until a newer push.
 - `deploy.sh` recreates Caddy when the Caddyfile changed — but a release that changes `deploy.sh` itself runs the
   old copy, so recreate Caddy manually in that case (`docker compose up -d --no-deps --force-recreate caddy`).
-- Backups: nightly 02:30 + pre-release, `/opt/hrms-backups`, 14 days.
+- Backups: nightly 02:30 + pre-release, `/opt/hrms-backups`, 14 days — every database dumped separately.
 - Email: Hostinger SMTP (`smtp.hostinger.com:587`, `support@marstech.tech`) set via `SMTP_*` in the server `.env` files.
   Email links use `FrontendUrl` (env `FRONTEND_URL`, defaults https://marshrms.com / https://uat.marshrms.com).
 - Server git clones use `core.fileMode=false` (scripts are chmod +x'd on the server).
@@ -43,6 +44,13 @@ cd /opt/hrms-uat/deploy && docker compose -f docker-compose.uat.yml --env-file .
 docker compose exec db psql -U hrms -d hrms        # prod DB shell
 ```
 
+## Companies (multi-tenant) — see README "Companies"
+One app, **one PostgreSQL database per company**, chosen from the host name (`HrmsApi/Platform/`):
+`<code>.marshrms.com` → `hrms_<code>`, bare domain → company `demo` (original DB), `admin.<domain>` → Super Admin
+portal (`/api/platform/*`, master DB `hrms_master`, `PlatformDbContext`). `HrmsDbContext` connects to the current
+company's database via `ITenantContext`; background work must set the company (see `BackgroundEmailService`).
+Login tokens carry a `tenant` claim and only work on the issuing company. Never query across companies.
+
 ## Database changes = EF Core migrations (PostgreSQL)
 The API applies pending migrations on startup (`Program.cs`, `Data/DatabaseMigrator.cs`), so every database —
 prod, UAT and each client — updates itself on deploy. A failed migration stops the app; `deploy/wait-healthy.sh`
@@ -55,6 +63,8 @@ After changing a model / `HrmsDbContext`, from `HrmsApi/` (bash):
 dotnet tool restore
 UsePostgreSQL=true ConnectionStrings__DefaultConnection="Host=localhost;Database=design;Username=x;Password=x" \
 ASPNETCORE_ENVIRONMENT=Production JWT_SECRET_KEY=design-time-only-key-not-used-anywhere-1234567890 \
-dotnet ef migrations add <DescriptiveName>
+dotnet ef migrations add <DescriptiveName> --context HrmsDbContext
 ```
+Company tables → `--context HrmsDbContext` (Migrations/). Master DB (companies, Super Admins) →
+`--context PlatformDbContext -o Migrations/Platform`. Both are applied on startup (master first, then every company).
 Review the generated file (watch for drops/renames that lose data), commit it with the model change, push to `uat`.

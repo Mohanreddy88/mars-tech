@@ -21,6 +21,27 @@ automatic UAT and production deployments.
 
 Both domains serve the same apps; `www.` redirects to the bare domain. HTTPS is automatic (Let's Encrypt via Caddy).
 
+## Companies (clients) and the Super Admin portal
+
+One app serves every client company; **each company has its own database**, chosen from the web address:
+
+| Address | What | Database |
+|---|---|---|
+| https://admin.marshrms.com | **Super Admin portal** — create, edit, suspend companies | `hrms_master` (company list, Super Admin accounts) |
+| https://esync.marshrms.com | company "esync" | `hrms_esync` |
+| https://marshrms.com | company "demo" (the original database) | `hrms` |
+
+UAT works the same under `uat.`: `admin.uat.marshrms.com`, `esync.uat.marshrms.com` (own UAT databases).
+
+**New client:** log in to the portal → **New company** → company name, web address, logo/colour, first admin
+→ **Create company**. The database, tables, company details and admin account are created in seconds; the
+admin gets an email with a link to set their password (the portal also shows a one-time temporary password).
+HTTPS for the new address is issued automatically on its first visit (up to a minute).
+
+Super Admin login: user `superadmin`, first password from `SUPERADMIN_PASSWORD` in the server `.env` / `.env.uat`
+(change it under **My account**). Company logins and Super Admin logins are separate; a login only works on the
+address where it was made.
+
 ## Release process
 
 ```
@@ -52,7 +73,7 @@ Never edit a migration that has already been released; add a new one.
 |------|-------|
 | VPS | Hostinger KVM 2 — `189.72.155.35` (Ubuntu 22.04) |
 | SSH | `ssh root@189.72.155.35` — key-based only |
-| DNS | Hostinger hPanel, both domains: `A @`, `A www`, `A uat` → `189.72.155.35` |
+| DNS | Hostinger hPanel, both domains: `A @`, `A www`, `A uat`, `A *` (companies + portal), `A *.uat` → `189.72.155.35` |
 | Email | Hostinger SMTP `smtp.hostinger.com:587` as `support@marstech.tech` |
 | Secrets | only on the server: `/opt/hrms/deploy/.env` and `/opt/hrms-uat/deploy/.env.uat` |
 
@@ -65,4 +86,6 @@ Never edit a migration that has already been released; add a new one.
 
 ## Security rules
 - This repository is **public**. Never commit passwords, API keys, `.env` files or `appsettings.Development.json`.
-- Change the default `admin` / `Admin@123` login on every new database.
+- Change the default `admin` / `Admin@123` login on the original (demo) database. Companies created in the
+  portal never get that default login.
+- Change the Super Admin password after the first login (portal → My account).
