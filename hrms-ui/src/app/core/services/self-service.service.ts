@@ -13,6 +13,7 @@ export interface EmployeeProfile {
   idType?: 'NRIC' | 'Passport';
   icPassport: string;
   idCountry?: string;
+  dateOfBirth?: string | null;
   taxNumber: string;
   departmentId: number;
   departmentName: string;

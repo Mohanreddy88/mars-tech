@@ -73,10 +73,28 @@
             </div>
             @if (f['phone'].invalid && f['phone'].touched) {
               <span class="field-error">{{ phoneError }}</span>
+            } @else {
+              <small class="field-hint">Numbers only, without the country code</small>
             }
           </div>
 
-          <!-- Identification type -->
+          <!-- Gender -->
+          <div class="form-group">
+            <label for="emp-gender">Gender <span class="req">*</span></label>
+            <select id="emp-gender" formControlName="gender">
+              <option value="">— Select Gender —</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
+            <small class="field-hint">Determines Maternity / Paternity leave entitlement</small>
+          </div>
+
+        </div>
+
+        <div class="form-row">
+
+          <!-- 1. Identification type -->
           <div class="form-group">
             <label for="emp-idtype">Identification Type <span class="req">*</span></label>
             <select id="emp-idtype" formControlName="idType">
@@ -86,27 +104,9 @@
             <small class="field-hint">{{ isPassport ? 'For non-Malaysian employees' : 'Malaysian citizens and PR' }}</small>
           </div>
 
-        </div>
-
-        <div class="form-row">
-
-          <!-- NRIC / Passport number -->
+          <!-- 2. Country of the ID -->
           <div class="form-group">
-            <label for="emp-id">{{ isPassport ? 'Passport No.' : 'NRIC No.' }} <span class="req">*</span></label>
-            <input id="emp-id" type="text" formControlName="icPassport" (input)="onIdInput()"
-              [attr.inputmode]="isPassport ? 'text' : 'numeric'"
-              [placeholder]="isPassport ? 'e.g. A12345678 (8–10 letters/numbers)' : 'e.g. 900101141234 (12 digits)'"
-              [class.is-invalid]="f['icPassport'].invalid && f['icPassport'].touched" />
-            @if (f['icPassport'].invalid && f['icPassport'].touched) {
-              <span class="field-error">{{ idError }}</span>
-            } @else {
-              <small class="field-hint">{{ isPassport ? 'Letters and numbers only' : 'Numbers only, without dashes' }}. Printed on payslips and the EA form.</small>
-            }
-          </div>
-
-          <!-- Country of the ID -->
-          <div class="form-group">
-            <label for="emp-country">Country @if (isPassport) { <span class="req">*</span> }</label>
+            <label for="emp-country">Country <span class="req">*</span></label>
             <select id="emp-country" formControlName="idCountry"
               [class.is-invalid]="f['idCountry'].invalid && f['idCountry'].touched">
               @if (isPassport) { <option value="">— Select country —</option> }
@@ -125,19 +125,31 @@
 
         <div class="form-row">
 
-          <!-- Gender -->
+          <!-- 3. NRIC / Passport number -->
           <div class="form-group">
-            <label>Gender <span class="req">*</span></label>
-            <select formControlName="gender">
-              <option value="">— Select Gender —</option>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-              <option value="Other">Other</option>
-            </select>
-            <small class="field-hint">Determines Maternity / Paternity leave entitlement</small>
+            <label for="emp-id">NRIC / Passport No. <span class="req">*</span></label>
+            <input id="emp-id" type="text" formControlName="icPassport" (input)="onIdInput()"
+              [attr.inputmode]="isPassport ? 'text' : 'numeric'"
+              [placeholder]="isPassport ? 'e.g. A12345678 (8–10 letters/numbers)' : 'e.g. 900101141234 (12 digits)'"
+              [class.is-invalid]="f['icPassport'].invalid && f['icPassport'].touched" />
+            @if (f['icPassport'].invalid && f['icPassport'].touched) {
+              <span class="field-error">{{ idError }}</span>
+            } @else {
+              <small class="field-hint">{{ isPassport ? 'Passport: 8–10 letters and numbers' : 'NRIC: 12 digits, numbers only' }}. Printed on payslips and the EA form.</small>
+            }
           </div>
 
-          <div class="form-group"><!-- spacer --></div>
+          <!-- Date of birth -->
+          <div class="form-group">
+            <label for="emp-dob">Date of Birth <span class="req">*</span></label>
+            <input id="emp-dob" type="date" formControlName="dateOfBirth" [max]="maxDob"
+              [class.is-invalid]="f['dateOfBirth'].invalid && f['dateOfBirth'].touched" />
+            @if (f['dateOfBirth'].invalid && f['dateOfBirth'].touched) {
+              <span class="field-error">{{ dobError }}</span>
+            } @else {
+              <small class="field-hint">{{ isPassport ? 'As shown in the passport' : 'Filled in from the NRIC (first 6 digits) — check it' }}</small>
+            }
+          </div>
 
         </div>
 

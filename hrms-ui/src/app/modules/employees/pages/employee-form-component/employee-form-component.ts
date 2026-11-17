@@ -1,6 +1,6 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 
 import { EmployeeService, EmployeeCreateResult } from '../../../../core/services/employee.service';
@@ -15,6 +15,37 @@ import { COUNTRIES_SORTED, DIAL_CODES } from '../../../../core/data/countries';
 const NRIC_PATTERN     = /^\d{12}$/;
 const PASSPORT_PATTERN = /^[A-Za-z0-9]{8,10}$/;
 const MOBILE_PATTERN   = /^\d{7,12}$/;
+const MIN_AGE          = 15;   // minimum working age in Malaysia (same rule as the API)
+
+/** yyyy-mm-dd of a Date in local time, for <input type="date">. */
+function isoDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Date of birth: not in the future, at least MIN_AGE years old, not more than 100 years ago. */
+function dobValidator(c: AbstractControl): ValidationErrors | null {
+  if (!c.value) return null;   // "required" handles an empty value
+  const dob = new Date(c.value + 'T00:00:00');
+  if (isNaN(dob.getTime())) return { dob: 'Enter a valid date' };
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  if (dob > today) return { dob: "Date of birth can't be in the future" };
+  const youngest = new Date(today); youngest.setFullYear(today.getFullYear() - MIN_AGE);
+  if (dob > youngest) return { dob: `Employee must be at least ${MIN_AGE} years old` };
+  const oldest = new Date(today); oldest.setFullYear(today.getFullYear() - 100);
+  if (dob < oldest) return { dob: 'Check the date of birth (over 100 years ago)' };
+  return null;
+}
+
+/** Birth date from a Malaysian NRIC (YYMMDD…), or null if the first 6 digits are not a real date. */
+function dobFromNric(nric: string): string | null {
+  if (!/^\d{12}$/.test(nric)) return null;
+  const yy = +nric.slice(0, 2), mm = +nric.slice(2, 4), dd = +nric.slice(4, 6);
+  const nowYY = new Date().getFullYear() % 100;
+  const year = yy > nowYY ? 1900 + yy : 2000 + yy;   // e.g. 90 → 1990, 05 → 2005
+  const d = new Date(year, mm - 1, dd);
+  if (d.getFullYear() !== year || d.getMonth() !== mm - 1 || d.getDate() !== dd) return null;
+  return isoDate(d);
+}
 
 /**
  * EmployeeFormComponent — handles both Add and Edit employee workflows.
@@ -71,6 +102,7 @@ export class EmployeeFormComponent implements OnInit {
       idType:         ['NRIC' as IdType, [Validators.required]],
       icPassport:     [''],    // NRIC or passport number — rules set by applyIdType()
       idCountry:      [{ value: 'Malaysia', disabled: true }],
+      dateOfBirth:    ['', [Validators.required, dobValidator]],
       taxNumber:      [''],    // Tax Identification Number
       bankId:         [null],  // FK to BankMaster
       accountNumber:  [''],    // Bank account number
@@ -136,6 +168,7 @@ export class EmployeeFormComponent implements OnInit {
           ...emp,
           // API returns ISO datetime — strip time part for the date input
           joinDate:       emp.joinDate ? emp.joinDate.split('T')[0] : '',
+          dateOfBirth:    emp.dateOfBirth ? emp.dateOfBirth.split('T')[0] : '',
           // Ensure null FKs are handled correctly
           departmentId:   emp.departmentId ?? null,
           bankId:         emp.bankId ?? null,
@@ -183,6 +216,7 @@ export class EmployeeFormComponent implements OnInit {
       phoneCountryCode: raw.phoneCountryCode ?? '+60',
       idType:         raw.idType,
       idCountry:      raw.idCountry ?? '',
+      dateOfBirth:    raw.dateOfBirth || null,
       departmentId:   raw.departmentId   ?? null,  // Changed to departmentId
       designation:    raw.designation,
       joinDate:       raw.joinDate,
@@ -268,6 +302,35 @@ export class EmployeeFormComponent implements OnInit {
       ? v.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 10)
       : v.replace(/\D/g, '').slice(0, 12);
     if (clean !== v) ctrl.setValue(clean);
+
+    // NRIC starts with the birth date (YYMMDD): fill Date of Birth when it is empty or was filled from the NRIC before
+    if (!this.isPassport) {
+      const dob = dobFromNric(clean);
+      const dobCtrl = this.form.get('dateOfBirth')!;
+      if (dob && (!dobCtrl.value || dobCtrl.value === this.dobFilledFromNric)) {
+        dobCtrl.setValue(dob);
+        dobCtrl.markAsTouched();
+        this.dobFilledFromNric = dob;
+      }
+    }
+  }
+
+  /** Last date of birth taken from the NRIC (so a later NRIC correction updates it, but a typed date is kept). */
+  private dobFilledFromNric = '';
+
+  /** Latest allowed date of birth (MIN_AGE years ago) for the date picker. */
+  get maxDob(): string {
+    const d = new Date(); d.setFullYear(d.getFullYear() - MIN_AGE);
+    return isoDate(d);
+  }
+
+  /** Inline message under Date of Birth, or '' when it is valid. */
+  get dobError(): string {
+    const c = this.form.get('dateOfBirth')!;
+    if (!c.errors) return '';
+    if (c.errors['server']) return c.errors['server'];
+    if (c.errors['required']) return 'Date of birth is required';
+    return c.errors['dob'] ?? 'Enter a valid date';
   }
 
   /** Typing filter: mobile number keeps digits only (max 12); a pasted "+60 12-345 6789" loses its "+60". */

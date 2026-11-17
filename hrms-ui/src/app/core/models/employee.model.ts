@@ -15,6 +15,7 @@ export interface Employee {
   idType: IdType;                 // NRIC or Passport
   icPassport: string;             // NRIC (12 digits) or passport number
   idCountry: string;              // Malaysia for NRIC, issuing country for a passport
+  dateOfBirth: string | null;     // ISO date
   taxNumber: string;              // Tax Identification Number (TIN)
   bankId: number | null;          // FK to BankMaster
   accountNumber: string;          // Bank account number for salary
@@ -37,6 +38,7 @@ export interface EmployeeRequest {
   idType: IdType;
   icPassport: string;
   idCountry: string;
+  dateOfBirth: string | null;
   taxNumber: string;
   bankId: number | null;
   accountNumber: string;

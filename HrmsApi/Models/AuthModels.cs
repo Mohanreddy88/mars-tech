@@ -29,7 +29,8 @@ public record EmployeeRequest(
     string?  Gender,            // Male / Female / Other
     string?  IdType           = null,   // "NRIC" or "Passport"
     string?  IdCountry        = null,   // country of the ID (Malaysia for NRIC)
-    string?  PhoneCountryCode = null    // e.g. "+60"
+    string?  PhoneCountryCode = null,   // e.g. "+60"
+    DateTime? DateOfBirth     = null    // date only
 );
 
 // ── Attendance ────────────────────────────────────────────────────────────────

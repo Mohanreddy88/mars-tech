@@ -15,7 +15,10 @@ public static class EmployeeIdentity
     private static readonly Regex DialCode   = new(@"^\+\d{1,4}$", RegexOptions.Compiled);
     private static readonly Regex MobileNo   = new(@"^\d{7,12}$", RegexOptions.Compiled);
 
-    public record Result(string IdType, string IdNumber, string IdCountry, string PhoneCountryCode, string Phone);
+    public record Result(string IdType, string IdNumber, string IdCountry, string PhoneCountryCode, string Phone, DateTime DateOfBirth);
+
+    /// <summary>Minimum working age in Malaysia (young persons 15–17 may work with restrictions).</summary>
+    public const int MinimumAge = 15;
 
     /// <summary>Normalised values, or the first problem as (field, message).</summary>
     public static (Result? value, string? field, string? error) Check(EmployeeRequest req)
@@ -49,7 +52,14 @@ public static class EmployeeIdentity
         if (phone.StartsWith(code)) phone = phone[code.Length..];        // "+60123456789" typed in full
         if (!MobileNo.IsMatch(phone)) return (null, "phone", "Mobile number must be 7–12 digits (numbers only).");
 
-        return (new Result(idType, idNumber, country, code, phone), null, null);
+        if (req.DateOfBirth == null) return (null, "dateOfBirth", "Date of birth is required.");
+        var dob = DateTime.SpecifyKind(req.DateOfBirth.Value.Date, DateTimeKind.Utc);
+        var today = DateTime.UtcNow.Date;
+        if (dob > today) return (null, "dateOfBirth", "Date of birth can't be in the future.");
+        if (dob > today.AddYears(-MinimumAge)) return (null, "dateOfBirth", $"Employee must be at least {MinimumAge} years old.");
+        if (dob < today.AddYears(-100)) return (null, "dateOfBirth", "Check the date of birth (over 100 years ago).");
+
+        return (new Result(idType, idNumber, country, code, phone, dob), null, null);
     }
 
     /// <summary>Label for documents: "NRIC No." or "Passport No."</summary>

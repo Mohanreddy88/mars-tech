@@ -79,6 +79,11 @@
         </div>
 
         <div class="info-item">
+          <label>Date of Birth</label>
+          <p>{{ profile.dateOfBirth ? (profile.dateOfBirth | date:'d MMM y') : 'N/A' }}</p>
+        </div>
+
+        <div class="info-item">
           <label>Tax Number</label>
           <p>{{ profile.taxNumber || 'N/A' }}</p>
         </div>

@@ -350,6 +350,9 @@ namespace HrmsApi.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<DateTime?>("DateOfBirth")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<int?>("DepartmentId")
                         .HasColumnType("integer");
 

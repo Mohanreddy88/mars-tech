@@ -45,6 +45,9 @@ public class Employee
     /// <summary>Bank account number for salary disbursement</summary>
     public string   AccountNumber { get; set; } = string.Empty;
 
+    /// <summary>Date of birth (date only). Needed for age-based statutory rates (EPF, SOCSO).</summary>
+    public DateTime? DateOfBirth  { get; set; }
+
     /// <summary>Gender: Male / Female / Other</summary>
     public string   Gender        { get; set; } = string.Empty;
 

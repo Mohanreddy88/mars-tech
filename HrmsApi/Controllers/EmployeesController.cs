@@ -59,7 +59,7 @@ public class EmployeesController : ControllerBase
                 e.BankId, e.AccountNumber,
                 BankName = e.Bank != null ? e.Bank.Name : null,
                 e.Gender,
-                e.PhoneCountryCode, e.IdType, e.IcPassport, e.IdCountry, e.TaxNumber, e.ProfilePicture
+                e.PhoneCountryCode, e.IdType, e.IcPassport, e.IdCountry, e.TaxNumber, e.ProfilePicture, e.DateOfBirth
             })
             .ToListAsync();
 
@@ -94,7 +94,7 @@ public class EmployeesController : ControllerBase
                 e.BankId, e.AccountNumber,
                 BankName = e.Bank != null ? e.Bank.Name : null,
                 e.Gender,
-                e.PhoneCountryCode, e.IdType, e.IcPassport, e.IdCountry, e.TaxNumber, e.ProfilePicture
+                e.PhoneCountryCode, e.IdType, e.IcPassport, e.IdCountry, e.TaxNumber, e.ProfilePicture, e.DateOfBirth
             })
             .ToListAsync();
 
@@ -128,7 +128,7 @@ public class EmployeesController : ControllerBase
                 e.BankId, e.AccountNumber,
                 BankName = e.Bank != null ? e.Bank.Name : null,
                 e.Gender,
-                e.PhoneCountryCode, e.IdType, e.IcPassport, e.IdCountry, e.TaxNumber, e.ProfilePicture
+                e.PhoneCountryCode, e.IdType, e.IcPassport, e.IdCountry, e.TaxNumber, e.ProfilePicture, e.DateOfBirth
             })
             .FirstOrDefaultAsync()
             ?? throw new KeyNotFoundException($"Employee {id} not found.");
@@ -204,6 +204,7 @@ public class EmployeesController : ControllerBase
             IdType         = id.IdType,
             IcPassport     = id.IdNumber,
             IdCountry      = id.IdCountry,
+            DateOfBirth    = id.DateOfBirth,
             TaxNumber      = req.TaxNumber?.Trim() ?? string.Empty,
             ProfilePicture = req.ProfilePicture ?? string.Empty,
             DepartmentId   = req.DepartmentId,
@@ -422,6 +423,7 @@ public class EmployeesController : ControllerBase
         emp.IdType         = ident.IdType;
         emp.IcPassport     = ident.IdNumber;
         emp.IdCountry      = ident.IdCountry;
+        emp.DateOfBirth    = ident.DateOfBirth;
         emp.TaxNumber      = req.TaxNumber?.Trim() ?? string.Empty;
         emp.ProfilePicture = req.ProfilePicture ?? string.Empty;
         emp.DepartmentId   = req.DepartmentId;
