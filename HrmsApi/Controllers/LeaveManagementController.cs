@@ -107,9 +107,13 @@ public class LeaveManagementController : ControllerBase
 
         var gender = (employee.Gender ?? "").ToLower();
 
-        // Create / correct the entitlement (service years, gender, joining year) before showing it
-        await _leaveService.InitializeLeaveBalancesAsync(employeeId, currentYear);
         var balances = await _leaveService.GetEmployeeLeaveBalancesAsync(employeeId, currentYear);
+
+        if (balances.Count == 0)
+        {
+            await _leaveService.InitializeLeaveBalancesAsync(employeeId, currentYear);
+            balances = await _leaveService.GetEmployeeLeaveBalancesAsync(employeeId, currentYear);
+        }
 
         // Filter gender-specific leave types
         var result = balances
@@ -221,7 +225,6 @@ public class LeaveManagementController : ControllerBase
     public async Task<IActionResult> GetAllLeaveBalances([FromQuery] int? year)
     {
         var currentYear = year ?? DateTime.Now.Year;
-        await _leaveService.SyncAllLeaveBalancesAsync(currentYear);
 
         var balances = await _db.EmployeeLeaveBalances
             .Include(b => b.Employee)
