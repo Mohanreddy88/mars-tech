@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using HrmsApi.Data;
 using HrmsApi.Models;
+using HrmsApi.Services;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
@@ -77,22 +78,32 @@ public static class DataSeeder
     /// </param>
     public static async Task SeedAsync(HrmsDbContext context, ILogger logger, bool seedDefaultAdmin)
     {
+        var now = DateTime.UtcNow;
+        LeaveType L(string name, string code, int days, bool paid = true) => new()
+        {
+            Name = name, Code = code, DefaultDaysPerYear = days, IsActive = true,
+            RequiresApproval = true, IsPaid = paid, CreatedAt = now
+        };
+
         if (!await context.LeaveTypes.AnyAsync())
         {
             logger.LogInformation("🌱 Seeding leave types...");
-            var now = DateTime.UtcNow;
-            LeaveType L(string name, string code, int days, bool paid = true) => new()
-            {
-                Name = name, Code = code, DefaultDaysPerYear = days, IsActive = true,
-                RequiresApproval = true, IsPaid = paid, CreatedAt = now
-            };
+            // Annual 12 / Medical 14 are the company minimums; LeaveEntitlement raises them with years of service.
             context.LeaveTypes.AddRange(
-                L("Annual Leave", "AL", 14), L("Medical Leave", "ML", 14), L("Emergency Leave", "EL", 2),
+                L("Annual Leave", "AL", 12), L("Medical Leave", "ML", 14), L("Emergency Leave", "EL", 2),
                 L("Casual Leave", "CL", 3), L("Maternity Leave", "MTL", 98), L("Paternity Leave", "PTL", 7),
                 L("Unpaid Leave", "UL", 0, paid: false), L("Study Leave", "SL", 5),
-                L("Hajj Leave", "HL", 0, paid: false), L("Replacement Leave", "RL", 0));
+                L("Hajj Leave", "HL", 0, paid: false), L("Replacement Leave", "RL", 0),
+                L("Hospitalisation Leave", LeaveEntitlement.Hospitalisation, 60));
             await context.SaveChangesAsync();
-            logger.LogInformation("✅ Leave types seeded (10 types)");
+            logger.LogInformation("✅ Leave types seeded (11 types)");
+        }
+        else if (!await context.LeaveTypes.AnyAsync(t => t.Code == LeaveEntitlement.Hospitalisation))
+        {
+            // Databases created before hospitalisation leave existed (Employment Act: 60 days)
+            context.LeaveTypes.Add(L("Hospitalisation Leave", LeaveEntitlement.Hospitalisation, 60));
+            await context.SaveChangesAsync();
+            logger.LogInformation("✅ Added Hospitalisation Leave (60 days)");
         }
 
         if (seedDefaultAdmin && !await context.Users.AnyAsync())

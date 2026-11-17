@@ -22,6 +22,7 @@ public class SelfServiceController : ControllerBase
     private readonly IEmailQueue _emailQueue;
     private readonly INotificationService _notif;
     private readonly ICompanySettingsService _company;
+    private readonly ILeaveService _leave;
 
     public SelfServiceController(
         HrmsDbContext db,
@@ -31,9 +32,11 @@ public class SelfServiceController : ControllerBase
         IPdfService pdfService,
         IEmailQueue emailQueue,
         INotificationService notif,
-        ICompanySettingsService company)
+        ICompanySettingsService company,
+        ILeaveService leave)
     {
         _company = company;
+        _leave   = leave;
         _db               = db;
         _logger           = logger;
         _timesheetService = timesheetService;
@@ -224,6 +227,7 @@ public class SelfServiceController : ControllerBase
         var currentMonth = DateTime.Now.Month;
 
         // 1. Leave Balance Summary
+        await _leave.InitializeLeaveBalancesAsync(employee.Id, currentYear);   // entitlement for this year
         var leaveBalances = await _db.EmployeeLeaveBalances
             .Include(lb => lb.LeaveType)
             .Where(lb => lb.EmployeeId == employee.Id && lb.Year == currentYear)
@@ -681,6 +685,7 @@ public class SelfServiceController : ControllerBase
 
         var targetYear = year ?? DateTime.Now.Year;
 
+        await _leave.InitializeLeaveBalancesAsync(employee.Id, targetYear);   // entitlement for this year
         var leaveBalances = await _db.EmployeeLeaveBalances
             .Include(lb => lb.LeaveType)
             .Where(lb => lb.EmployeeId == employee.Id && lb.Year == targetYear)
