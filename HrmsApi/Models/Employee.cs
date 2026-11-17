@@ -23,9 +23,18 @@ public class Employee
     /// <summary>Profile picture URL or path</summary>
     public string   ProfilePicture { get; set; } = string.Empty;
 
+    /// <summary>Mobile country calling code, e.g. "+60". <see cref="Phone"/> holds the number without it.</summary>
+    public string   PhoneCountryCode { get; set; } = "+60";
+
     // ── New fields (Bank & statutory identity) ──────────────
-    /// <summary>IC or Passport number (used on payslip as NRIC NO)</summary>
+    /// <summary>"NRIC" (12 digits) or "Passport" (8–10 letters/digits) — see <see cref="IcPassport"/></summary>
+    public string   IdType        { get; set; } = IdTypes.Nric;
+
+    /// <summary>NRIC or passport number, depending on <see cref="IdType"/> (NRIC stored as 12 digits, no dashes)</summary>
     public string   IcPassport    { get; set; } = string.Empty;
+
+    /// <summary>Country of the ID: always "Malaysia" for NRIC, the issuing country for a passport</summary>
+    public string   IdCountry     { get; set; } = "Malaysia";
 
     /// <summary>Tax Identification Number for PCB/Income Tax purposes</summary>
     public string   TaxNumber     { get; set; } = string.Empty;
@@ -44,4 +53,11 @@ public class Employee
     public BankMaster?              Bank        { get; set; }
     public ICollection<Attendance>  Attendances { get; set; } = new List<Attendance>();
     public ICollection<Payroll>     Payrolls    { get; set; } = new List<Payroll>();
+}
+
+/// <summary>Employee identification types.</summary>
+public static class IdTypes
+{
+    public const string Nric     = "NRIC";
+    public const string Passport = "Passport";
 }

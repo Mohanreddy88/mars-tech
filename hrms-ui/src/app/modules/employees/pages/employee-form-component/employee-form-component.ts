@@ -8,6 +8,13 @@ import { DepartmentService, Department } from '../../../../core/services/departm
 import { BankService } from '../../../../core/services/bank.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { Bank } from '../../../../core/models/bank.model';
+import { IdType } from '../../../../core/models/employee.model';
+import { COUNTRIES_SORTED, DIAL_CODES } from '../../../../core/data/countries';
+
+/** NRIC: exactly 12 digits. Passport: 8–10 letters or digits. Mobile: 7–12 digits. */
+const NRIC_PATTERN     = /^\d{12}$/;
+const PASSPORT_PATTERN = /^[A-Za-z0-9]{8,10}$/;
+const MOBILE_PATTERN   = /^\d{7,12}$/;
 
 /**
  * EmployeeFormComponent — handles both Add and Edit employee workflows.
@@ -35,6 +42,8 @@ export class EmployeeFormComponent implements OnInit {
   banks: Bank[] = [];  // populated from BankMaster for the dropdown
   uploading = false;   // true while uploading profile picture
   profilePictureUrl: string | null = null;  // Preview URL for uploaded image
+  readonly countries = COUNTRIES_SORTED;   // passport country dropdown
+  readonly dialCodes = DIAL_CODES;         // mobile country code dropdown
 
   constructor(
     private fb: FormBuilder,
@@ -52,18 +61,28 @@ export class EmployeeFormComponent implements OnInit {
     this.form = this.fb.group({
       name:           ['', [Validators.required]],
       email:          ['', [Validators.required, Validators.email]],
-      phone:          ['', [Validators.required]],
+      phoneCountryCode: ['+60', [Validators.required]],
+      phone:          ['', [Validators.required, Validators.pattern(MOBILE_PATTERN)]],
       departmentId:   [null, [Validators.required]],  // Changed to departmentId FK
       designation:    ['', [Validators.required]],
       joinDate:       ['', [Validators.required]],
       salary:         [0,  [Validators.required, Validators.min(0)]],
       isActive:       [true],
-      icPassport:     [''],    // IC or Passport number
+      idType:         ['NRIC' as IdType, [Validators.required]],
+      icPassport:     [''],    // NRIC or passport number — rules set by applyIdType()
+      idCountry:      [{ value: 'Malaysia', disabled: true }],
       taxNumber:      [''],    // Tax Identification Number
       bankId:         [null],  // FK to BankMaster
       accountNumber:  [''],    // Bank account number
       profilePicture: [''],    // Profile picture URL/path
       gender:         ['']     // Male / Female / Other
+    });
+
+    // NRIC ↔ Passport: switch the number rules and the country field
+    this.applyIdType('NRIC');
+    this.form.get('idType')!.valueChanges.subscribe((type: IdType) => {
+      this.form.patchValue({ icPassport: '' }, { emitEvent: false });   // formats differ — start again
+      this.applyIdType(type, true);
     });
 
     // Load active departments and banks for the dropdowns regardless of add/edit mode
@@ -121,8 +140,12 @@ export class EmployeeFormComponent implements OnInit {
           departmentId:   emp.departmentId ?? null,
           bankId:         emp.bankId ?? null,
           profilePicture: emp.profilePicture ?? '',
-          gender:         emp.gender ?? ''
-        });
+          gender:         emp.gender ?? '',
+          idType:         emp.idType || 'NRIC',
+          phoneCountryCode: emp.phoneCountryCode || '+60'
+        }, { emitEvent: false });
+        this.applyIdType(emp.idType || 'NRIC');
+        if (emp.idType === 'Passport') this.form.get('idCountry')!.setValue(emp.idCountry ?? '');
         // Set preview URL for existing profile picture
         this.profilePictureUrl = emp.profilePicture || null;
         this.loading = false;
@@ -150,13 +173,16 @@ export class EmployeeFormComponent implements OnInit {
 
     this.saving = true;
 
-    const raw = this.form.value;
+    const raw = this.form.getRawValue();   // includes the disabled country field
 
     // Build strongly-typed payload matching EmployeeRequest on the API
     const payload = {
       name:           raw.name,
       email:          raw.email,
       phone:          raw.phone,
+      phoneCountryCode: raw.phoneCountryCode ?? '+60',
+      idType:         raw.idType,
+      idCountry:      raw.idCountry ?? '',
       departmentId:   raw.departmentId   ?? null,  // Changed to departmentId
       designation:    raw.designation,
       joinDate:       raw.joinDate,
@@ -188,6 +214,13 @@ export class EmployeeFormComponent implements OnInit {
     };
     const onError = (err: any) => {
       this.saving = false;
+      // Show the server's field message under that field too
+      const field = err?.error?.field as string | undefined;
+      if (field && this.form.get(field)) {
+        this.form.get(field)!.setErrors({ server: err.error.message });
+        this.form.get(field)!.markAsTouched();
+        this.cdr.detectChanges();
+      }
       this.toast.error('Save Failed', err?.error?.message ?? 'Failed to save employee.');
     };
 
@@ -199,6 +232,71 @@ export class EmployeeFormComponent implements OnInit {
       this.employeeService.create(payload)
         .subscribe({ next: onSuccess, error: onError });
     }
+  }
+
+  // ── Identification (NRIC / Passport) and mobile ─────────────────
+
+  get isPassport(): boolean { return this.form.get('idType')!.value === 'Passport'; }
+
+  /**
+   * NRIC     → 12 digits, country fixed to Malaysia (field disabled)
+   * Passport → 8–10 letters/digits, country dropdown enabled and required
+   */
+  applyIdType(type: IdType, userChanged = false): void {
+    const id      = this.form.get('icPassport')!;
+    const country = this.form.get('idCountry')!;
+    if (type === 'Passport') {
+      id.setValidators([Validators.required, Validators.pattern(PASSPORT_PATTERN)]);
+      country.setValidators([Validators.required]);
+      if (userChanged || country.value === 'Malaysia') country.setValue('');
+      country.enable({ emitEvent: false });
+    } else {
+      id.setValidators([Validators.required, Validators.pattern(NRIC_PATTERN)]);
+      country.clearValidators();
+      country.setValue('Malaysia');
+      country.disable({ emitEvent: false });
+    }
+    id.updateValueAndValidity({ emitEvent: false });
+    country.updateValueAndValidity({ emitEvent: false });
+  }
+
+  /** Typing filter: NRIC keeps digits only (max 12); passport keeps letters/digits in capitals (max 10). */
+  onIdInput(): void {
+    const ctrl = this.form.get('icPassport')!;
+    const v = String(ctrl.value ?? '');
+    const clean = this.isPassport
+      ? v.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 10)
+      : v.replace(/\D/g, '').slice(0, 12);
+    if (clean !== v) ctrl.setValue(clean);
+  }
+
+  /** Typing filter: mobile number keeps digits only (max 12). */
+  onPhoneInput(): void {
+    const ctrl = this.form.get('phone')!;
+    const v = String(ctrl.value ?? '');
+    const clean = v.replace(/\D/g, '').slice(0, 12);
+    if (clean !== v) ctrl.setValue(clean);
+  }
+
+  /** Inline message under the ID number, or '' when it is valid. */
+  get idError(): string {
+    const c = this.form.get('icPassport')!;
+    if (!c.errors) return '';
+    if (c.errors['server']) return c.errors['server'];
+    if (c.errors['required']) return this.isPassport ? 'Passport number is required' : 'NRIC number is required';
+    const len = String(c.value ?? '').length;
+    return this.isPassport
+      ? `Passport number must be 8–10 letters or numbers (${len} entered)`
+      : `NRIC must be exactly 12 digits (${len} entered)`;
+  }
+
+  /** Inline message under the mobile number, or '' when it is valid. */
+  get phoneError(): string {
+    const c = this.form.get('phone')!;
+    if (!c.errors) return '';
+    if (c.errors['server']) return c.errors['server'];
+    if (c.errors['required']) return 'Mobile number is required';
+    return 'Mobile number must be 7–12 digits (numbers only)';
   }
 
   /** Navigates back to the employee list without saving */

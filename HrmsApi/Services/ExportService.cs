@@ -146,7 +146,7 @@ public class ExportService : IExportService
         {
             worksheet.Cell(row, 1).Value = emp.Name;
             worksheet.Cell(row, 2).Value = emp.Email;
-            worksheet.Cell(row, 3).Value = emp.Phone;
+            worksheet.Cell(row, 3).Value = string.IsNullOrEmpty(emp.Phone) ? "" : $"{emp.PhoneCountryCode} {emp.Phone}";
             worksheet.Cell(row, 4).Value = emp.Department?.Name ?? "Unassigned";
             worksheet.Cell(row, 5).Value = emp.Designation;
             worksheet.Cell(row, 6).Value = emp.JoinDate.ToString("yyyy-MM-dd");

@@ -131,6 +131,11 @@ public class SelfServiceController : ControllerBase
             employee.Name,
             employee.Email,
             employee.Phone,
+            employee.PhoneCountryCode,
+            employee.IdType,
+            employee.IcPassport,
+            employee.IdCountry,
+            employee.TaxNumber,
             departmentId = employee.DepartmentId,
             departmentName = employee.Department?.Name,
             employee.Designation,
@@ -168,7 +173,13 @@ public class SelfServiceController : ControllerBase
 
         // Allow employees to update only specific fields
         if (!string.IsNullOrWhiteSpace(request.Phone))
-            employee.Phone = request.Phone;
+        {
+            var phone = System.Text.RegularExpressions.Regex.Replace(request.Phone, @"[\s\-()]", "");
+            if (phone.StartsWith(employee.PhoneCountryCode)) phone = phone[employee.PhoneCountryCode.Length..];
+            if (!System.Text.RegularExpressions.Regex.IsMatch(phone, @"^\d{7,12}$"))
+                return BadRequest(new { message = "Mobile number must be 7–12 digits (numbers only)." });
+            employee.Phone = phone;
+        }
 
         if (!string.IsNullOrWhiteSpace(request.Email))
             employee.Email = request.Email;

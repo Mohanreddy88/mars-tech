@@ -78,7 +78,7 @@
         </div>
         <div class="detail-row">
           <i class="bi bi-telephone"></i>
-          <span>{{ employee.phone || 'N/A' }}</span>
+          <span>{{ employee.phone ? (employee.phoneCountryCode || '+60') + ' ' + employee.phone : 'N/A' }}</span>
         </div>
         <div class="detail-row">
           <i class="bi bi-building"></i>

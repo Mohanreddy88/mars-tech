@@ -58,7 +58,8 @@ public class EmployeesController : ControllerBase
                 e.JoinDate, e.Salary, e.IsActive,
                 e.BankId, e.AccountNumber,
                 BankName = e.Bank != null ? e.Bank.Name : null,
-                e.Gender
+                e.Gender,
+                e.PhoneCountryCode, e.IdType, e.IcPassport, e.IdCountry, e.TaxNumber, e.ProfilePicture
             })
             .ToListAsync();
 
@@ -92,7 +93,8 @@ public class EmployeesController : ControllerBase
                 e.JoinDate, e.Salary, e.IsActive,
                 e.BankId, e.AccountNumber,
                 BankName = e.Bank != null ? e.Bank.Name : null,
-                e.Gender
+                e.Gender,
+                e.PhoneCountryCode, e.IdType, e.IcPassport, e.IdCountry, e.TaxNumber, e.ProfilePicture
             })
             .ToListAsync();
 
@@ -125,7 +127,8 @@ public class EmployeesController : ControllerBase
                 e.JoinDate, e.Salary, e.IsActive,
                 e.BankId, e.AccountNumber,
                 BankName = e.Bank != null ? e.Bank.Name : null,
-                e.Gender
+                e.Gender,
+                e.PhoneCountryCode, e.IdType, e.IcPassport, e.IdCountry, e.TaxNumber, e.ProfilePicture
             })
             .FirstOrDefaultAsync()
             ?? throw new KeyNotFoundException($"Employee {id} not found.");
@@ -140,6 +143,9 @@ public class EmployeesController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] EmployeeRequest req)
     {
+        var (id, idField, idError) = EmployeeIdentity.Check(req);
+        if (id == null) return BadRequest(new { message = idError, field = idField });
+
         // Validate department exists if provided
         if (req.DepartmentId.HasValue)
         {
@@ -193,7 +199,13 @@ public class EmployeesController : ControllerBase
             EmployeeCode   = employeeCode,
             Name           = req.Name,
             Email          = req.Email,
-            Phone          = req.Phone,
+            Phone          = id.Phone,
+            PhoneCountryCode = id.PhoneCountryCode,
+            IdType         = id.IdType,
+            IcPassport     = id.IdNumber,
+            IdCountry      = id.IdCountry,
+            TaxNumber      = req.TaxNumber?.Trim() ?? string.Empty,
+            ProfilePicture = req.ProfilePicture ?? string.Empty,
             DepartmentId   = req.DepartmentId,
             Designation    = req.Designation,
             JoinDate       = joinDateUtc,
@@ -374,6 +386,9 @@ public class EmployeesController : ControllerBase
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, [FromBody] EmployeeRequest req)
     {
+        var (ident, idField, idError) = EmployeeIdentity.Check(req);
+        if (ident == null) return BadRequest(new { message = idError, field = idField });
+
         var emp = await _db.Employees.FindAsync(id)
             ?? throw new KeyNotFoundException($"Employee {id} not found.");
 
@@ -402,7 +417,13 @@ public class EmployeesController : ControllerBase
 
         emp.Name           = req.Name;
         emp.Email          = req.Email;
-        emp.Phone          = req.Phone;
+        emp.Phone          = ident.Phone;
+        emp.PhoneCountryCode = ident.PhoneCountryCode;
+        emp.IdType         = ident.IdType;
+        emp.IcPassport     = ident.IdNumber;
+        emp.IdCountry      = ident.IdCountry;
+        emp.TaxNumber      = req.TaxNumber?.Trim() ?? string.Empty;
+        emp.ProfilePicture = req.ProfilePicture ?? string.Empty;
         emp.DepartmentId   = req.DepartmentId;
         emp.Designation    = req.Designation;
         emp.JoinDate       = joinDateUtc;

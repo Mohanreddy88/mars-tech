@@ -158,6 +158,7 @@ public class ReportsController : ControllerBase
                 e.Name,
                 e.Email,
                 e.Phone,
+                e.PhoneCountryCode,
                 departmentName = e.Department != null ? e.Department.Name : "Unassigned",
                 e.Designation,
                 e.JoinDate,

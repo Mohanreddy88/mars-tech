@@ -9,7 +9,10 @@ export interface EmployeeProfile {
   name: string;
   email: string;
   phone: string;
+  phoneCountryCode?: string;
+  idType?: 'NRIC' | 'Passport';
   icPassport: string;
+  idCountry?: string;
   taxNumber: string;
   departmentId: number;
   departmentName: string;

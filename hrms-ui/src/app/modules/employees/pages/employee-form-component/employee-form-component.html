@@ -58,21 +58,68 @@
 
         <div class="form-row">
 
-          <!-- Phone -->
+          <!-- Mobile: country code + number -->
           <div class="form-group">
-            <label>Phone <span class="req">*</span></label>
-            <input type="text" formControlName="phone" placeholder="e.g. +60123456789"
-              [class.is-invalid]="f['phone'].invalid && f['phone'].touched" />
+            <label for="emp-phone">Mobile No. <span class="req">*</span></label>
+            <div class="phone-row">
+              <select formControlName="phoneCountryCode" class="dial-code" aria-label="Country code">
+                @for (d of dialCodes; track d.dial) {
+                  <option [value]="d.dial">{{ d.label }}</option>
+                }
+              </select>
+              <input id="emp-phone" type="text" inputmode="numeric" formControlName="phone" maxlength="12"
+                placeholder="e.g. 123456789" (input)="onPhoneInput()"
+                [class.is-invalid]="f['phone'].invalid && f['phone'].touched" />
+            </div>
             @if (f['phone'].invalid && f['phone'].touched) {
-              <span class="field-error">Phone is required</span>
+              <span class="field-error">{{ phoneError }}</span>
             }
           </div>
 
-          <!-- IC / Passport -->
+          <!-- Identification type -->
           <div class="form-group">
-            <label>IC / Passport No.</label>
-            <input type="text" formControlName="icPassport" placeholder="e.g. 900101-14-1234 or A1234567" />
-            <small class="field-hint">Used as NRIC on the payslip</small>
+            <label for="emp-idtype">Identification Type <span class="req">*</span></label>
+            <select id="emp-idtype" formControlName="idType">
+              <option value="NRIC">NRIC (MyKad)</option>
+              <option value="Passport">Passport</option>
+            </select>
+            <small class="field-hint">{{ isPassport ? 'For non-Malaysian employees' : 'Malaysian citizens and PR' }}</small>
+          </div>
+
+        </div>
+
+        <div class="form-row">
+
+          <!-- NRIC / Passport number -->
+          <div class="form-group">
+            <label for="emp-id">{{ isPassport ? 'Passport No.' : 'NRIC No.' }} <span class="req">*</span></label>
+            <input id="emp-id" type="text" formControlName="icPassport" (input)="onIdInput()"
+              [attr.inputmode]="isPassport ? 'text' : 'numeric'"
+              [attr.maxlength]="isPassport ? 10 : 12"
+              [placeholder]="isPassport ? 'e.g. A12345678 (8–10 letters/numbers)' : 'e.g. 900101141234 (12 digits)'"
+              [class.is-invalid]="f['icPassport'].invalid && f['icPassport'].touched" />
+            @if (f['icPassport'].invalid && f['icPassport'].touched) {
+              <span class="field-error">{{ idError }}</span>
+            } @else {
+              <small class="field-hint">{{ isPassport ? 'Letters and numbers only' : 'Numbers only, without dashes' }}. Printed on payslips and the EA form.</small>
+            }
+          </div>
+
+          <!-- Country of the ID -->
+          <div class="form-group">
+            <label for="emp-country">Country @if (isPassport) { <span class="req">*</span> }</label>
+            <select id="emp-country" formControlName="idCountry"
+              [class.is-invalid]="f['idCountry'].invalid && f['idCountry'].touched">
+              @if (isPassport) { <option value="">— Select country —</option> }
+              @for (c of countries; track c.name) {
+                <option [value]="c.name">{{ c.name }}</option>
+              }
+            </select>
+            @if (f['idCountry'].invalid && f['idCountry'].touched) {
+              <span class="field-error">{{ f['idCountry'].errors?.['server'] || 'Select the passport\'s country' }}</span>
+            } @else {
+              <small class="field-hint">{{ isPassport ? 'Country that issued the passport' : 'Fixed to Malaysia for NRIC' }}</small>
+            }
           </div>
 
         </div>
