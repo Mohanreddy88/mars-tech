@@ -44,18 +44,18 @@
             <div class="form-group span-2">
               <label for="cs-legal">Legal name <span class="req">*</span></label>
               <input id="cs-legal" type="text" [(ngModel)]="form.legalName" maxlength="200"
-                     placeholder="e.g. ESYNC SOFTWARE SERVICES SDN. BHD." />
+                     placeholder="e.g. ABC TECHNOLOGIES SDN. BHD." />
               <small>Exactly as registered. Printed on payslips and EA forms.</small>
             </div>
             <div class="form-group">
               <label for="cs-display">Short name</label>
               <input id="cs-display" type="text" [(ngModel)]="form.displayName" maxlength="100"
-                     placeholder="e.g. Esync Software Services" />
+                     placeholder="e.g. ABC Technologies" />
               <small>Shown in the app and email signatures.</small>
             </div>
             <div class="form-group">
               <label for="cs-reg">SSM registration no.</label>
-              <input id="cs-reg" type="text" [(ngModel)]="form.registrationNo" maxlength="50" placeholder="e.g. 1158750-D" />
+              <input id="cs-reg" type="text" [(ngModel)]="form.registrationNo" maxlength="50" placeholder="e.g. 201901012345 (1234567-A)" />
             </div>
           </div>
         </section>
@@ -65,7 +65,7 @@
           <div class="grid">
             <div class="form-group">
               <label for="cs-etax">Employer tax no. (E number)</label>
-              <input id="cs-etax" type="text" [(ngModel)]="form.employerTaxNo" maxlength="50" placeholder="e.g. E 9145397208" />
+              <input id="cs-etax" type="text" [(ngModel)]="form.employerTaxNo" maxlength="50" placeholder="e.g. E 1234567890" />
             </div>
             <div class="form-group">
               <label for="cs-branch">LHDN branch</label>
@@ -92,7 +92,7 @@
             </div>
             <div class="form-group">
               <label for="cs-phone">Phone</label>
-              <input id="cs-phone" type="text" [(ngModel)]="form.phone" maxlength="50" placeholder="e.g. 03-5632 6915" />
+              <input id="cs-phone" type="text" [(ngModel)]="form.phone" maxlength="50" placeholder="e.g. 03-1234 5678" />
             </div>
             <div class="form-group">
               <label for="cs-web">Website</label>

@@ -13,16 +13,16 @@ public class CompanySettings
 
     public int Id { get; set; } = SingletonId;
 
-    /// <summary>Registered name, e.g. "ESYNC SOFTWARE SERVICES SDN. BHD." (payslips, EA form)</summary>
+    /// <summary>Registered name, e.g. "ABC TECHNOLOGIES SDN. BHD." (payslips, EA form)</summary>
     [MaxLength(200)] public string LegalName { get; set; } = "";
 
-    /// <summary>Short name for the UI and email signatures, e.g. "Esync Software Services"</summary>
+    /// <summary>Short name for the UI and email signatures, e.g. "ABC Technologies"</summary>
     [MaxLength(100)] public string DisplayName { get; set; } = "";
 
-    /// <summary>SSM company registration number, e.g. "1158750-D"</summary>
+    /// <summary>SSM company registration number, e.g. "201901012345 (1234567-A)"</summary>
     [MaxLength(50)] public string? RegistrationNo { get; set; }
 
-    /// <summary>LHDN employer tax number ("E" number), e.g. "E 9145397208" (EA form)</summary>
+    /// <summary>LHDN employer tax number ("E" number), e.g. "E 1234567890" (EA form)</summary>
     [MaxLength(50)] public string? EmployerTaxNo { get; set; }
 
     /// <summary>LHDN branch the employer files with, e.g. "SELANGOR" (EA form)</summary>
