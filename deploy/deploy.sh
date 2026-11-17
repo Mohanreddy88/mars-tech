@@ -7,6 +7,7 @@ docker network create web >/dev/null 2>&1 || true
 CADDY_BEFORE=$(sha1sum Caddyfile | cut -d' ' -f1)
 git -C .. pull --ff-only
 docker compose up -d --build
+bash ./wait-healthy.sh
 docker image prune -f >/dev/null
 
 # The Caddyfile is a bind-mounted file: after git replaces it, Caddy must be

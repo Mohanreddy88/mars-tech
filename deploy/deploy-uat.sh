@@ -6,6 +6,7 @@ cd "$(dirname "$0")"
 docker network create web >/dev/null 2>&1 || true
 git -C .. pull --ff-only
 docker compose -f docker-compose.uat.yml --env-file .env.uat up -d --build
+bash ./wait-healthy.sh -f docker-compose.uat.yml --env-file .env.uat
 docker image prune -f >/dev/null
 
 echo
