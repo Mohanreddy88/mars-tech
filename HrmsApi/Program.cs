@@ -199,30 +199,44 @@ builder.Services.AddSwaggerGen(c =>
 // ── Build ─────────────────────────────────────────────────
 var app = builder.Build();
 
-// ── Auto-run Database Migration on Startup (Railway) ─────
-// Apply migrations and seed data automatically
+// ── Database schema: EF Core migrations on startup ─────
+// PostgreSQL (VPS: production, UAT, every client): apply pending migrations from
+// HrmsApi/Migrations. If this fails the app stops, so it never runs against a
+// schema it doesn't match; the auto-deploy log then shows the failure.
+// SQL Server (local dev): migrations are PostgreSQL-specific, so keep the old
+// behaviour — EnsureCreated when DB_AUTO_CREATE=true, otherwise the SQL script.
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<HrmsDbContext>();
+    var logger  = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+    if (context.Database.IsNpgsql())
+    {
+        await DatabaseMigrator.BaselineLegacyDatabaseAsync(context, logger);
+        var pending = (await context.Database.GetPendingMigrationsAsync()).ToList();
+        logger.LogInformation(pending.Count == 0
+            ? "✅ Database schema up to date"
+            : $"🔄 Applying {pending.Count} migration(s): {string.Join(", ", pending)}");
+        await context.Database.MigrateAsync();
+    }
+    else if (Environment.GetEnvironmentVariable("DB_AUTO_CREATE") == "true")
+    {
+        var created = await context.Database.EnsureCreatedAsync();
+        logger.LogInformation(created ? "✅ Database schema created" : "ℹ️ Schema already present — skipped");
+    }
+}
+
+// ── Seed data (leave types, default admin) ─────
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     var logger = services.GetRequiredService<ILogger<Program>>();
-    
+
     try
     {
         var context = services.GetRequiredService<HrmsDbContext>();
-        
-        // Self-hosted (VPS) deployments: create the full schema from the EF model
-        // on a brand-new empty database. EnsureCreated is a no-op if any tables exist.
-        if (Environment.GetEnvironmentVariable("DB_AUTO_CREATE") == "true")
-        {
-            logger.LogInformation("🔄 DB_AUTO_CREATE=true — ensuring schema exists...");
-            var created = await context.Database.EnsureCreatedAsync();
-            logger.LogInformation(created ? "✅ Database schema created" : "ℹ️ Schema already present — skipped");
-        }
 
         logger.LogInformation("🔄 Checking database connection...");
-
-        // Skip migrations - tables were created via SQL script
-        // Just verify we can connect
         var canConnect = await context.Database.CanConnectAsync();
         if (!canConnect)
         {

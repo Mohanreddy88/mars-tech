@@ -29,7 +29,7 @@ and is excluded from the API csproj.
   old copy, so recreate Caddy manually in that case (`docker compose up -d --no-deps --force-recreate caddy`).
 - Backups: nightly 02:30 + pre-release, `/opt/hrms-backups`, 14 days.
 - Email: Hostinger SMTP (`smtp.hostinger.com:587`, `support@marstech.tech`) set via `SMTP_*` in the server `.env` files.
-  Email links use `FrontendUrl` (env `FRONTEND_URL`, defaults https://marstech.tech / https://uat.marstech.tech).
+  Email links use `FrontendUrl` (env `FRONTEND_URL`, defaults https://marshrms.com / https://uat.marshrms.com).
 - Server git clones use `core.fileMode=false` (scripts are chmod +x'd on the server).
 
 ## Secrets — the repo is PUBLIC
@@ -42,3 +42,19 @@ cd /opt/hrms/deploy && docker compose ps / logs -f app / logs -f caddy
 cd /opt/hrms-uat/deploy && docker compose -f docker-compose.uat.yml --env-file .env.uat logs -f app
 docker compose exec db psql -U hrms -d hrms        # prod DB shell
 ```
+
+## Database changes = EF Core migrations (PostgreSQL)
+The API applies pending migrations on startup (`Program.cs`, `Data/DatabaseMigrator.cs`), so every database —
+prod, UAT and each client — updates itself on deploy. A failed migration stops the app; `deploy/wait-healthy.sh`
+then marks the deploy FAILED (prod has a backup from just before). Never edit an applied migration; add a new one.
+Databases created before migrations existed are "baselined" automatically (InitialCreate recorded as applied).
+Migrations are PostgreSQL-only; local SQL Server dev still uses EnsureCreated (`DB_AUTO_CREATE=true`).
+
+After changing a model / `HrmsDbContext`, from `HrmsApi/` (bash):
+```bash
+dotnet tool restore
+UsePostgreSQL=true ConnectionStrings__DefaultConnection="Host=localhost;Database=design;Username=x;Password=x" \
+ASPNETCORE_ENVIRONMENT=Production JWT_SECRET_KEY=design-time-only-key-not-used-anywhere-1234567890 \
+dotnet ef migrations add <DescriptiveName>
+```
+Review the generated file (watch for drops/renames that lose data), commit it with the model change, push to `uat`.

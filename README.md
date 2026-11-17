@@ -40,6 +40,12 @@ code ──push──▶ uat branch ──auto (~5-10 min)──▶ uat.marstech
 If a build fails, the site keeps running the previous version; fix and push again.
 Logs: `ssh root@189.72.155.35 'tail -20 /var/log/hrms-prod-deploy.log'` (or `hrms-uat-deploy.log`).
 
+## Database changes
+Schema changes use **EF Core migrations**: every database (production, UAT, each client) is updated
+automatically when the new version starts. After changing a model, create a migration in `HrmsApi/`
+(exact command in [CLAUDE.md](CLAUDE.md#database-changes--ef-core-migrations-postgresql)), commit it, and push to `uat`.
+Never edit a migration that has already been released; add a new one.
+
 ## Server
 
 | Item | Value |

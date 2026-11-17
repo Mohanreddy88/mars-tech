@@ -12,7 +12,7 @@ All in Docker; DB is not exposed to the internet. Railway deployment is untouche
 | Code on server | `/opt/hrms` (clone of this repo) |
 | Secrets | `/opt/hrms/deploy/.env` on the server only — DB password, JWT key, SMTP password |
 | DNS | both domains: `A @`, `A www` (or `CNAME www`), `A uat` → `189.72.155.35`; Hostinger mail MX/SPF/DKIM records unchanged |
-| Email links | `FrontendUrl` (env `FRONTEND_URL` in `.env` / `.env.uat`) — default https://marstech.tech / https://uat.marstech.tech |
+| Email links | `FrontendUrl` (env `FRONTEND_URL` in `.env` / `.env.uat`) — default https://marshrms.com / https://uat.marshrms.com |
 | Email | Hostinger SMTP `smtp.hostinger.com:587` as `support@marstech.tech` |
 | HTTPS | Let's Encrypt via Caddy, renews automatically |
 | Firewall | ufw: SSH, 80, 443 only |

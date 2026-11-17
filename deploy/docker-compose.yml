@@ -34,7 +34,7 @@ services:
       UsePostgreSQL: "true"
       ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
       DB_AUTO_CREATE: "true"
-      FrontendUrl: ${FRONTEND_URL:-https://marstech.tech}   # base URL for links in emails (password reset)
+      FrontendUrl: ${FRONTEND_URL:-https://marshrms.com}   # base URL for links in emails (password reset)
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-}
