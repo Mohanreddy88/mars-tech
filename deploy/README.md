@@ -94,10 +94,22 @@ testers sign off on uat.marstech.tech → merge `uat` into `main` → `bash depl
 
 UAT logs: `cd /opt/hrms-uat/deploy && docker compose -f docker-compose.uat.yml --env-file .env.uat logs -f app`
 
-### UAT auto-deploy
-Every push to the `uat` branch is deployed automatically within ~2 minutes (+ build time, ~3-8 min).
-A cron job on the VPS runs `deploy/auto-deploy-uat.sh` every 2 minutes; it pulls and rebuilds only when
-`origin/uat` has a new commit. A failed commit is not retried until you push a newer one.
+### Auto-deploy (UAT and production)
+```
+push to uat ──auto──▶ uat.marstech.tech   (testers sign off)
+merge uat → main (manual approval) ──auto──▶ marstech.tech
+```
+A cron job on the VPS runs `deploy/auto-deploy.sh uat` and `deploy/auto-deploy.sh prod` every 2 minutes.
+Each checks its branch (`uat` / `main`) and rebuilds only when there is a new commit — changes go live in
+~5-10 minutes. Production takes a DB + uploads backup (`backup.sh`) before every deploy. Only one deploy
+runs at a time. A failed commit is not retried until you push a newer one; the site keeps running the
+previous version.
 
-- Log: `tail -f /var/log/hrms-uat-deploy.log`
-- Pause: `crontab -e` and comment out the `auto-deploy-uat.sh` line
+- Logs: `tail -f /var/log/hrms-uat-deploy.log` / `tail -f /var/log/hrms-prod-deploy.log`
+- Pause one: `crontab -e` and comment out its `auto-deploy.sh` line
+- Never push directly to `main` — merge from `uat` after testing.
+
+**Release:** `git checkout main && git merge uat && git push` (or merge a uat → main Pull Request on GitHub).
+
+**Roll back production:** `git revert` the bad commit on `main` and push (auto-deploys), or restore the DB
+backup taken just before the release (see Backups).
