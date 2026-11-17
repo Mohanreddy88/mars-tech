@@ -18,3 +18,17 @@ www.{$DOMAIN} {
 
 	reverse_proxy app:8080
 }
+
+# UAT environment (separate stack: deploy/docker-compose.uat.yml, branch "uat")
+uat.{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+
+	reverse_proxy uat-app:8080
+}

@@ -64,9 +64,16 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
+    networks:
+      - default
+      - web   # shared with the UAT stack so Caddy can reach uat-app
 
 volumes:
   pgdata:
   uploads:
   caddy_data:
   caddy_config:
+
+networks:
+  web:
+    external: true   # created by deploy.sh / deploy-uat.sh: docker network create web

@@ -74,3 +74,22 @@ docker compose exec db psql -U hrms -d hrms
 - **Build killed / out of memory** → confirm swap: `swapon --show`.
 - **App can't reach DB** → `docker compose logs db`; passwords in `.env` must not change after first start
   (Postgres keeps the original password in the `pgdata` volume).
+
+## UAT environment (https://uat.marstech.tech)
+Separate stack on the same VPS: own database, uploads and image. Deploys from the **`uat`** branch.
+
+| | Production | UAT |
+|---|---|---|
+| URL | https://marstech.tech | https://uat.marstech.tech |
+| Branch | `main` | `uat` |
+| Server folder | `/opt/hrms` | `/opt/hrms-uat` |
+| Compose | `docker-compose.yml` + `.env` | `docker-compose.uat.yml` + `.env.uat` |
+| Deploy | `bash deploy.sh` | `bash deploy-uat.sh` |
+
+DNS: `A uat → 189.72.155.35`. The production Caddy serves both sites; it reaches the UAT app over the
+shared Docker network `web` (alias `uat-app`). UAT pages send `X-Robots-Tag: noindex`.
+
+**Workflow:** push to `uat` → `ssh root@189.72.155.35 'cd /opt/hrms-uat/deploy && bash deploy-uat.sh'` →
+testers sign off on uat.marstech.tech → merge `uat` into `main` → `bash deploy.sh` in `/opt/hrms/deploy`.
+
+UAT logs: `cd /opt/hrms-uat/deploy && docker compose -f docker-compose.uat.yml --env-file .env.uat logs -f app`

@@ -3,6 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+docker network create web >/dev/null 2>&1 || true
 git -C .. pull --ff-only
 docker compose up -d --build
 docker image prune -f >/dev/null

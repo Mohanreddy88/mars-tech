@@ -1,0 +1,60 @@
+# HRMS UAT stack — separate DB, uploads and image from production.
+# Served at https://uat.<DOMAIN> by the production Caddy over the shared "web" network.
+# Run via:  bash deploy-uat.sh   (from /opt/hrms-uat/deploy, branch "uat")
+name: hrms-uat
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: Asia/Kuala_Lumpur
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: hrms-app:uat
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      UsePostgreSQL: "true"
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+      DB_AUTO_CREATE: "true"
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-HRMS Payroll UAT}
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM: ${RESEND_FROM:-}
+    volumes:
+      - uploads:/app/api/wwwroot/uploads
+    networks:
+      default:
+      web:
+        aliases: [uat-app]
+
+volumes:
+  pgdata:
+  uploads:
+
+networks:
+  web:
+    external: true
