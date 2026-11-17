@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 
-import { EmployeeService } from '../../../../core/services/employee.service';
+import { EmployeeService, EmployeeCreateResult } from '../../../../core/services/employee.service';
 import { DepartmentService, Department } from '../../../../core/services/department.service';
 import { BankService } from '../../../../core/services/bank.service';
 import { ToastService } from '../../../../core/services/toast.service';
@@ -171,10 +171,19 @@ export class EmployeeFormComponent implements OnInit {
     };
 
     // Shared success/error handlers
-    const onSuccess = () => {
+    const onSuccess = (res?: EmployeeCreateResult | void) => {
       this.saving = false;
       const action = this.isEdit ? 'Updated' : 'Created';
       this.toast.success(`Employee ${action}`, `${raw.name} has been ${action.toLowerCase()} successfully.`);
+      if (res && res.userCreated) {
+        if (res.welcomeEmailSent) {
+          this.toast.success('Login email sent', `Username ${res.username}. A "Set my password" link was emailed to ${res.email}.`);
+        } else {
+          this.toast.warning('Login email not sent', `Username ${res.username}. Use the envelope button in the employee list to send it again.`);
+        }
+      } else if (res && res.userAlreadyExists) {
+        this.toast.info('Existing login', `${res.email} already has a login, so no new account was created.`);
+      }
       this.router.navigate(['/employees']);
     };
     const onError = (err: any) => {

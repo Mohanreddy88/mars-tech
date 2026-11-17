@@ -34,8 +34,13 @@ export class EmployeeService {
     return this.http.get<Employee>(`${this.apiUrl}/${id}`);
   }
 
-  create(payload: EmployeeRequest): Observable<Employee> {
-    return this.http.post<Employee>(this.apiUrl, payload);
+  create(payload: EmployeeRequest): Observable<EmployeeCreateResult> {
+    return this.http.post<EmployeeCreateResult>(this.apiUrl, payload);
+  }
+
+  /** Email the employee a new "Set my password" link (creates their login if missing). */
+  sendWelcome(id: number): Observable<{ message: string; username: string; email: string; userCreated: boolean }> {
+    return this.http.post<{ message: string; username: string; email: string; userCreated: boolean }>(`${this.apiUrl}/${id}/send-welcome`, {});
   }
 
   update(id: number, payload: EmployeeRequest): Observable<void> {
@@ -59,4 +64,16 @@ export class EmployeeService {
   deleteProfilePicture(fileName: string): Observable<any> {
     return this.http.delete(`${environment.apiUrl}/fileupload/profile/${fileName}`);
   }
+}
+
+/** Response of POST /api/employees. */
+export interface EmployeeCreateResult {
+  message: string;
+  employeeCode: string;
+  id: number;
+  userCreated: boolean;
+  userAlreadyExists: boolean;
+  username: string | null;
+  welcomeEmailSent: boolean;
+  email: string;
 }

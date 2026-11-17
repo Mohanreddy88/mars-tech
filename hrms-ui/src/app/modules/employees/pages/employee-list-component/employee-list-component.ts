@@ -26,6 +26,7 @@ export class EmployeeListComponent implements OnInit {
   confirmModalVariant: 'danger' | 'warning' | 'info' = 'danger';
   pendingDeleteId: number | null = null;
   pendingDeleteName = '';
+  sendingId: number | null = null;   // employee whose login email is being sent
 
   constructor(
     private employeeService: EmployeeService,
@@ -67,6 +68,24 @@ export class EmployeeListComponent implements OnInit {
 
   addEmployee(): void { this.router.navigate(['/employees/add']); }
   editEmployee(id: number): void { this.router.navigate(['/employees/edit', id]); }
+
+  /** Email the employee a "Set my password" link (new login if they have none). */
+  sendLoginEmail(emp: Employee): void {
+    if (!emp.email) { this.toast.warning('No email', `${emp.name} has no email address.`); return; }
+    this.sendingId = emp.id;
+    this.employeeService.sendWelcome(emp.id).subscribe({
+      next: res => {
+        this.sendingId = null;
+        this.toast.success('Login email sent', `Username ${res.username}. A "Set my password" link was emailed to ${res.email}.`);
+        this.cdr.detectChanges();
+      },
+      error: err => {
+        this.sendingId = null;
+        this.toast.error('Login email not sent', err?.error?.message ?? 'Please try again.');
+        this.cdr.detectChanges();
+      }
+    });
+  }
 
   deleteEmployee(id: number, name: string): void {
     this.pendingDeleteId = id;

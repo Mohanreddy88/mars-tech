@@ -7,6 +7,8 @@ using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using System.Text.Json;
 using BCrypt.Net;
+using HrmsApi.Platform;
+using System.Security.Cryptography;
 
 namespace HrmsApi.Controllers;
 
@@ -18,12 +20,19 @@ public class EmployeesController : ControllerBase
     private readonly HrmsDbContext _db;
     private readonly IAuditService _audit;
     private readonly ILogger<EmployeesController> _logger;
+    private readonly IEmailQueue _emailQueue;
+    private readonly ICompanySettingsService _company;
+    private readonly ITenantContext _tenant;
 
-    public EmployeesController(HrmsDbContext db, IAuditService audit, ILogger<EmployeesController> logger)
+    public EmployeesController(HrmsDbContext db, IAuditService audit, ILogger<EmployeesController> logger,
+        IEmailQueue emailQueue, ICompanySettingsService company, ITenantContext tenant)
     {
         _db     = db;
         _audit  = audit;
         _logger = logger;
+        _emailQueue = emailQueue;
+        _company    = company;
+        _tenant     = tenant;
     }
 
     private string CurrentUser() => User.FindFirst(ClaimTypes.Name)?.Value ?? "system";
@@ -214,13 +223,12 @@ public class EmployeesController : ControllerBase
             });
         }
 
-        // Auto-create a User account for the employee
+        // Auto-create a login for the employee and email them a "Set my password" link.
         // Username = part of email before '@'  (e.g. "john.doe@company.com" → "john.doe")
         var userCreated = false;
         var userAlreadyExists = false;
-        var generatedUsername = emp.Email.Contains('@')
-            ? emp.Email.Split('@')[0].ToLower()
-            : emp.Email.ToLower();
+        var welcomeEmailSent = false;
+        var generatedUsername = UsernameFor(emp.Email);
 
         var existingUser = await _db.Users
             .FirstOrDefaultAsync(u => u.Email.ToLower() == emp.Email.ToLower()
@@ -230,19 +238,11 @@ public class EmployeesController : ControllerBase
         {
             try
             {
-                var newUser = new User
-                {
-                    Username           = generatedUsername,
-                    Email              = emp.Email,
-                    PasswordHash       = BCrypt.Net.BCrypt.HashPassword("Employee@123"),
-                    Role               = "Employee",
-                    IsActive           = true,
-                    CreatedAt          = DateTime.UtcNow,
-                    MustChangePassword = true   // force password change on first login
-                };
+                var newUser = NewEmployeeUser(emp.Email, generatedUsername);
                 _db.Users.Add(newUser);
                 await _db.SaveChangesAsync();
                 userCreated = true;
+                welcomeEmailSent = await SendWelcomeAsync(newUser, emp.Name);
             }
             catch (Exception ex)
             {
@@ -271,8 +271,100 @@ public class EmployeesController : ControllerBase
             userCreated,
             userAlreadyExists,
             username     = userCreated ? generatedUsername : null,
-            defaultPassword = userCreated ? "Employee@123" : null
+            welcomeEmailSent,
+            email        = emp.Email
         });
+    }
+
+    /// <summary>
+    /// POST /api/employees/{id}/send-welcome
+    /// Emails the employee a new "Set my password" link (creates their login if it is missing).
+    /// Use when the first link expired or the email was lost. Their current password keeps working
+    /// until they use the link.
+    /// </summary>
+    [HttpPost("{id:int}/send-welcome")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> SendWelcome(int id)
+    {
+        var emp = await _db.Employees.FindAsync(id)
+            ?? throw new KeyNotFoundException($"Employee {id} not found.");
+        if (string.IsNullOrWhiteSpace(emp.Email) || !emp.Email.Contains('@'))
+            return BadRequest(new { message = "This employee has no valid email address." });
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == emp.Email.ToLower());
+        var created = false;
+        if (user == null)
+        {
+            var username = UsernameFor(emp.Email);
+            if (await _db.Users.AnyAsync(u => u.Username.ToLower() == username))
+                return BadRequest(new { message = $"The username \"{username}\" is already used by another login. Change it under Master → Users." });
+            user = NewEmployeeUser(emp.Email, username);
+            _db.Users.Add(user);
+            await _db.SaveChangesAsync();
+            created = true;
+        }
+        if (!user.IsActive)
+            return BadRequest(new { message = "This login is deactivated. Activate it under Master → Users first." });
+
+        var sent = await SendWelcomeAsync(user, emp.Name);
+        if (!sent) return StatusCode(500, new { message = "The email could not be queued. Please try again." });
+
+        await _audit.LogAsync(
+            action:      "Updated",
+            entityType:  "Employee",
+            entityId:    emp.Id.ToString(),
+            description: $"Sent login email to {emp.Name} ({user.Email})" + (created ? $" and created user account ({user.Username})" : ""),
+            username:    CurrentUser(),
+            userId:      CurrentUserId(),
+            ipAddress:   HttpContext.Connection.RemoteIpAddress?.ToString());
+
+        return Ok(new { message = $"Login email sent to {user.Email}.", username = user.Username, email = user.Email, userCreated = created });
+    }
+
+    private static string UsernameFor(string email) =>
+        (email.Contains('@') ? email.Split('@')[0] : email).ToLower();
+
+    /// <summary>
+    /// New employee login. Its password is random and never shown to anyone: the employee
+    /// chooses their own through the "Set my password" link in the welcome email.
+    /// </summary>
+    private static User NewEmployeeUser(string email, string username) => new()
+    {
+        Username           = username,
+        Email              = email,
+        PasswordHash       = BCrypt.Net.BCrypt.HashPassword(Convert.ToHexString(RandomNumberGenerator.GetBytes(32))),
+        Role               = "Employee",
+        IsActive           = true,
+        CreatedAt          = DateTime.UtcNow,
+        MustChangePassword = true
+    };
+
+    /// <summary>Gives the user a 7-day set-password token and queues the welcome email.</summary>
+    private async Task<bool> SendWelcomeAsync(User user, string? personName)
+    {
+        try
+        {
+            var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+            user.PasswordResetToken       = BCrypt.Net.BCrypt.HashPassword(token);
+            user.PasswordResetTokenExpiry = DateTime.UtcNow.Add(AccountEmails.WelcomeLinkLifetime);
+            await _db.SaveChangesAsync();
+
+            var company = await _company.GetAsync();
+            var url     = _tenant.FrontendUrl;   // this company's own address
+            _emailQueue.Enqueue(new EmailJob
+            {
+                ToEmail = user.Email,
+                Subject = $"Your {company.NameForDisplay} HR & Payroll login",
+                Body    = AccountEmails.Welcome(company.NameForDisplay, personName, url, user.Username,
+                              AccountEmails.SetPasswordLink(url, token, user.Email), company.BrandColor, "employee")
+            });
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Could not queue welcome email for {Email}", user.Email);
+            return false;
+        }
     }
 
     /// <summary>

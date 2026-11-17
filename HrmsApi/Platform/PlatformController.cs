@@ -163,7 +163,7 @@ public class PlatformController : ControllerBase
                     IsActive                 = true,
                     MustChangePassword       = true,
                     PasswordResetToken       = BCrypt.Net.BCrypt.HashPassword(resetToken),
-                    PasswordResetTokenExpiry = DateTime.UtcNow.AddDays(7),
+                    PasswordResetTokenExpiry = DateTime.UtcNow.Add(AccountEmails.WelcomeLinkLifetime),
                 });
                 await company.SaveChangesAsync();
             }
@@ -187,13 +187,13 @@ public class PlatformController : ControllerBase
         var emailQueued = false;
         if (req.SendWelcomeEmail)
         {
-            var link = $"{url}/reset-password?token={resetToken}&email={Uri.EscapeDataString(req.AdminEmail.Trim())}";
+            var link = AccountEmails.SetPasswordLink(url, resetToken, req.AdminEmail.Trim());
             _email.Enqueue(new EmailJob
             {
                 TenantSlug = slug,
                 ToEmail    = req.AdminEmail.Trim(),
                 Subject    = $"Your HR & Payroll system for {displayName} is ready",
-                Body       = WelcomeEmail(displayName, req.AdminName, url, req.AdminUsername.Trim(), link)
+                Body       = AccountEmails.Welcome(displayName, req.AdminName, url, req.AdminUsername.Trim(), link, req.BrandColor, "administrator")
             });
             emailQueued = true;
         }
@@ -410,25 +410,6 @@ public class PlatformController : ControllerBase
         var groups = Enumerable.Range(0, 3).Select(_ =>
             new string(Enumerable.Range(0, 4).Select(_ => chars[RandomNumberGenerator.GetInt32(chars.Length)]).ToArray()));
         return string.Join('-', groups);
-    }
-
-    private static string WelcomeEmail(string company, string? adminName, string url, string username, string link)
-    {
-        string E(string? s) => WebUtility.HtmlEncode(s ?? "");
-        var greeting = string.IsNullOrWhiteSpace(adminName) ? "Hello" : $"Hello {E(adminName)}";
-        return $@"<!DOCTYPE html><html><body style=""font-family:Arial,sans-serif;line-height:1.6;color:#1f2937;"">
-<div style=""max-width:560px;margin:0 auto;padding:24px;"">
-  <h2 style=""margin:0 0 12px;color:#0f766e;"">Your HR &amp; Payroll system is ready</h2>
-  <p>{greeting},</p>
-  <p>The HR &amp; Payroll system for <strong>{E(company)}</strong> has been set up, and you are its administrator.</p>
-  <table style=""border-collapse:collapse;margin:12px 0;"">
-    <tr><td style=""padding:4px 16px 4px 0;color:#6b7280;"">Web address</td><td><a href=""{E(url)}"">{E(url)}</a></td></tr>
-    <tr><td style=""padding:4px 16px 4px 0;color:#6b7280;"">Username</td><td><strong>{E(username)}</strong></td></tr>
-  </table>
-  <p>Choose your password to get started:</p>
-  <p><a href=""{E(link)}"" style=""display:inline-block;background:#0f766e;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;"">Set my password</a></p>
-  <p style=""font-size:13px;color:#6b7280;"">This link works for 7 days. After that, use “Forgot password?” on the login page.</p>
-</div></body></html>";
     }
 
     private async Task Audit(string action, string? slug, string? details, string? actor = null)
