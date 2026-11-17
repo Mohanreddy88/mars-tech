@@ -20,7 +20,7 @@ hPanel → VPS → OS & Panel → **Ubuntu 24.04 (plain OS)**. Note the root pas
 ssh root@<VPS IP>
 git clone https://github.com/Mohanreddy88/mars-tech.git /opt/hrms
 bash /opt/hrms/deploy/setup-vps.sh      # installs Docker, firewall, swap, generates .env
-nano /opt/hrms/deploy/.env              # set ACME_EMAIL + SMTP/Brevo settings
+nano /opt/hrms/deploy/.env              # optional: SMTP/Brevo email settings
 cd /opt/hrms/deploy && bash deploy.sh   # builds & starts (first build ~5-10 min)
 ```
 > The repo is public, so no token is needed. **Never commit `deploy/.env` or `HrmsApi/appsettings.Development.json`** (both are git-ignored).

@@ -46,7 +46,7 @@ if [ ! -f .env ]; then
   sed -i "s|^JWT_SECRET_KEY=.*|JWT_SECRET_KEY=$(openssl rand -base64 64 | tr -d '\n/+=')|" .env
   chmod 600 .env
   echo
-  echo "!! Edit $APP_DIR/deploy/.env now (ACME_EMAIL + email/SMTP settings), then run:"
+  echo "!! Edit $APP_DIR/deploy/.env now (optional email/SMTP settings), then run:"
   echo "   cd $APP_DIR/deploy && bash deploy.sh"
   exit 0
 fi

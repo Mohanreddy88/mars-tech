@@ -1,6 +1,4 @@
-{
-	email {$ACME_EMAIL}
-}
+# HTTPS certificates are issued and renewed automatically by Caddy (Let's Encrypt).
 
 # www → apex
 www.{$DOMAIN} {
