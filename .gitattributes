@@ -1,0 +1,6 @@
+# Shell scripts and server configs must keep LF line endings or they fail on Linux
+*.sh       text eol=lf
+Caddyfile  text eol=lf
+*.conf     text eol=lf
+*.yml      text eol=lf
+.env*      text eol=lf

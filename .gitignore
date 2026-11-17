@@ -1,0 +1,24 @@
+# Build output
+bin/
+obj/
+dist/
+.angular/
+node_modules/
+
+# IDE
+.vs/
+.vscode/
+*.user
+
+# Secrets — never commit (repo is public)
+deploy/.env
+HrmsApi/appsettings.Development.json
+
+# Logs / scratch files
+*.log
+api_log.txt
+hrms-ui/build-errors.txt
+hrms-ui/build-output.txt
+hrms-ui/build_errors.txt
+hrms-ui/errors.txt
+HrmsApi/$null

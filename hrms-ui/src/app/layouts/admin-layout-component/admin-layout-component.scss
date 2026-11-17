@@ -1,0 +1,26 @@
+.layout-container {
+  display: flex;
+  height: 100vh;
+  // overflow:hidden removed — it was trapping position:fixed modals inside a stacking context
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #f5f7fb;
+  min-width: 0;
+  overflow-y: auto;  // scroll here instead of page-content so fixed modals escape correctly
+}
+
+.page-content {
+  flex: 1;
+  // overflow removed — scrolling handled by .main-content
+}
+
+// Mobile responsive
+@media (max-width: 768px) {
+  .layout-container {
+    flex-direction: column;
+  }
+}

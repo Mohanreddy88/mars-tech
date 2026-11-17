@@ -1,0 +1,12 @@
+**/bin
+**/obj
+**/node_modules
+**/dist
+**/.angular
+.git
+.vs
+deploy/.env
+HrmsApi/HrmsApi.Tests
+HrmsApi/appsettings.Development.json
+HrmsApi/api_log.txt
+**/*.log
