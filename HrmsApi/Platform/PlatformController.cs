@@ -242,10 +242,13 @@ public class PlatformController : ControllerBase
     [HttpPost("tenants/{slug}/activate")]
     public Task<IActionResult> Activate(string slug) => SetStatus(slug, TenantStatus.Active);
 
-    // GET api/platform/tenants/{slug}/logo — for the portal list
+    // GET api/platform/tenants/{slug}/logo — for the portal list and Edit panel.
+    // No login: <img> tags don't send the token, and logos are public on each company's login page anyway.
+    [AllowAnonymous]
     [HttpGet("tenants/{slug}/logo")]
     public async Task<IActionResult> GetLogo(string slug)
     {
+        Response.Headers.CacheControl = "public, max-age=86400"; // URL carries ?v=<updated>
         var tenant = await _db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Slug == slug);
         if (tenant == null) return NotFound();
         await using var company = OpenCompany(tenant);
