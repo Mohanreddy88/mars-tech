@@ -3,6 +3,26 @@
 Stack: **Caddy** (HTTPS, auto Let's Encrypt) → **app** (nginx + Angular + .NET API) → **PostgreSQL 16**.
 All in Docker; DB is not exposed to the internet. Railway deployment is untouched.
 
+## Live server (deployed 2026-11-17)
+| Item | Value |
+|------|-------|
+| Site | https://marstech.tech (`www` redirects to apex) |
+| VPS | Hostinger KVM 2 — `189.72.155.35`, Ubuntu 22.04, 2 vCPU / 8 GB / 100 GB, 4 GB swap |
+| SSH | `ssh root@189.72.155.35` (key-based; add keys in hPanel → VPS → SSH keys) |
+| Code on server | `/opt/hrms` (clone of this repo) |
+| Secrets | `/opt/hrms/deploy/.env` on the server only — DB password, JWT key, SMTP password |
+| DNS | `A @ → 189.72.155.35`; `CNAME www → marstech.tech`; Hostinger mail MX/SPF/DKIM records unchanged |
+| Email | Hostinger SMTP `smtp.hostinger.com:587` as `support@marstech.tech` |
+| HTTPS | Let's Encrypt via Caddy, renews automatically |
+| Firewall | ufw: SSH, 80, 443 only |
+| Backups | cron 02:30 daily → `/opt/hrms-backups` (14 days) |
+
+**Deploy an update:** push to `main`, then `ssh root@189.72.155.35 'cd /opt/hrms/deploy && bash deploy.sh'`
+
+**Change the email password:** edit `SMTP_PASSWORD='...'` in `/opt/hrms/deploy/.env` (keep the single quotes), then `docker compose up -d app`.
+
+The sections below describe how this server was set up, for rebuilding it from scratch.
+
 ## 1. DNS (Hostinger hPanel → Domains → marstech.tech → DNS / Nameservers)
 | Type | Name | Points to        | TTL |
 |------|------|------------------|-----|
