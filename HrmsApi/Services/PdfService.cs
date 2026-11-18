@@ -52,6 +52,7 @@ public class PdfService : IPdfService
         decimal ytdAllow  = ytdPayrolls.Sum(p => p.Allowances);
         decimal ytdEpf    = ytdPayrolls.Sum(p => p.EpfAmount);
         decimal ytdSocso  = ytdPayrolls.Sum(p => p.SocsoAmount);
+        decimal ytdEis    = ytdPayrolls.Sum(p => p.EisAmount);
         decimal ytdTax    = ytdPayrolls.Sum(p => p.TaxAmount);
         decimal ytdDed    = ytdPayrolls.Sum(p => p.Deductions);
         decimal ytdGross  = ytdPayrolls.Sum(p => p.GrossIncome);
@@ -229,9 +230,13 @@ public class PdfService : IPdfService
 
                         void ER() { IR("", null, null); } // empty income row
 
-                        // Employer EPF (13%)
-                        var empEpf   = Math.Round(payroll.BasicSalary * 0.13m, 2);
-                        var empSocso = Math.Round(payroll.BasicSalary * 0.0175m, 2);
+                        // Employer contributions: stored on the payroll from the statutory rates
+                        // in force that month. Payrolls generated before rates were configurable
+                        // have none stored, so show the figures the payslip always used for them.
+                        var hasStoredRates = payroll.StatutoryRateSetId.HasValue;
+                        var empEpf   = hasStoredRates ? payroll.EpfEmployerAmount   : Math.Round(payroll.BasicSalary * 0.13m, 2);
+                        var empSocso = hasStoredRates ? payroll.SocsoEmployerAmount : Math.Round(payroll.BasicSalary * 0.0175m, 2);
+                        var empEis   = payroll.EisEmployerAmount;
 
                         // ── Data rows ─────────────────────────────────────
                         IR("BASIC PAY",            payroll.BasicSalary, ytdBasic + payroll.BasicSalary);
@@ -248,13 +253,14 @@ public class PdfService : IPdfService
                         DR("Other Deductions",     otherDedTotal > 0 ? otherDedTotal : null,
                                                    otherDedTotal > 0 ? ytdDed + otherDedTotal : null);
                         ER();
-                        DR("",                     null, null);
+                        DR("EIS",                  payroll.EisAmount > 0 ? payroll.EisAmount : null,
+                                                   payroll.EisAmount > 0 ? ytdEis + payroll.EisAmount : null);
                         ER();
                         DR("Employer EPF",         empEpf,   null);
                         ER();
                         DR("Employer SOCSO",       empSocso, null);
                         ER();
-                        DR("",                     null, null);
+                        DR(empEis > 0 ? "Employer EIS" : "", empEis > 0 ? empEis : null, null);
                         ER();
                         DR("Gross Income",         payroll.GrossIncome, ytdGross + payroll.GrossIncome, true);
                         ER();
@@ -355,6 +361,7 @@ public class PdfService : IPdfService
         var totalAllowances = payrolls.Sum(p => p.Allowances);
         var totalEpf        = payrolls.Sum(p => p.EpfAmount);
         var totalSocso      = payrolls.Sum(p => p.SocsoAmount);
+        var totalEis        = payrolls.Sum(p => p.EisAmount);   // EIS is also paid to PERKESO
         var totalTax        = payrolls.Sum(p => p.TaxAmount);
         var totalDeductions = payrolls.Sum(p => p.Deductions);
 
@@ -623,11 +630,11 @@ public class PdfService : IPdfService
                             // SOCSO row
                             t.Cell().PaddingVertical(2).PaddingLeft(4).Text(t2 =>
                             {
-                                t2.Span("2.  SOCSO: ").Bold();
+                                t2.Span(totalEis > 0 ? "2.  SOCSO and EIS: " : "2.  SOCSO: ").Bold();
                                 t2.Span("Contribution amount that must be paid (specify the employee's share only)");
                             });
                             t.Cell().PaddingVertical(2).AlignRight().PaddingRight(4)
-                                .Text($"RM  {Amt(totalSocso)}").Bold();
+                                .Text($"RM  {Amt(totalSocso + totalEis)}").Bold();
                         });
                     });
 

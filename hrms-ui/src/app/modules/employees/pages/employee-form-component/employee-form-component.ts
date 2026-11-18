@@ -109,7 +109,10 @@ export class EmployeeFormComponent implements OnInit {
       bankId:         [null],  // FK to BankMaster
       accountNumber:  [''],    // Bank account number
       profilePicture: [''],    // Profile picture URL/path
-      gender:         ['']     // Male / Female / Other
+      gender:         [''],    // Male / Female / Other
+      // Optional EPF rates for this employee only (empty = company rate from Statutory Rates)
+      epfEmployeeRateOverride: [null as number | null, [Validators.min(0), Validators.max(100)]],
+      epfEmployerRateOverride: [null as number | null, [Validators.min(0), Validators.max(100)]]
     });
 
     // NRIC ↔ Passport: switch the number rules and the country field
@@ -134,6 +137,11 @@ export class EmployeeFormComponent implements OnInit {
 
   /** Convenience getter for easy template access to form controls */
   get f() { return this.form.controls; }
+
+  /** Empty EPF override field = use the company rate (null). */
+  private optionalRate(v: unknown): number | null {
+    return v === null || v === undefined || v === '' || isNaN(+v) ? null : +v;
+  }
 
   /**
    * Loads the active department list from the API.
@@ -229,7 +237,9 @@ export class EmployeeFormComponent implements OnInit {
       bankId:         raw.bankId         ?? null,
       accountNumber:  raw.accountNumber  ?? '',
       profilePicture: raw.profilePicture ?? '',
-      gender:         raw.gender         ?? ''
+      gender:         raw.gender         ?? '',
+      epfEmployeeRateOverride: this.optionalRate(raw.epfEmployeeRateOverride),
+      epfEmployerRateOverride: this.optionalRate(raw.epfEmployerRateOverride)
     };
 
     // Shared success/error handlers

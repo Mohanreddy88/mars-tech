@@ -15,6 +15,7 @@ export interface DepartmentPayrollSummary {
     totalNet: number;
     totalEpf: number;
     totalSocso: number;
+    totalEis?: number;
     totalTax: number;
     totalDeductions: number;
     averageSalary: number;
@@ -25,6 +26,7 @@ export interface DepartmentPayrollSummary {
     totalNet: number;
     totalEpf: number;
     totalSocso: number;
+    totalEis?: number;
     totalTax: number;
     totalDeductions: number;
   };

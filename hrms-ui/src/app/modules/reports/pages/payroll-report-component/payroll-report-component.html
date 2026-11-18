@@ -65,7 +65,7 @@
           <i class="bi bi-receipt"></i>
         </div>
         <div class="stat-details">
-          <h3>RM {{ reportData.totals.totalEpf + reportData.totals.totalSocso + reportData.totals.totalTax | number:'1.2-2' }}</h3>
+          <h3>RM {{ reportData.totals.totalEpf + reportData.totals.totalSocso + (reportData.totals.totalEis || 0) + reportData.totals.totalTax | number:'1.2-2' }}</h3>
           <p>Total Deductions</p>
         </div>
       </div>
@@ -82,7 +82,7 @@
               <th>Employees</th>
               <th>Gross Income</th>
               <th>EPF</th>
-              <th>SOCSO</th>
+              <th>{{ reportData.totals.totalEis ? 'SOCSO + EIS' : 'SOCSO' }}</th>
               <th>Tax</th>
               <th>Deductions</th>
               <th>Net Salary</th>
@@ -95,7 +95,7 @@
               <td>{{ dept.employeeCount }}</td>
               <td>RM {{ dept.totalGross | number:'1.2-2' }}</td>
               <td>RM {{ dept.totalEpf | number:'1.2-2' }}</td>
-              <td>RM {{ dept.totalSocso | number:'1.2-2' }}</td>
+              <td>RM {{ dept.totalSocso + (dept.totalEis || 0) | number:'1.2-2' }}</td>
               <td>RM {{ dept.totalTax | number:'1.2-2' }}</td>
               <td>RM {{ dept.totalDeductions | number:'1.2-2' }}</td>
               <td class="net-amount">RM {{ dept.totalNet | number:'1.2-2' }}</td>
@@ -108,7 +108,7 @@
               <td><strong>{{ reportData.totals.totalEmployees }}</strong></td>
               <td><strong>RM {{ reportData.totals.totalGross | number:'1.2-2' }}</strong></td>
               <td><strong>RM {{ reportData.totals.totalEpf | number:'1.2-2' }}</strong></td>
-              <td><strong>RM {{ reportData.totals.totalSocso | number:'1.2-2' }}</strong></td>
+              <td><strong>RM {{ reportData.totals.totalSocso + (reportData.totals.totalEis || 0) | number:'1.2-2' }}</strong></td>
               <td><strong>RM {{ reportData.totals.totalTax | number:'1.2-2' }}</strong></td>
               <td><strong>RM {{ reportData.totals.totalDeductions | number:'1.2-2' }}</strong></td>
               <td><strong>RM {{ reportData.totals.totalNet | number:'1.2-2' }}</strong></td>

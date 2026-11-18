@@ -40,6 +40,15 @@ public class EmployeesController : ControllerBase
     private string CurrentUser() => User.FindFirst(ClaimTypes.Name)?.Value ?? "system";
     private int?   CurrentUserId() { var v = User.FindFirst(ClaimTypes.NameIdentifier)?.Value; return int.TryParse(v, out var id) ? id : null; }
 
+    /// <summary>Optional per-employee EPF rates must be valid percentages.</summary>
+    private static string? EpfOverrideError(EmployeeRequest req)
+    {
+        static bool Bad(decimal? v) => v is < 0 or > 100;
+        if (Bad(req.EpfEmployeeRateOverride)) return "EPF employee rate must be between 0 and 100%.";
+        if (Bad(req.EpfEmployerRateOverride)) return "EPF employer rate must be between 0 and 100%.";
+        return null;
+    }
+
     /// <summary>
     /// GET /api/employees
     /// Returns all employees with their department name and bank name for display in list/dropdown.
@@ -61,7 +70,8 @@ public class EmployeesController : ControllerBase
                 e.BankId, e.AccountNumber,
                 BankName = e.Bank != null ? e.Bank.Name : null,
                 e.Gender,
-                e.PhoneCountryCode, e.IdType, e.IcPassport, e.IdCountry, e.TaxNumber, e.ProfilePicture, e.DateOfBirth
+                e.PhoneCountryCode, e.IdType, e.IcPassport, e.IdCountry, e.TaxNumber, e.ProfilePicture, e.DateOfBirth,
+                e.EpfEmployeeRateOverride, e.EpfEmployerRateOverride
             })
             .ToListAsync();
 
@@ -96,7 +106,8 @@ public class EmployeesController : ControllerBase
                 e.BankId, e.AccountNumber,
                 BankName = e.Bank != null ? e.Bank.Name : null,
                 e.Gender,
-                e.PhoneCountryCode, e.IdType, e.IcPassport, e.IdCountry, e.TaxNumber, e.ProfilePicture, e.DateOfBirth
+                e.PhoneCountryCode, e.IdType, e.IcPassport, e.IdCountry, e.TaxNumber, e.ProfilePicture, e.DateOfBirth,
+                e.EpfEmployeeRateOverride, e.EpfEmployerRateOverride
             })
             .ToListAsync();
 
@@ -130,7 +141,8 @@ public class EmployeesController : ControllerBase
                 e.BankId, e.AccountNumber,
                 BankName = e.Bank != null ? e.Bank.Name : null,
                 e.Gender,
-                e.PhoneCountryCode, e.IdType, e.IcPassport, e.IdCountry, e.TaxNumber, e.ProfilePicture, e.DateOfBirth
+                e.PhoneCountryCode, e.IdType, e.IcPassport, e.IdCountry, e.TaxNumber, e.ProfilePicture, e.DateOfBirth,
+                e.EpfEmployeeRateOverride, e.EpfEmployerRateOverride
             })
             .FirstOrDefaultAsync()
             ?? throw new KeyNotFoundException($"Employee {id} not found.");
@@ -147,6 +159,7 @@ public class EmployeesController : ControllerBase
     {
         var (id, idField, idError) = EmployeeIdentity.Check(req);
         if (id == null) return BadRequest(new { message = idError, field = idField });
+        if (EpfOverrideError(req) is { } epfErr) return BadRequest(new { message = epfErr, field = "epf" });
 
         // One email = one employee (the login is linked by email)
         var email = (req.Email ?? "").Trim();
@@ -221,7 +234,9 @@ public class EmployeesController : ControllerBase
             IsActive       = req.IsActive,
             BankId         = req.BankId,
             AccountNumber  = req.AccountNumber,
-            Gender         = req.Gender ?? string.Empty
+            Gender         = req.Gender ?? string.Empty,
+            EpfEmployeeRateOverride = req.EpfEmployeeRateOverride,
+            EpfEmployerRateOverride = req.EpfEmployerRateOverride
         };
 
         _db.Employees.Add(emp);
@@ -350,6 +365,7 @@ public class EmployeesController : ControllerBase
     {
         var (ident, idField, idError) = EmployeeIdentity.Check(req);
         if (ident == null) return BadRequest(new { message = idError, field = idField });
+        if (EpfOverrideError(req) is { } epfErr) return BadRequest(new { message = epfErr, field = "epf" });
 
         var emp = await _db.Employees.FindAsync(id)
             ?? throw new KeyNotFoundException($"Employee {id} not found.");
@@ -406,6 +422,8 @@ public class EmployeesController : ControllerBase
         emp.BankId         = req.BankId;
         emp.AccountNumber  = req.AccountNumber;
         emp.Gender         = req.Gender ?? string.Empty;
+        emp.EpfEmployeeRateOverride = req.EpfEmployeeRateOverride;
+        emp.EpfEmployerRateOverride = req.EpfEmployerRateOverride;
 
         await _db.SaveChangesAsync();
 

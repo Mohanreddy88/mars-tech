@@ -115,7 +115,7 @@
             <span *ngIf="p.attendanceHours === undefined" class="text-muted">—</span>
           </td>
           <td class="amount">RM {{ p.grossIncome | number:'1.2-2' }}</td>
-          <td class="amount negative">-RM {{ p.epfAmount + p.socsoAmount + p.taxAmount + p.deductions | number:'1.2-2' }}</td>
+          <td class="amount negative">-RM {{ p.epfAmount + p.socsoAmount + (p.eisAmount || 0) + p.taxAmount + p.deductions | number:'1.2-2' }}</td>
           <td class="amount net">RM {{ p.netSalary | number:'1.2-2' }}</td>
           <td class="date-cell">{{ p.generatedOn | date:'dd/MM/yyyy' }}</td>
           <td>
@@ -188,11 +188,22 @@
           <div class="breakdown-item"><span class="label">Basic Salary</span><span class="value">RM {{ selectedPayroll.basicSalary | number:'1.2-2' }}</span></div>
           <div class="breakdown-item"><span class="label">Allowances</span><span class="value">RM {{ selectedPayroll.allowances | number:'1.2-2' }}</span></div>
           <div class="breakdown-item total"><span class="label">Gross Income</span><span class="value">RM {{ selectedPayroll.grossIncome | number:'1.2-2' }}</span></div>
-          <div class="breakdown-item"><span class="label">EPF (2%)</span><span class="value negative">-RM {{ selectedPayroll.epfAmount | number:'1.2-2' }}</span></div>
+          <div class="breakdown-item"><span class="label">EPF{{ selectedPayroll.epfEmployeeRate != null ? ' (' + selectedPayroll.epfEmployeeRate + '%)' : '' }}</span><span class="value negative">-RM {{ selectedPayroll.epfAmount | number:'1.2-2' }}</span></div>
           <div class="breakdown-item"><span class="label">SOCSO</span><span class="value negative">-RM {{ selectedPayroll.socsoAmount | number:'1.2-2' }}</span></div>
+          <div class="breakdown-item" *ngIf="selectedPayroll.eisAmount"><span class="label">EIS</span><span class="value negative">-RM {{ selectedPayroll.eisAmount | number:'1.2-2' }}</span></div>
           <div class="breakdown-item"><span class="label">Tax (PCB)</span><span class="value negative">-RM {{ selectedPayroll.taxAmount | number:'1.2-2' }}</span></div>
           <div class="breakdown-item"><span class="label">Other Deductions</span><span class="value negative">-RM {{ selectedPayroll.deductions | number:'1.2-2' }}</span></div>
           <div class="breakdown-item net-salary"><span class="label">Net Salary</span><span class="value">RM {{ selectedPayroll.netSalary | number:'1.2-2' }}</span></div>
+        </div>
+      </div>
+
+      <div class="detail-section" *ngIf="selectedPayroll.statutoryRateSetName">
+        <h5><i class="bi bi-building"></i> Employer Contributions</h5>
+        <div class="breakdown-grid">
+          <div class="breakdown-item"><span class="label">EPF ({{ selectedPayroll.epfEmployerRate }}%)</span><span class="value">RM {{ selectedPayroll.epfEmployerAmount | number:'1.2-2' }}</span></div>
+          <div class="breakdown-item"><span class="label">SOCSO</span><span class="value">RM {{ selectedPayroll.socsoEmployerAmount | number:'1.2-2' }}</span></div>
+          <div class="breakdown-item" *ngIf="selectedPayroll.eisEmployerAmount"><span class="label">EIS</span><span class="value">RM {{ selectedPayroll.eisEmployerAmount | number:'1.2-2' }}</span></div>
+          <div class="breakdown-item"><span class="label">Rates used</span><span class="value">{{ selectedPayroll.statutoryRateSetName }}</span></div>
         </div>
       </div>
 

@@ -11,7 +11,15 @@ export interface Payroll {
   deductions: number;
   epfAmount: number;
   socsoAmount: number;
+  eisAmount?: number;
   taxAmount: number;
+  // Employer contributions and the rates used (from Master → Statutory Rates)
+  epfEmployerAmount?: number;
+  socsoEmployerAmount?: number;
+  eisEmployerAmount?: number;
+  epfEmployeeRate?: number | null;
+  epfEmployerRate?: number | null;
+  statutoryRateSetName?: string | null;
   grossIncome: number;
   netSalary: number;
   status: string; // Draft, Under Review, Pending Approval, Approved, Processed, Rejected
@@ -48,6 +56,7 @@ export interface YtdSummary {
   ytdDeductions: number;
   ytdEpf: number;
   ytdSocso: number;
+  ytdEis?: number;
   ytdTax: number;
   ytdNetSalary: number;
   ytdPaidLeaveDays: number;
@@ -90,6 +99,7 @@ export interface EaForm {
   totalGrossIncome: number;
   totalEpfEmployee: number;
   totalSocsoEmployee: number;
+  totalEisEmployee?: number;
   totalPcbMtd: number;
   totalOtherDeductions: number;
   taxableIncome: number;
@@ -190,7 +200,14 @@ export interface PayrollCalculation {
   grossIncome: number;
   epfAmount: number;
   socsoAmount: number;
+  eisAmount: number;
   taxAmount: number;
+  epfEmployerAmount: number;
+  socsoEmployerAmount: number;
+  eisEmployerAmount: number;
+  epfEmployeeRate: number;
+  epfEmployerRate: number;
+  statutoryRateSetName: string;
   totalDeductions: number;
   netSalary: number;
   attendancePeriods: AttendancePeriodSummary[];

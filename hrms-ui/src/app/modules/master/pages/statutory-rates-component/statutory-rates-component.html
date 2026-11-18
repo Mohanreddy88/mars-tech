@@ -1,0 +1,314 @@
+<div class="rates-page">
+
+  <div class="page-header">
+    <div>
+      <h3>Statutory Rates</h3>
+      <p>EPF, SOCSO, EIS and PCB (income tax) rates used when payroll is generated</p>
+    </div>
+    <button class="btn btn-primary" (click)="openCreate()">
+      <i class="bi bi-plus-lg"></i> New Rate Set
+    </button>
+  </div>
+
+  <div class="info-banner">
+    <i class="bi bi-info-circle-fill"></i>
+    <div>
+      When the government changes a rate, add a <strong>new rate set</strong> with the date it starts.
+      Payroll uses the latest rate set that starts on or before the payroll month.
+      Payrolls already generated keep the rates they were calculated with.
+    </div>
+  </div>
+
+  @if (loading) {
+    <div class="text-center py-5">
+      <div class="spinner-border text-primary" role="status"></div>
+      <p class="mt-2 text-muted">Loading statutory rates...</p>
+    </div>
+  } @else {
+
+    @if (current; as c) {
+      <div class="summary-row">
+        <div class="summary-card">
+          <i class="bi bi-piggy-bank-fill card-icon blue"></i>
+          <div>
+            <div class="card-value">{{ c.epfEmployeeRate }}% <span class="card-sub">/ {{ c.epfEmployerRate }}%</span></div>
+            <div class="card-label">EPF employee / employer</div>
+          </div>
+        </div>
+        <div class="summary-card">
+          <i class="bi bi-shield-fill-plus card-icon green"></i>
+          <div>
+            <div class="card-value">{{ c.socsoBands.length }} <span class="card-sub">bands</span></div>
+            <div class="card-label">SOCSO table</div>
+          </div>
+        </div>
+        <div class="summary-card">
+          <i class="bi bi-briefcase-fill card-icon orange"></i>
+          <div>
+            <div class="card-value">{{ c.eisEmployeeRate }}% <span class="card-sub">/ {{ c.eisEmployerRate }}%</span></div>
+            <div class="card-label">EIS employee / employer</div>
+          </div>
+        </div>
+        <div class="summary-card">
+          <i class="bi bi-receipt-cutoff card-icon purple"></i>
+          <div>
+            <div class="card-value">RM {{ c.taxPersonalRelief | number:'1.0-0' }}</div>
+            <div class="card-label">PCB personal relief</div>
+          </div>
+        </div>
+      </div>
+    }
+
+    <div class="card rates-table-card">
+      <table class="table align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Rate set</th>
+            <th>Starts</th>
+            <th>EPF (employee / employer)</th>
+            <th>SOCSO</th>
+            <th>EIS (employee / employer)</th>
+            <th>PCB relief</th>
+            <th>Payrolls</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (s of sets; track s.id) {
+            <tr [class.current-row]="s.isCurrent">
+              <td>
+                <strong>{{ s.name }}</strong>
+                @if (s.isCurrent) { <span class="status-pill current">In use now</span> }
+                @if (isUpcoming(s)) { <span class="status-pill upcoming">Upcoming</span> }
+                @if (s.notes) { <div class="notes">{{ s.notes }}</div> }
+              </td>
+              <td>{{ formatDate(s.effectiveFrom) }}</td>
+              <td>
+                {{ s.epfEmployeeRate }}% / {{ s.epfEmployerRate }}%
+                @if (s.epfEmployerRateAboveThreshold !== s.epfEmployerRate) {
+                  <div class="small text-muted">{{ s.epfEmployerRateAboveThreshold }}% above RM {{ s.epfEmployerThreshold | number:'1.0-0' }}</div>
+                }
+              </td>
+              <td>{{ s.socsoBands.length }} bands</td>
+              <td>
+                {{ s.eisEmployeeRate }}% / {{ s.eisEmployerRate }}%
+                <div class="small text-muted">wage cap RM {{ s.eisWageCeiling | number:'1.0-0' }}</div>
+              </td>
+              <td>RM {{ s.taxPersonalRelief | number:'1.0-0' }}</td>
+              <td>{{ s.payrollsUsing }}</td>
+              <td class="actions">
+                <button class="btn btn-sm btn-warning" (click)="openEdit(s)" title="Edit"><i class="bi bi-pencil"></i></button>
+                <button class="btn btn-sm btn-outline-primary" (click)="openCopy(s)" title="Copy as a new rate set"><i class="bi bi-files"></i></button>
+                <button class="btn btn-sm btn-danger" (click)="askDelete(s)" title="Delete" [disabled]="sets.length <= 1"><i class="bi bi-trash"></i></button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
+
+<!-- ── Editor ─────────────────────────────────────────────── -->
+@if (showEditor) {
+  <div class="modal-overlay">
+    <div class="modal-box">
+
+      <div class="modal-header-row">
+        <h5>{{ editorTitle }}</h5>
+        <button class="btn-close-modal" (click)="closeEditor()" title="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+
+      <div class="modal-body-scroll">
+        @if (mode === 'edit' && editPayrollsUsing > 0) {
+          <div class="alert alert-warning py-2">
+            {{ editPayrollsUsing }} payroll(s) were calculated with these rates. They keep their amounts;
+            changes apply to payrolls generated from now on. For a rate change by law, use
+            <strong>Copy</strong> to make a new rate set with its own start date instead.
+          </div>
+        }
+        @if (mode === 'copy') {
+          <div class="alert alert-info py-2">Started from an existing rate set. Change the numbers that are new, then set the start date.</div>
+        }
+
+        <!-- General -->
+        <section class="rate-section">
+          <h6><i class="bi bi-card-text"></i> General</h6>
+          <div class="grid-3">
+            <div class="form-group">
+              <label>Name <span class="required">*</span></label>
+              <input type="text" [(ngModel)]="form.name" placeholder="e.g. 2027 rates" maxlength="100" />
+            </div>
+            <div class="form-group">
+              <label>Starts on <span class="required">*</span></label>
+              <input type="date" [(ngModel)]="form.effectiveFrom" />
+              <small>Usually the 1st of a month</small>
+            </div>
+            <div class="form-group">
+              <label>Notes</label>
+              <input type="text" [(ngModel)]="form.notes" placeholder="e.g. Budget 2027 changes" maxlength="500" />
+            </div>
+          </div>
+        </section>
+
+        <!-- EPF -->
+        <section class="rate-section">
+          <h6><i class="bi bi-piggy-bank-fill"></i> EPF (KWSP)</h6>
+          <div class="grid-4">
+            <div class="form-group">
+              <label>Employee rate (%)</label>
+              <input type="number" step="0.01" min="0" max="100" [(ngModel)]="form.epfEmployeeRate" />
+            </div>
+            <div class="form-group">
+              <label>Employer rate (%)</label>
+              <input type="number" step="0.01" min="0" max="100" [(ngModel)]="form.epfEmployerRate" />
+              <small>Wages up to the threshold</small>
+            </div>
+            <div class="form-group">
+              <label>Employer rate above threshold (%)</label>
+              <input type="number" step="0.01" min="0" max="100" [(ngModel)]="form.epfEmployerRateAboveThreshold" />
+            </div>
+            <div class="form-group">
+              <label>Threshold (RM / month)</label>
+              <input type="number" step="1" min="0" [(ngModel)]="form.epfEmployerThreshold" />
+            </div>
+          </div>
+          <p class="hint">An employee can have their own EPF rate (Employees → edit → Statutory).</p>
+        </section>
+
+        <!-- SOCSO -->
+        <section class="rate-section">
+          <h6><i class="bi bi-shield-fill-plus"></i> SOCSO (PERKESO) contribution table</h6>
+          <p class="hint">Amounts in RM per month. Leave "Up to" empty on the last row: it applies to all higher wages.</p>
+          <div class="band-table-wrap">
+            <table class="band-table">
+              <thead><tr><th>Wage from (RM)</th><th>Up to (RM)</th><th>Employee (RM)</th><th>Employer (RM)</th><th></th></tr></thead>
+              <tbody>
+                @for (b of form.socsoBands; track $index; let i = $index; let last = $last) {
+                  <tr>
+                    <td class="from">{{ bandFrom(form.socsoBands, i) | number:'1.2-2' }}{{ i > 0 ? ' +' : '' }}</td>
+                    <td><input type="number" step="0.01" [(ngModel)]="b.upTo" [placeholder]="last ? 'and above' : ''" /></td>
+                    <td><input type="number" step="0.01" min="0" [(ngModel)]="b.employee" /></td>
+                    <td><input type="number" step="0.01" min="0" [(ngModel)]="b.employer" /></td>
+                    <td><button class="btn-row-remove" (click)="removeSocsoRow(i)" title="Remove row" [disabled]="form.socsoBands.length <= 1"><i class="bi bi-x-circle"></i></button></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <button class="btn btn-sm btn-outline-secondary mt-2" (click)="addSocsoRow()"><i class="bi bi-plus"></i> Add band</button>
+        </section>
+
+        <!-- EIS -->
+        <section class="rate-section">
+          <h6><i class="bi bi-briefcase-fill"></i> EIS (SIP)</h6>
+          <div class="grid-3">
+            <div class="form-group">
+              <label>Employee rate (%)</label>
+              <input type="number" step="0.01" min="0" max="100" [(ngModel)]="form.eisEmployeeRate" />
+            </div>
+            <div class="form-group">
+              <label>Employer rate (%)</label>
+              <input type="number" step="0.01" min="0" max="100" [(ngModel)]="form.eisEmployerRate" />
+            </div>
+            <div class="form-group">
+              <label>Wage ceiling (RM / month)</label>
+              <input type="number" step="1" min="0" [(ngModel)]="form.eisWageCeiling" />
+              <small>Higher wages count as this amount</small>
+            </div>
+          </div>
+          <p class="hint">Set both rates to 0 if EIS is not deducted.</p>
+        </section>
+
+        <!-- PCB -->
+        <section class="rate-section">
+          <h6><i class="bi bi-receipt-cutoff"></i> PCB / MTD (income tax)</h6>
+          <p class="hint">
+            Monthly PCB = tax on (salary × 12 − EPF × 12 − personal relief) ÷ 12, using the bands below on annual chargeable income.
+          </p>
+          <div class="grid-3">
+            <div class="form-group">
+              <label>Personal relief (RM / year)</label>
+              <input type="number" step="1" min="0" [(ngModel)]="form.taxPersonalRelief" />
+            </div>
+          </div>
+          <div class="band-table-wrap">
+            <table class="band-table">
+              <thead><tr><th>Income from (RM)</th><th>Up to (RM)</th><th>Rate (%)</th><th></th></tr></thead>
+              <tbody>
+                @for (b of form.taxBands; track $index; let i = $index; let last = $last) {
+                  <tr>
+                    <td class="from">{{ bandFrom(form.taxBands, i) | number:'1.0-0' }}{{ i > 0 ? ' +' : '' }}</td>
+                    <td><input type="number" step="1" [(ngModel)]="b.upTo" [placeholder]="last ? 'and above' : ''" /></td>
+                    <td><input type="number" step="0.01" min="0" max="100" [(ngModel)]="b.rate" /></td>
+                    <td><button class="btn-row-remove" (click)="removeTaxRow(i)" title="Remove row" [disabled]="form.taxBands.length <= 1"><i class="bi bi-x-circle"></i></button></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <button class="btn btn-sm btn-outline-secondary mt-2" (click)="addTaxRow()"><i class="bi bi-plus"></i> Add band</button>
+        </section>
+
+        <!-- Try a salary -->
+        <section class="rate-section try-section">
+          <h6><i class="bi bi-calculator"></i> Try a salary</h6>
+          <div class="try-row">
+            <div class="form-group">
+              <label>Monthly salary (RM)</label>
+              <input type="number" step="1" min="0" [(ngModel)]="previewWage" (keyup.enter)="runPreview()" />
+            </div>
+            <button class="btn btn-outline-primary" (click)="runPreview()" [disabled]="previewing">
+              @if (previewing) { <span class="spinner-border spinner-border-sm me-1"></span> }
+              Calculate
+            </button>
+          </div>
+          @if (previewError) { <div class="text-danger small">{{ previewError }}</div> }
+          @if (preview; as p) {
+            <div class="preview-grid">
+              <div class="preview-col">
+                <div class="preview-title">Deducted from employee</div>
+                <div class="p-row"><span>EPF ({{ p.epfEmployeeRate }}%)</span><span>RM {{ p.epfEmployee | number:'1.2-2' }}</span></div>
+                <div class="p-row"><span>SOCSO</span><span>RM {{ p.socsoEmployee | number:'1.2-2' }}</span></div>
+                <div class="p-row"><span>EIS</span><span>RM {{ p.eisEmployee | number:'1.2-2' }}</span></div>
+                <div class="p-row"><span>PCB</span><span>RM {{ p.pcb | number:'1.2-2' }}</span></div>
+                <div class="p-row total"><span>Net pay</span><span>RM {{ p.netPay | number:'1.2-2' }}</span></div>
+              </div>
+              <div class="preview-col">
+                <div class="preview-title">Paid by employer</div>
+                <div class="p-row"><span>EPF ({{ p.epfEmployerRate }}%)</span><span>RM {{ p.epfEmployer | number:'1.2-2' }}</span></div>
+                <div class="p-row"><span>SOCSO</span><span>RM {{ p.socsoEmployer | number:'1.2-2' }}</span></div>
+                <div class="p-row"><span>EIS</span><span>RM {{ p.eisEmployer | number:'1.2-2' }}</span></div>
+                <div class="p-row total"><span>Employer cost</span><span>RM {{ p.totalEmployerCost | number:'1.2-2' }}</span></div>
+              </div>
+            </div>
+            <p class="hint">Basic salary only; allowances, unpaid leave and adjustments are not included here.</p>
+          }
+        </section>
+      </div>
+
+      @if (editorError) {
+        <div class="alert alert-danger editor-error">{{ editorError }}</div>
+      }
+
+      <div class="modal-footer-row">
+        <button class="btn btn-secondary" (click)="closeEditor()">Cancel</button>
+        <button class="btn btn-primary" (click)="save()" [disabled]="saving">
+          @if (saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+          Save rate set
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<app-confirm-modal
+  [show]="showConfirm"
+  title="Delete Rate Set"
+  [message]="confirmMessage"
+  variant="danger"
+  confirmText="Delete"
+  cancelText="Cancel"
+  (confirmed)="onConfirmDelete()"
+  (cancelled)="onCancelDelete()"
+></app-confirm-modal>

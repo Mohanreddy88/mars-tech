@@ -48,6 +48,12 @@ public class Employee
     /// <summary>Date of birth (date only). Needed for age-based statutory rates (EPF, SOCSO).</summary>
     public DateTime? DateOfBirth  { get; set; }
 
+    /// <summary>Optional EPF employee rate (%) for this employee, e.g. a voluntary higher rate. Null = company rate.</summary>
+    public decimal? EpfEmployeeRateOverride { get; set; }
+
+    /// <summary>Optional EPF employer rate (%) for this employee. Null = company rate.</summary>
+    public decimal? EpfEmployerRateOverride { get; set; }
+
     /// <summary>Gender: Male / Female / Other</summary>
     public string   Gender        { get; set; } = string.Empty;
 

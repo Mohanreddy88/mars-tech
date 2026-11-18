@@ -94,7 +94,14 @@ public class PayrollController : ControllerBase
                 p.Deductions,
                 p.EpfAmount,
                 p.SocsoAmount,
+                p.EisAmount,
                 p.TaxAmount,
+                p.EpfEmployerAmount,
+                p.SocsoEmployerAmount,
+                p.EisEmployerAmount,
+                p.EpfEmployeeRate,
+                p.EpfEmployerRate,
+                p.StatutoryRateSetName,
                 p.GrossIncome,
                 p.NetSalary,
                 p.Status,
@@ -156,7 +163,14 @@ public class PayrollController : ControllerBase
             payroll.Deductions,
             payroll.EpfAmount,
             payroll.SocsoAmount,
+            payroll.EisAmount,
             payroll.TaxAmount,
+            payroll.EpfEmployerAmount,
+            payroll.SocsoEmployerAmount,
+            payroll.EisEmployerAmount,
+            payroll.EpfEmployeeRate,
+            payroll.EpfEmployerRate,
+            payroll.StatutoryRateSetName,
             payroll.GrossIncome,
             payroll.NetSalary,
             payroll.Status,
@@ -248,8 +262,15 @@ public class PayrollController : ControllerBase
     [HttpPost("calculate")]
     public async Task<IActionResult> CalculatePayroll([FromBody] PayrollCalculateRequest request)
     {
-        var result = await _payrollService.CalculatePayrollAsync(request.EmployeeId, request.Month, request.Year);
-        return Ok(result);
+        try
+        {
+            var result = await _payrollService.CalculatePayrollAsync(request.EmployeeId, request.Month, request.Year);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     /// <summary>POST /api/payroll/generate — generate payroll for single employee</summary>
@@ -462,7 +483,7 @@ public class PayrollController : ControllerBase
         }
 
         // Recalculate net salary
-        payroll.NetSalary = payroll.GrossIncome - payroll.EpfAmount - payroll.SocsoAmount - payroll.TaxAmount - payroll.Deductions;
+        payroll.NetSalary = payroll.GrossIncome - payroll.EpfAmount - payroll.SocsoAmount - payroll.EisAmount - payroll.TaxAmount - payroll.Deductions;
 
         await _db.SaveChangesAsync();
 
@@ -501,7 +522,7 @@ public class PayrollController : ControllerBase
             payroll.Deductions -= adjustment.Amount;
         }
 
-        payroll.NetSalary = payroll.GrossIncome - payroll.EpfAmount - payroll.SocsoAmount - payroll.TaxAmount - payroll.Deductions;
+        payroll.NetSalary = payroll.GrossIncome - payroll.EpfAmount - payroll.SocsoAmount - payroll.EisAmount - payroll.TaxAmount - payroll.Deductions;
 
         _db.PayrollAdjustments.Remove(adjustment);
         await _db.SaveChangesAsync();
@@ -740,6 +761,7 @@ public class PayrollController : ControllerBase
             ytdDeductions    = payrolls.Sum(p => p.Deductions),
             ytdEpf           = payrolls.Sum(p => p.EpfAmount),
             ytdSocso         = payrolls.Sum(p => p.SocsoAmount),
+            ytdEis           = payrolls.Sum(p => p.EisAmount),
             ytdTax           = payrolls.Sum(p => p.TaxAmount),
             ytdNetSalary     = payrolls.Sum(p => p.NetSalary),
             ytdPaidLeaveDays = payrolls.Sum(p => p.PaidLeaveDays ?? 0),
@@ -755,6 +777,7 @@ public class PayrollController : ControllerBase
                 p.Deductions,
                 p.EpfAmount,
                 p.SocsoAmount,
+                p.EisAmount,
                 p.TaxAmount,
                 p.NetSalary,
                 p.Status,
@@ -804,6 +827,7 @@ public class PayrollController : ControllerBase
         var totalAllowances   = payrolls.Sum(p => p.Allowances);
         var totalEpf          = payrolls.Sum(p => p.EpfAmount);
         var totalSocso        = payrolls.Sum(p => p.SocsoAmount);
+        var totalEis          = payrolls.Sum(p => p.EisAmount);
         var totalTax          = payrolls.Sum(p => p.TaxAmount);       // PCB total
         var totalDeductions   = payrolls.Sum(p => p.Deductions);
         var totalNet          = payrolls.Sum(p => p.NetSalary);
@@ -836,6 +860,7 @@ public class PayrollController : ControllerBase
             // Statutory Deductions (Part C)
             totalEpfEmployee = totalEpf,
             totalSocsoEmployee = totalSocso,
+            totalEisEmployee = totalEis,
             totalPcbMtd      = totalTax,       // PCB/MTD withheld
             totalOtherDeductions = totalDeductions,
             // Taxable Income
@@ -851,6 +876,7 @@ public class PayrollController : ControllerBase
                 p.GrossIncome,
                 p.EpfAmount,
                 p.SocsoAmount,
+                p.EisAmount,
                 p.TaxAmount,
                 p.Deductions,
                 p.NetSalary,
@@ -922,6 +948,7 @@ public class PayrollController : ControllerBase
                     ytdAllowances   = processed.Sum(p => p.Allowances),
                     ytdEpf          = processed.Sum(p => p.EpfAmount),
                     ytdSocso        = processed.Sum(p => p.SocsoAmount),
+                    ytdEis          = processed.Sum(p => p.EisAmount),
                     ytdTax          = processed.Sum(p => p.TaxAmount),
                     ytdNet          = processed.Sum(p => p.NetSalary),
                     isEaReady,

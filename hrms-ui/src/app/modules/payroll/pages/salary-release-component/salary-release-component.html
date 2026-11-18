@@ -128,7 +128,7 @@
           <td class="bank-cell">{{ p.bankName || '—' }}</td>
           <td class="account-cell">{{ p.accountNumber || '—' }}</td>
           <td class="amount">RM {{ p.grossIncome | number:'1.2-2' }}</td>
-          <td class="amount negative">-RM {{ p.epfAmount + p.socsoAmount + p.taxAmount + p.deductions | number:'1.2-2' }}</td>
+          <td class="amount negative">-RM {{ p.epfAmount + p.socsoAmount + (p.eisAmount || 0) + p.taxAmount + p.deductions | number:'1.2-2' }}</td>
           <td class="amount net">RM {{ p.netSalary | number:'1.2-2' }}</td>
           <td>
             <div class="action-buttons">
@@ -185,6 +185,7 @@
           <div class="ytd-card"><div class="ytd-label">YTD Allowances</div><div class="ytd-value">RM {{ ytdData.ytdAllowances | number:'1.2-2' }}</div></div>
           <div class="ytd-card negative"><div class="ytd-label">YTD EPF</div><div class="ytd-value">-RM {{ ytdData.ytdEpf | number:'1.2-2' }}</div></div>
           <div class="ytd-card negative"><div class="ytd-label">YTD SOCSO</div><div class="ytd-value">-RM {{ ytdData.ytdSocso | number:'1.2-2' }}</div></div>
+          <div class="ytd-card negative" *ngIf="ytdData.ytdEis"><div class="ytd-label">YTD EIS</div><div class="ytd-value">-RM {{ ytdData.ytdEis | number:'1.2-2' }}</div></div>
           <div class="ytd-card negative"><div class="ytd-label">YTD PCB</div><div class="ytd-value">-RM {{ ytdData.ytdTax | number:'1.2-2' }}</div></div>
           <div class="ytd-card negative"><div class="ytd-label">YTD Deductions</div><div class="ytd-value">-RM {{ ytdData.ytdDeductions | number:'1.2-2' }}</div></div>
           <div class="ytd-card net"><div class="ytd-label">YTD Net Salary</div><div class="ytd-value">RM {{ ytdData.ytdNetSalary | number:'1.2-2' }}</div></div>
@@ -249,7 +250,7 @@
           <div class="ea-section-title">Part C &mdash; Statutory Deductions</div>
           <div class="ea-grid">
             <div class="ea-row"><span class="ea-label">C1. EPF (Employee)</span><span class="ea-value amount negative">RM {{ eaData.totalEpfEmployee | number:'1.2-2' }}</span></div>
-            <div class="ea-row"><span class="ea-label">C2. SOCSO (Employee)</span><span class="ea-value amount negative">RM {{ eaData.totalSocsoEmployee | number:'1.2-2' }}</span></div>
+            <div class="ea-row"><span class="ea-label">C2. SOCSO{{ eaData.totalEisEmployee ? ' and EIS' : '' }} (Employee)</span><span class="ea-value amount negative">RM {{ eaData.totalSocsoEmployee + (eaData.totalEisEmployee || 0) | number:'1.2-2' }}</span></div>
             <div class="ea-row"><span class="ea-label">C3. PCB / MTD</span><span class="ea-value amount negative">RM {{ eaData.totalPcbMtd | number:'1.2-2' }}</span></div>
             <div class="ea-row"><span class="ea-label">C4. Other Deductions</span><span class="ea-value amount negative">RM {{ eaData.totalOtherDeductions | number:'1.2-2' }}</span></div>
           </div>

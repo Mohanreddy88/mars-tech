@@ -55,7 +55,7 @@ public class AnalyticsController : ControllerBase
                 monthName = new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMM yyyy"),
                 totalGross = g.Sum(p => p.GrossIncome),
                 totalNet = g.Sum(p => p.NetSalary),
-                totalDeductions = g.Sum(p => p.EpfAmount + p.SocsoAmount + p.TaxAmount + p.Deductions),
+                totalDeductions = g.Sum(p => p.EpfAmount + p.SocsoAmount + p.EisAmount + p.TaxAmount + p.Deductions),
                 employeeCount = g.Count()
             })
             .OrderBy(x => x.year).ThenBy(x => x.month)

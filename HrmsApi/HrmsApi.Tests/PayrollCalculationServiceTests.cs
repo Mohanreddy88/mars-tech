@@ -65,20 +65,29 @@ public class PayrollCalculationServiceTests
         // Assert
         result.BasicSalary.Should().Be(5000m);
         
-        // EPF should be 2% of basic salary (NOT 11%)
-        result.EpfAmount.Should().Be(100m); // 5000 * 0.02 = 100
-        
-        // SOCSO should be 0.5% of basic salary
-        result.SocsoAmount.Should().Be(25m); // 5000 * 0.005 = 25
-        
-        // Tax should be 11.97% of gross income
-        result.TaxAmount.Should().Be(598.50m); // 5000 * 0.1197 = 598.50
-        
+        // Initial rate set (same as the previously hard-coded rates)
+        // EPF employee 2% of basic salary (NOT 11%)
+        result.EpfAmount.Should().Be(100m); // 5000 * 2% = 100
+        result.EpfEmployeeRate.Should().Be(2m);
+
+        // SOCSO from the PERKESO table: band up to RM5,000 → RM16.60
+        result.SocsoAmount.Should().Be(16.60m);
+
+        // PCB: chargeable = 60,000 − 1,200 EPF − 9,000 relief = 49,800
+        //      tax = 600 + (49,800 − 35,000) × 8% = 1,784 → 1,784 / 12 = 148.67
+        result.TaxAmount.Should().Be(148.67m);
+
+        // EIS starts at 0% (it was not deducted before)
+        result.EisAmount.Should().Be(0m);
+
+        // Employer EPF 13%
+        result.EpfEmployerAmount.Should().Be(650m);
+
         result.GrossIncome.Should().Be(5000m);
-        
-        // Net = Gross - EPF - SOCSO - Tax - Deductions
-        // Net = 5000 - 100 - 25 - 598.50 - 0 = 4276.50
-        result.NetSalary.Should().Be(4276.50m);
+
+        // Net = 5000 − 100 − 16.60 − 148.67 = 4734.73
+        result.NetSalary.Should().Be(4734.73m);
+        result.StatutoryRateSetName.Should().Be("Initial rates");
     }
 
     [Fact]
@@ -267,7 +276,7 @@ public class PayrollCalculationServiceTests
     }
 
     [Fact]
-    public async Task GeneratePayroll_WhenAlreadyExists_ShouldThrowException()
+    public async Task GeneratePayroll_WhenAlreadyExists_ShouldReplaceIt()
     {
         // Arrange
         using var db = GetInMemoryDb();
@@ -298,13 +307,18 @@ public class PayrollCalculationServiceTests
         await db.SaveChangesAsync();
 
         // Generate payroll first time
-        await service.GeneratePayrollAsync(employeeId: 6, month: 5, year: 2026, createdById: 1);
+        var first = await service.GeneratePayrollAsync(employeeId: 6, month: 5, year: 2026, createdById: 1);
 
-        // Act & Assert - Try to generate again
-        var act = async () => await service.GeneratePayrollAsync(employeeId: 6, month: 5, year: 2026, createdById: 1);
-        
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*already exists*");
+        // Eligibility warns that a payroll exists, but regenerating is allowed
+        var eligibility = await service.CheckEligibilityAsync(employeeId: 6, month: 5, year: 2026);
+        eligibility.Warnings.Should().Contain(w => w.Contains("already exists"));
+
+        // Act - generate again: the old record is replaced, not duplicated
+        var second = await service.GeneratePayrollAsync(employeeId: 6, month: 5, year: 2026, createdById: 1);
+
+        // Assert
+        second.Id.Should().NotBe(first.Id);
+        db.Payrolls.Count(p => p.EmployeeId == 6 && p.Month == 5 && p.Year == 2026).Should().Be(1);
     }
 
     [Fact]

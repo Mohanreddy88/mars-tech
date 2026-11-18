@@ -51,7 +51,12 @@ export interface Payslip {
   deductions: number;
   epfAmount: number;
   socsoAmount: number;
+  eisAmount?: number;
   taxAmount: number;
+  epfEmployeeRate?: number | null;
+  epfEmployerAmount?: number;
+  socsoEmployerAmount?: number;
+  eisEmployerAmount?: number;
   grossIncome: number;
   netSalary: number;
   generatedOn: string;
