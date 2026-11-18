@@ -38,6 +38,8 @@ import { AnalyticsComponent } from './modules/analytics/pages/analytics-componen
 import { PublicHolidaysComponent } from './modules/master/pages/public-holidays-component/public-holidays-component';
 import { CompanySettingsComponent } from './modules/master/pages/company-settings-component/company-settings-component';
 import { StatutoryRatesComponent } from './modules/master/pages/statutory-rates-component/statutory-rates-component';
+import { PrivacyPolicyComponent } from './modules/legal/privacy-policy.component';
+import { TermsOfUseComponent } from './modules/legal/terms-of-use.component';
 import { NotificationsPageComponent } from './modules/notifications/pages/notifications-page/notifications-page.component';
 import { AuditLogComponent } from './modules/audit/pages/audit-log-component/audit-log-component';
 import { ChangePasswordComponent as ForceChangePasswordComponent } from './modules/auth/pages/change-password/change-password.component';
@@ -64,6 +66,9 @@ const companyRoutes: Routes = [
     path: 'reset-password',
     component: ResetPasswordComponent
   },
+  // Public legal pages (no login), linked from the footer
+  { path: 'privacy', component: PrivacyPolicyComponent, title: 'Privacy Policy · MarsHRMS' },
+  { path: 'terms',   component: TermsOfUseComponent,    title: 'Terms of Use · MarsHRMS' },
   {
     path: '',
     component: AdminLayoutComponent,

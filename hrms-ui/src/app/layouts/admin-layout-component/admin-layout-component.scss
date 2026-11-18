@@ -27,12 +27,28 @@
 
 .layout-footer {
   flex: none;
-  padding: 10px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  padding: 10px 24px;
   border-top: 1px solid #e5e7eb;
   background: #ffffff;
   color: #6b7280;
   font-size: 13px;
-  text-align: center;
+}
+
+.footer-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  a {
+    color: #4b5563;
+    text-decoration: none;
+    &:hover { color: #2563eb; text-decoration: underline; }
+  }
 }
 
 // Mobile responsive
@@ -44,5 +60,7 @@
   .layout-footer {
     padding: 8px 12px;
     font-size: 12px;
+    justify-content: center;
+    text-align: center;
   }
 }
