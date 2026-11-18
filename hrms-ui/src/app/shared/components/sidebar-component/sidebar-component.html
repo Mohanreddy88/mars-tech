@@ -42,7 +42,7 @@
       </li>
 
       <!-- 4. Attendance -->
-      <li class="menu-parent" [class.open]="attendanceMenuOpen" (click)="toggleAttendanceMenu()">
+      <li class="menu-parent" [class.open]="attendanceMenuOpen" (click)="toggleAttendanceMenu($event)">
         <div class="menu-parent-header">
           <i class="bi bi-calendar-check-fill"></i>
           <span>Attendance</span>
@@ -63,7 +63,7 @@
       }
 
       <!-- 5. Leave -->
-      <li class="menu-parent" [class.open]="leaveMenuOpen" (click)="toggleLeaveMenu()">
+      <li class="menu-parent" [class.open]="leaveMenuOpen" (click)="toggleLeaveMenu($event)">
         <div class="menu-parent-header">
           <i class="bi bi-calendar-event-fill"></i>
           <span>Leave</span>
@@ -93,7 +93,7 @@
       </li>
 
       <!-- 7. Payroll -->
-      <li class="menu-parent" [class.open]="payrollMenuOpen" (click)="togglePayrollMenu()">
+      <li class="menu-parent" [class.open]="payrollMenuOpen" (click)="togglePayrollMenu($event)">
         <div class="menu-parent-header">
           <i class="bi bi-cash-stack"></i>
           <span>Payroll</span>
@@ -127,7 +127,7 @@
         <span>Analytics</span>
       </li>
 
-      <li class="menu-parent" [class.open]="reportsMenuOpen" (click)="toggleReportsMenu()">
+      <li class="menu-parent" [class.open]="reportsMenuOpen" (click)="toggleReportsMenu($event)">
         <div class="menu-parent-header">
           <i class="bi bi-graph-up-arrow"></i>
           <span>Reports</span>
@@ -162,7 +162,7 @@
       </li>
 
       <!-- 10. Master Settings -->
-      <li class="menu-parent" [class.open]="masterMenuOpen" (click)="toggleMasterMenu()">
+      <li class="menu-parent" [class.open]="masterMenuOpen" (click)="toggleMasterMenu($event)">
         <div class="menu-parent-header">
           <i class="bi bi-gear-fill"></i>
           <span>Master</span>

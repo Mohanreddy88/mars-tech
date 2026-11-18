@@ -1,4 +1,4 @@
-import { Component, OnInit, Input, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, Input, ChangeDetectorRef, ElementRef } from '@angular/core';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
@@ -32,7 +32,8 @@ export class SidebarComponent implements OnInit {
     private router: Router,
     private http: HttpClient,
     private companySettings: CompanySettingsService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private host: ElementRef<HTMLElement>
   ) {}
 
   ngOnInit(): void {
@@ -50,13 +51,35 @@ export class SidebarComponent implements OnInit {
 
     // Auto-expand menu based on current route
     this.updateMenuStateFromRoute(this.router.url);
+    this.scrollActiveIntoView();
 
     // Listen to route changes and keep menus open
     this.router.events
       .pipe(filter(event => event instanceof NavigationEnd))
       .subscribe((event: any) => {
         this.updateMenuStateFromRoute(event.url);
+        this.scrollActiveIntoView();
       });
+  }
+
+  /** The menu scrolls on its own; keep the item for the current page visible (e.g. Master → Departments). */
+  private scrollActiveIntoView(): void {
+    // Wait for the submenu to render and routerLinkActive to mark the item
+    setTimeout(() => {
+      const active = this.host.nativeElement.querySelector<HTMLElement>('.active-submenu, .active-menu');
+      active?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }, 50);
+  }
+
+  /** After opening a group, scroll so its whole submenu is visible (as far as the menu height allows). */
+  private revealSubmenu(event?: Event, opened?: boolean): void {
+    const header = event?.currentTarget as HTMLElement | null;
+    if (!opened || !header) return;
+    setTimeout(() => {
+      const submenu = header.nextElementSibling as HTMLElement | null;
+      const target = submenu?.classList.contains('submenu') ? submenu : header;
+      target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }, 0);
   }
 
   private loadPendingLeaveCount(): void {
@@ -95,24 +118,29 @@ export class SidebarComponent implements OnInit {
     }
   }
 
-  toggleMasterMenu(): void {
+  toggleMasterMenu(event?: Event): void {
     this.masterMenuOpen = !this.masterMenuOpen;
+    this.revealSubmenu(event, this.masterMenuOpen);
   }
 
-  togglePayrollMenu(): void {
+  togglePayrollMenu(event?: Event): void {
     this.payrollMenuOpen = !this.payrollMenuOpen;
+    this.revealSubmenu(event, this.payrollMenuOpen);
   }
 
-  toggleAttendanceMenu(): void {
+  toggleAttendanceMenu(event?: Event): void {
     this.attendanceMenuOpen = !this.attendanceMenuOpen;
+    this.revealSubmenu(event, this.attendanceMenuOpen);
   }
 
-  toggleLeaveMenu(): void {
+  toggleLeaveMenu(event?: Event): void {
     this.leaveMenuOpen = !this.leaveMenuOpen;
+    this.revealSubmenu(event, this.leaveMenuOpen);
   }
 
-  toggleReportsMenu(): void {
+  toggleReportsMenu(event?: Event): void {
     this.reportsMenuOpen = !this.reportsMenuOpen;
+    this.revealSubmenu(event, this.reportsMenuOpen);
   }
 
   toggleSelfServiceMenu(): void {
