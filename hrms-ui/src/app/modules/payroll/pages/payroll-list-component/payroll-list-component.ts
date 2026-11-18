@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { MoneyInputDirective } from '../../../../shared/directives/money-input.directive';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../../../core/services/auth.service';
@@ -10,7 +11,7 @@ import { environment } from '../../../../../environments/environment';
 @Component({
   selector: 'app-payroll-list',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MoneyInputDirective],
   templateUrl: './payroll-list-component.html',
   styleUrls: ['./payroll-list-component.scss']
 })
@@ -139,7 +140,7 @@ export class PayrollListComponent implements OnInit {
     }).subscribe({
       next: () => {
         this.savingAdj = false; this.showAddAdjustment = false;
-        this.toast.success('Adjustment Added', `${this.adjForm.adjustmentType} of RM ${this.adjForm.amount} added.`);
+        this.toast.success('Adjustment Added', `${this.adjForm.adjustmentType} of RM ${this.adjForm.amount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} added.`);
         this.viewDetails(this.selectedPayroll.id);
         this.loadPayrolls();
       },

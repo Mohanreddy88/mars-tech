@@ -11,6 +11,7 @@ import { Bank } from '../../../../core/models/bank.model';
 import { IdType } from '../../../../core/models/employee.model';
 import { COUNTRIES_SORTED, DIAL_CODES } from '../../../../core/data/countries';
 import { photoUrl } from '../../../../core/utils/photo-url';
+import { MoneyInputDirective } from '../../../../shared/directives/money-input.directive';
 
 /** NRIC: exactly 12 digits. Passport: 8–10 letters or digits. Mobile: 7–12 digits. */
 const NRIC_PATTERN     = /^\d{12}$/;
@@ -59,7 +60,7 @@ function dobFromNric(nric: string): string | null {
 @Component({
   selector: 'app-employee-form-component',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, MoneyInputDirective],
   templateUrl: './employee-form-component.html',
   styleUrls: ['./employee-form-component.scss']
 })

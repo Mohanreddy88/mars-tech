@@ -211,7 +211,7 @@
           <!-- Salary -->
           <div class="form-group">
             <label>Salary (RM) <span class="req">*</span></label>
-            <input type="number" formControlName="salary" placeholder="e.g. 5000"
+            <input moneyInput id="emp-salary" formControlName="salary" placeholder="0.00"
               [class.is-invalid]="f['salary'].invalid && f['salary'].touched" />
             @if (f['salary'].invalid && f['salary'].touched) {
               <span class="field-error">Salary must be 0 or more</span>
