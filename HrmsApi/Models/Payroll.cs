@@ -10,10 +10,23 @@ public class Payroll
     public decimal Allowances { get; set; }
     public decimal Deductions { get; set; }
 
-    // Statutory deductions (auto-calculated)
-    public decimal EpfAmount { get; set; }    // 2% employee contribution
-    public decimal SocsoAmount { get; set; }  // 0.5% of BasicSalary
-    public decimal TaxAmount { get; set; }    // 11.97% of GrossIncome (PCB)
+    // Statutory deductions (auto-calculated from the StatutoryRateSet in force for the month)
+    public decimal EpfAmount { get; set; }    // EPF employee share
+    public decimal SocsoAmount { get; set; }  // SOCSO employee share (PERKESO table)
+    public decimal EisAmount { get; set; }    // EIS employee share
+    public decimal TaxAmount { get; set; }    // PCB / MTD
+
+    // Employer contributions (cost to the company, not deducted from pay)
+    public decimal EpfEmployerAmount { get; set; }
+    public decimal SocsoEmployerAmount { get; set; }
+    public decimal EisEmployerAmount { get; set; }
+
+    // Snapshot of the rates used, so later rate changes never alter this payroll.
+    // Null on payrolls generated before statutory rates were configurable.
+    public int?     StatutoryRateSetId   { get; set; }
+    public string?  StatutoryRateSetName { get; set; }
+    public decimal? EpfEmployeeRate      { get; set; }   // percent, e.g. 2
+    public decimal? EpfEmployerRate      { get; set; }   // percent, e.g. 13
 
     public decimal GrossIncome { get; set; }
     public decimal NetSalary { get; set; }

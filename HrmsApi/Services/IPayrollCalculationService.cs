@@ -72,7 +72,17 @@ public class PayrollCalculationResult
     public decimal GrossIncome { get; set; }
     public decimal EpfAmount { get; set; }
     public decimal SocsoAmount { get; set; }
+    public decimal EisAmount { get; set; }
     public decimal TaxAmount { get; set; }
+    // Employer contributions (not deducted from pay)
+    public decimal EpfEmployerAmount { get; set; }
+    public decimal SocsoEmployerAmount { get; set; }
+    public decimal EisEmployerAmount { get; set; }
+    // Rates used
+    public int     StatutoryRateSetId   { get; set; }
+    public string  StatutoryRateSetName { get; set; } = string.Empty;
+    public decimal EpfEmployeeRate      { get; set; }
+    public decimal EpfEmployerRate      { get; set; }
     public decimal TotalDeductions { get; set; }
     public decimal NetSalary { get; set; }
     // Proration

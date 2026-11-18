@@ -293,6 +293,26 @@
 
         </div>
 
+        <!-- ══ SECTION 5: Statutory (optional per-employee EPF rates) ══ -->
+        <div class="section-label">Statutory (optional)</div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="emp-epf-employee">EPF employee rate (%)</label>
+            <input id="emp-epf-employee" type="number" step="0.01" min="0" max="100"
+              formControlName="epfEmployeeRateOverride" placeholder="Company rate"
+              [class.is-invalid]="f['epfEmployeeRateOverride'].invalid" />
+            <small class="field-hint">Leave empty to use the company rate (Master → Statutory Rates)</small>
+          </div>
+          <div class="form-group">
+            <label for="emp-epf-employer">EPF employer rate (%)</label>
+            <input id="emp-epf-employer" type="number" step="0.01" min="0" max="100"
+              formControlName="epfEmployerRateOverride" placeholder="Company rate"
+              [class.is-invalid]="f['epfEmployerRateOverride'].invalid" />
+            <small class="field-hint">Leave empty to use the company rate</small>
+          </div>
+        </div>
+
         <!-- ── Form Actions ── -->
         <div class="form-actions">
           <button type="button" class="btn btn-outline-secondary" (click)="cancel()">

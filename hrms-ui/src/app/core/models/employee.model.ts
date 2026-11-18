@@ -22,6 +22,8 @@ export interface Employee {
   bankName?: string;              // Resolved bank name (joined in API response)
   profilePicture: string;         // Profile picture URL or path
   gender: string;                 // Male / Female / Other
+  epfEmployeeRateOverride?: number | null;   // % — null = company rate (Master → Statutory Rates)
+  epfEmployerRateOverride?: number | null;
 }
 
 /** Payload sent when creating or updating an employee */
@@ -44,6 +46,8 @@ export interface EmployeeRequest {
   accountNumber: string;
   profilePicture: string;         // Profile picture URL or path
   gender: string;                 // Male / Female / Other
+  epfEmployeeRateOverride?: number | null;
+  epfEmployerRateOverride?: number | null;
 }
 
 /** Identification type: NRIC = 12 digits (country Malaysia), Passport = 8–10 letters/digits. */

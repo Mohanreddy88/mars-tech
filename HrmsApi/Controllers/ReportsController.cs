@@ -48,6 +48,7 @@ public class ReportsController : ControllerBase
                 totalNet = g.Sum(p => p.NetSalary),
                 totalEpf = g.Sum(p => p.EpfAmount),
                 totalSocso = g.Sum(p => p.SocsoAmount),
+                totalEis = g.Sum(p => p.EisAmount),
                 totalTax = g.Sum(p => p.TaxAmount),
                 totalDeductions = g.Sum(p => p.Deductions),
                 averageSalary = g.Average(p => p.NetSalary)
@@ -68,6 +69,7 @@ public class ReportsController : ControllerBase
                 totalNet = payrolls.Sum(p => p.NetSalary),
                 totalEpf = payrolls.Sum(p => p.EpfAmount),
                 totalSocso = payrolls.Sum(p => p.SocsoAmount),
+                totalEis = payrolls.Sum(p => p.EisAmount),
                 totalTax = payrolls.Sum(p => p.TaxAmount),
                 totalDeductions = payrolls.Sum(p => p.Deductions)
             }

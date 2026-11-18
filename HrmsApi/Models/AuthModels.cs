@@ -30,7 +30,9 @@ public record EmployeeRequest(
     string?  IdType           = null,   // "NRIC" or "Passport"
     string?  IdCountry        = null,   // country of the ID (Malaysia for NRIC)
     string?  PhoneCountryCode = null,   // e.g. "+60"
-    DateTime? DateOfBirth     = null    // date only
+    DateTime? DateOfBirth     = null,   // date only
+    decimal? EpfEmployeeRateOverride = null,   // % (null = company rate)
+    decimal? EpfEmployerRateOverride = null    // % (null = company rate)
 );
 
 // ── Attendance ────────────────────────────────────────────────────────────────

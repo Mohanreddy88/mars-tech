@@ -59,7 +59,7 @@
           </div>
           <div class="detail-row">
             <span class="label">Total Deductions</span>
-            <span class="value negative">-RM {{ (payslip.epfAmount + payslip.socsoAmount + payslip.taxAmount + payslip.deductions) | number:'1.2-2' }}</span>
+            <span class="value negative">-RM {{ (payslip.epfAmount + payslip.socsoAmount + (payslip.eisAmount || 0) + payslip.taxAmount + payslip.deductions) | number:'1.2-2' }}</span>
           </div>
         </div>
 
@@ -174,15 +174,19 @@
             <span class="value">RM {{ selectedPayslip.grossIncome | number:'1.2-2' }}</span>
           </div>
           <div class="breakdown-row">
-            <span class="label">EPF (2%)</span>
+            <span class="label">EPF{{ selectedPayslip.epfEmployeeRate != null ? ' (' + selectedPayslip.epfEmployeeRate + '%)' : '' }}</span>
             <span class="value negative">-RM {{ selectedPayslip.epfAmount | number:'1.2-2' }}</span>
           </div>
           <div class="breakdown-row">
-            <span class="label">SOCSO (0.5%)</span>
+            <span class="label">SOCSO</span>
             <span class="value negative">-RM {{ selectedPayslip.socsoAmount | number:'1.2-2' }}</span>
           </div>
+          <div class="breakdown-row" *ngIf="selectedPayslip.eisAmount">
+            <span class="label">EIS</span>
+            <span class="value negative">-RM {{ selectedPayslip.eisAmount | number:'1.2-2' }}</span>
+          </div>
           <div class="breakdown-row">
-            <span class="label">Tax (11.97%)</span>
+            <span class="label">Tax (PCB)</span>
             <span class="value negative">-RM {{ selectedPayslip.taxAmount | number:'1.2-2' }}</span>
           </div>
           <div class="breakdown-row" *ngIf="selectedPayslip.deductions > 0">
@@ -325,6 +329,7 @@
           <div class="ytd-card"><div class="ytd-label">YTD Allowances</div><div class="ytd-value">RM {{ ytdData.ytdAllowances | number:'1.2-2' }}</div></div>
           <div class="ytd-card negative"><div class="ytd-label">YTD EPF</div><div class="ytd-value">-RM {{ ytdData.ytdEpf | number:'1.2-2' }}</div></div>
           <div class="ytd-card negative"><div class="ytd-label">YTD SOCSO</div><div class="ytd-value">-RM {{ ytdData.ytdSocso | number:'1.2-2' }}</div></div>
+          <div class="ytd-card negative" *ngIf="ytdData.ytdEis"><div class="ytd-label">YTD EIS</div><div class="ytd-value">-RM {{ ytdData.ytdEis | number:'1.2-2' }}</div></div>
           <div class="ytd-card negative"><div class="ytd-label">YTD PCB</div><div class="ytd-value">-RM {{ ytdData.ytdTax | number:'1.2-2' }}</div></div>
           <div class="ytd-card net"><div class="ytd-label">YTD Net</div><div class="ytd-value">RM {{ ytdData.ytdNetSalary | number:'1.2-2' }}</div></div>
         </div>

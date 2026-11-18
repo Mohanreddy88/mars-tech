@@ -235,20 +235,27 @@
             <div class="calc-section">
               <h5>Statutory Deductions</h5>
               <div class="calc-row">
-                <span>EPF (2%)</span>
+                <span>EPF ({{ calculationPreview.epfEmployeeRate }}%)</span>
                 <span class="amount negative">-RM {{ calculationPreview.epfAmount | number:'1.2-2' }}</span>
               </div>
               <div class="calc-row">
-                <span>SOCSO (0.5%)</span>
+                <span>SOCSO</span>
                 <span class="amount negative">-RM {{ calculationPreview.socsoAmount | number:'1.2-2' }}</span>
               </div>
+              <div class="calc-row" *ngIf="calculationPreview.eisAmount > 0">
+                <span>EIS</span>
+                <span class="amount negative">-RM {{ calculationPreview.eisAmount | number:'1.2-2' }}</span>
+              </div>
               <div class="calc-row">
-                <span>Tax (11.97%)</span>
+                <span>Tax (PCB)</span>
                 <span class="amount negative">-RM {{ calculationPreview.taxAmount | number:'1.2-2' }}</span>
               </div>
               <div class="calc-row total">
                 <span>Total Deductions</span>
                 <span class="amount negative">-RM {{ calculationPreview.totalDeductions | number:'1.2-2' }}</span>
+              </div>
+              <div class="calc-row rates-note">
+                <span>Rates: {{ calculationPreview.statutoryRateSetName }} · Employer pays EPF RM {{ calculationPreview.epfEmployerAmount | number:'1.2-2' }} ({{ calculationPreview.epfEmployerRate }}%), SOCSO RM {{ calculationPreview.socsoEmployerAmount | number:'1.2-2' }}<ng-container *ngIf="calculationPreview.eisEmployerAmount > 0">, EIS RM {{ calculationPreview.eisEmployerAmount | number:'1.2-2' }}</ng-container></span>
               </div>
             </div>
           </div>

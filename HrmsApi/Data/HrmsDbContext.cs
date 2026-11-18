@@ -27,6 +27,7 @@ public class HrmsDbContext : DbContext
     public DbSet<Notification>          Notifications         => Set<Notification>();
     public DbSet<AuditLog>              AuditLogs             => Set<AuditLog>();
     public DbSet<CompanySettings>       CompanySettings       => Set<CompanySettings>();
+    public DbSet<StatutoryRateSet>      StatutoryRateSets     => Set<StatutoryRateSet>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -37,6 +38,25 @@ public class HrmsDbContext : DbContext
         {
             e.ToTable("CompanySettings");
             e.Property(x => x.Id).ValueGeneratedNever();
+        });
+
+        // ── StatutoryRateSet (EPF / SOCSO / EIS / PCB rates by effective date) ──
+        modelBuilder.Entity<StatutoryRateSet>(e =>
+        {
+            e.ToTable("StatutoryRateSets");
+            e.Property(x => x.Name).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Notes).HasMaxLength(500);
+            e.HasIndex(x => x.EffectiveFrom).IsUnique();
+            e.Property(x => x.EpfEmployeeRate).HasPrecision(6, 3);
+            e.Property(x => x.EpfEmployerRate).HasPrecision(6, 3);
+            e.Property(x => x.EpfEmployerRateAboveThreshold).HasPrecision(6, 3);
+            e.Property(x => x.EpfEmployerThreshold).HasPrecision(18, 2);
+            e.Property(x => x.EisEmployeeRate).HasPrecision(6, 3);
+            e.Property(x => x.EisEmployerRate).HasPrecision(6, 3);
+            e.Property(x => x.EisWageCeiling).HasPrecision(18, 2);
+            e.Property(x => x.TaxPersonalRelief).HasPrecision(18, 2);
+            e.Property(x => x.SocsoBandsJson).IsRequired();
+            e.Property(x => x.TaxBandsJson).IsRequired();
         });
 
         // ── BankMaster ────────────────────────────────────────
@@ -74,6 +94,8 @@ public class HrmsDbContext : DbContext
             e.Property(x => x.EmployeeCode).IsRequired().HasMaxLength(20);
             e.HasIndex(x => x.EmployeeCode).IsUnique();
             e.Property(x => x.Salary).HasPrecision(18, 2);
+            e.Property(x => x.EpfEmployeeRateOverride).HasPrecision(6, 3);
+            e.Property(x => x.EpfEmployerRateOverride).HasPrecision(6, 3);
 
             e.HasOne(x => x.Department)
              .WithMany(d => d.Employees)
@@ -96,6 +118,13 @@ public class HrmsDbContext : DbContext
             e.Property(x => x.EpfAmount).HasPrecision(18, 2);
             e.Property(x => x.SocsoAmount).HasPrecision(18, 2);
             e.Property(x => x.TaxAmount).HasPrecision(18, 2);
+            e.Property(x => x.EisAmount).HasPrecision(18, 2);
+            e.Property(x => x.EpfEmployerAmount).HasPrecision(18, 2);
+            e.Property(x => x.SocsoEmployerAmount).HasPrecision(18, 2);
+            e.Property(x => x.EisEmployerAmount).HasPrecision(18, 2);
+            e.Property(x => x.EpfEmployeeRate).HasPrecision(6, 3);
+            e.Property(x => x.EpfEmployerRate).HasPrecision(6, 3);
+            e.Property(x => x.StatutoryRateSetName).HasMaxLength(100);
             e.Property(x => x.GrossIncome).HasPrecision(18, 2);
             e.Property(x => x.NetSalary).HasPrecision(18, 2);
             e.Property(x => x.AttendanceHours).HasPrecision(10, 2);
