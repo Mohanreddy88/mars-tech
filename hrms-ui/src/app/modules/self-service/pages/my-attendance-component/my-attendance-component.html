@@ -53,11 +53,11 @@
           <button class="btn-action-icon" (click)="openCommentModal()" *ngIf="hasClickedAnyInput" title="Comments">
             <i class="bi bi-chat-left-text"></i>
           </button>
-          <button class="btn-action-icon" title="Info">
+          <button class="btn-action-icon" title="How to fill your timesheet" (click)="showInfoModal = true">
             <i class="bi bi-info-circle"></i>
           </button>
-          <button class="btn-action-icon" title="Download">
-            <i class="bi bi-file-earmark-arrow-down"></i>
+          <button class="btn-action-icon" title="Download this timesheet (PDF)" (click)="downloadPdf()" [disabled]="downloading">
+            <i class="bi" [class.bi-file-earmark-arrow-down]="!downloading" [class.bi-hourglass-split]="downloading"></i>
           </button>
           <button class="btn-action-icon delete" (click)="deleteCurrentRow()" *ngIf="hasClickedAnyInput" title="Delete">
             <i class="bi bi-trash"></i>
@@ -79,16 +79,23 @@
              [class.weekend]="isWeekend(day.date)"
              [class.public-holiday]="day.isPublicHoliday"
              [class.before-join-date]="day.isBeforeJoinDate"
-             [class.leave-day]="day.hours === 0 && day.note && !day.isPublicHoliday && !isWeekend(day.date) && !day.isBeforeJoinDate"
+             [class.leave-day]="!!day.note"
+             [class.needs-comment]="!!day.note && !(day.remarks || '').trim()"
+             [class.has-comment]="!!(day.remarks || '').trim()"
+             [title]="day.note ? leaveName(day.note) + (day.remarks ? ' — ' + day.remarks : ' — add a comment (💬)') : (day.remarks || '')"
              [style.display]="isWeekend(day.date) && !showWeekend ? 'none' : 'flex'">
           <div class="cell-content">
-            <input 
-              type="text" 
-              class="hours-input" 
-              [(ngModel)]="day.hours" 
+            <i class="bi bi-chat-left-text-fill comment-flag" *ngIf="day.remarks" aria-hidden="true"></i>
+            <input
+              type="text"
+              class="hours-input"
+              [class.code]="!!day.note"
+              [value]="cellText(day)"
               (focus)="onInputFocus(i)"
-              (input)="onHoursInput($event, i)"
-              (blur)="onHoursBlur(i)"
+              (input)="onCellInput($event, i)"
+              (blur)="onCellBlur($event, i)"
+              autocomplete="off"
+              [attr.aria-label]="'Hours or leave code for ' + formatDisplayDate(day.date)"
               [disabled]="day.isPublicHoliday || isWeekend(day.date) || day.isBeforeJoinDate || !isPeriodEditable()"
               placeholder="0">
           </div>
@@ -104,10 +111,31 @@
         <div class="row-label"></div>
         <div class="day-summary" *ngFor="let day of currentPeriodDays"
              [style.display]="isWeekend(day.date) && !showWeekend ? 'none' : 'block'">
-          {{ day.hours || 0 }}
+          {{ day.note || day.hours || 0 }}
         </div>
         <div class="total-summary">{{ getTotalHours() }}</div>
       </div>
+    </div>
+  </div>
+
+  <!-- How to enter leave + code legend -->
+  <div class="leave-guide" *ngIf="currentPeriodDays.length > 0">
+    <div class="guide-note">
+      <i class="bi bi-info-circle-fill"></i>
+      <div>
+        <strong>Taking leave?</strong> Click the day, type the leave code (e.g. <b>AL</b>) instead of hours,
+        then click <i class="bi bi-chat-left-text"></i> and add a comment with the reason.
+        Also apply for the leave in <a routerLink="/self-service/my-leave">My Leave</a> so HR can approve it.
+      </div>
+    </div>
+    <div class="guide-warning" *ngIf="leaveDaysWithoutComment.length > 0">
+      <i class="bi bi-exclamation-triangle-fill"></i>
+      Comment needed for:
+      <span *ngFor="let d of leaveDaysWithoutComment; let last = last">{{ formatDisplayDate(d.date) }} ({{ d.note }}){{ last ? '' : ', ' }}</span>
+    </div>
+    <div class="code-legend" *ngIf="leaveCodes.length > 0">
+      <span class="legend-title">Leave codes:</span>
+      <span class="legend-chip" *ngFor="let c of leaveCodes"><b>{{ c.code }}</b> {{ c.name }}</span>
     </div>
   </div>
 
@@ -128,7 +156,7 @@
     <div class="checkbox-agreement">
       <input type="checkbox" id="agreeCheckbox" [(ngModel)]="agreedToTerms" [disabled]="!canSubmitPeriod()">
       <label for="agreeCheckbox">
-        I agree with <a href="#" class="agreement-link">PETRONAS Statement of Ethical Standards and PETRONAS Code of Conduct and Business Ethics.</a>
+        I confirm this timesheet is accurate and agree with the <strong>{{ (branding$ | async)?.displayName || 'company' }}</strong> Statement of Ethical Standards and Code of Conduct and Business Ethics.
       </label>
     </div>
     <div class="button-group">
@@ -201,17 +229,25 @@
         <div class="info-subtitle">Build | {{ getSelectedCommentDateDisplay() }}</div>
       </div>
       <div class="form-group">
-        <textarea 
+        <label class="comment-label" for="comment-leave">Leave type</label>
+        <select id="comment-leave" class="form-control" [(ngModel)]="commentLeaveCode">
+          <option value="">None — working day</option>
+          <option *ngFor="let c of leaveCodes" [value]="c.code">{{ c.code }} — {{ c.name }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="comment-label" for="comment-text">{{ commentLeaveCode ? 'Reason for leave (required)' : 'Comment' }}</label>
+        <textarea id="comment-text"
           [(ngModel)]="commentText" 
           class="form-control comment-textarea" 
           rows="5" 
           maxlength="200"
-          placeholder="Enter your comments..."></textarea>
+          [placeholder]="commentLeaveCode ? 'e.g. Fever, clinic visit — MC attached' : 'Enter your comments...'"></textarea>
         <div class="character-limit">Character Limit : {{ 200 - commentText.length }}</div>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn-cancel" (click)="closeCommentModal()">Clear</button>
+      <button class="btn-cancel" (click)="commentText = ''; commentLeaveCode = ''">Clear</button>
       <button class="btn-save-comment" (click)="saveComment()">Save</button>
     </div>
   </div>
@@ -247,3 +283,30 @@
 
 
 
+
+<!-- How to fill your timesheet (Info button) -->
+<div class="modal" [class.show]="showInfoModal" *ngIf="showInfoModal">
+  <div class="modal-backdrop" (click)="showInfoModal = false"></div>
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <h3>How to fill your timesheet</h3>
+      <button class="btn-close" (click)="showInfoModal = false" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="modal-body info-body">
+      <ol>
+        <li><b>Working day:</b> click the day and type your hours (0–24, e.g. 8 or 7.5).</li>
+        <li><b>Leave:</b> type the leave code instead of hours (e.g. <b>AL</b>). The box shows the code.</li>
+        <li><b>Comment:</b> with the day selected, click <i class="bi bi-chat-left-text"></i> and write the reason. Required for every leave day.</li>
+        <li><b>Apply for the leave</b> in My Leave as well — HR approves it there.</li>
+        <li><b>Save</b> any time; tick the agreement and <b>Submit</b> when the period is complete.</li>
+      </ol>
+      <div class="code-legend" *ngIf="leaveCodes.length > 0">
+        <span class="legend-chip" *ngFor="let c of leaveCodes"><b>{{ c.code }}</b> {{ c.name }}</span>
+      </div>
+      <p class="info-foot">Weekends and public holidays are filled in for you. <i class="bi bi-file-earmark-arrow-down"></i> downloads this period as a PDF.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-save-note" (click)="showInfoModal = false">Got it</button>
+    </div>
+  </div>
+</div>

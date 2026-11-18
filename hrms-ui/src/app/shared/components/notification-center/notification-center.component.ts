@@ -89,14 +89,14 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
           this.notificationService.refreshUnreadCount();
           this.cdr.markForCheck();
           if (notification.link) {
-            this.router.navigate([notification.link]);
+            this.router.navigateByUrl(notification.link);
             this.closeDropdown();
           }
         }
       });
     } else {
       if (notification.link) {
-        this.router.navigate([notification.link]);
+        this.router.navigateByUrl(notification.link);
         this.closeDropdown();
       }
     }

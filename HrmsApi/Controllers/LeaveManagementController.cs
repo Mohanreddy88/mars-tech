@@ -369,7 +369,7 @@ public class LeaveManagementController : ControllerBase
                     title:   "New Leave Request",
                     message: $"{emp.Name} has submitted a {lt.Name} request for {leaveRequest.TotalDays} day(s) ({leaveRequest.StartDate:dd MMM} - {leaveRequest.EndDate:dd MMM yyyy}).",
                     type:    "leave_submitted",
-                    link:    "/leave/requests");
+                    link:    $"/leave/requests?status=Pending&employeeId={emp.Id}");   // opens their pending requests
             }
 
             // Return DTO to avoid circular reference

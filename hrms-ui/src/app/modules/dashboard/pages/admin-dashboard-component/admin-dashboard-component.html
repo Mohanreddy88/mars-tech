@@ -24,7 +24,7 @@
         <p class="subtitle">{{ currentMonth }} • System Overview</p>
       </div>
       <div class="quick-actions">
-        <button class="action-btn primary" (click)="navigateTo('/leave/requests')">
+        <button class="action-btn primary" (click)="navigateTo('/leave/requests?status=Pending')">
           <i class="bi bi-calendar-check"></i>
           <span>Approve Leaves</span>
           <span class="badge" *ngIf="dashboardData.pendingCounts.leaveRequests > 0">
@@ -47,7 +47,7 @@
 
     <!-- Stats Grid -->
     <div class="stats-grid">
-      <div class="stat-card primary">
+      <div class="stat-card primary clickable" (click)="navigateTo('/employees')" title="Open Employees">
         <div class="stat-icon">
           <i class="bi bi-people-fill"></i>
         </div>
@@ -58,7 +58,7 @@
         </div>
       </div>
 
-      <div class="stat-card warning">
+      <div class="stat-card warning clickable" (click)="openPending()" title="Open what is waiting for approval">
         <div class="stat-icon">
           <i class="bi bi-hourglass-split"></i>
         </div>
@@ -101,7 +101,7 @@
         </div>
         <div class="card-body">
           <div class="pending-summary">
-            <div class="pending-item" *ngIf="dashboardData.pendingCounts.leaveRequests > 0" (click)="navigateTo('/leave/requests')">
+            <div class="pending-item" *ngIf="dashboardData.pendingCounts.leaveRequests > 0" (click)="navigateTo('/leave/requests?status=Pending')">
               <i class="bi bi-calendar-x"></i>
               <div class="pending-info">
                 <h4>{{ dashboardData.pendingCounts.leaveRequests }}</h4>

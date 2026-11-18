@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterModule, ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
@@ -11,7 +11,7 @@ import { environment } from '../../../../../environments/environment';
 @Component({
   selector: 'app-leave-request-list',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterModule],
   templateUrl: './leave-request-list-component.html',
   styleUrls: ['./leave-request-list-component.scss']
 })
@@ -62,7 +62,8 @@ export class LeaveRequestListComponent implements OnInit {
     private authService: AuthService,
     private toast: ToastService,
     private router: Router,
-    private loadingService: LoadingService
+    private loadingService: LoadingService,
+    private route: ActivatedRoute
   ) {
     const currentYear = new Date().getFullYear();
     for (let year = currentYear - 5; year <= currentYear + 1; year++) {
@@ -72,8 +73,22 @@ export class LeaveRequestListComponent implements OnInit {
 
   ngOnInit(): void {
     this.isAdmin = this.authService.getRole() === 'Admin';
+    this.applyLinkFilters();
     this.loadEmployees();
     this.loadRequests();
+  }
+
+  /** Opened from a shortcut, e.g. attendance approval: ?employeeId=5&status=Pending&returnTo=attendance&period=12 */
+  backToAttendancePeriod: number | null = null;
+
+  private applyLinkFilters(): void {
+    const q = this.route.snapshot.queryParamMap;
+    const emp = Number(q.get('employeeId'));
+    if (emp) { this.filterEmployeeId = emp; this.filterYear = null; }   // show all their requests, any year
+    const status = q.get('status');
+    if (status) this.filterStatus = status;
+    const period = Number(q.get('period'));
+    if (q.get('returnTo') === 'attendance' && period) this.backToAttendancePeriod = period;
   }
 
   loadEmployees(): void {

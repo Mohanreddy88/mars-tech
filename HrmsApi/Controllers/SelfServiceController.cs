@@ -868,15 +868,22 @@ public class SelfServiceController : ControllerBase
             }
         }
 
+        // Leave codes typed in the timesheet must be the company's leave types (AL, ML, …)
+        var leaveCodes = await _db.LeaveTypes.Where(t => t.IsActive).Select(t => t.Code).ToListAsync();
+
         // Add days
         foreach (var d in request.Days)
         {
+            var code = string.IsNullOrWhiteSpace(d.Note) ? null : d.Note.Trim().ToUpperInvariant();
+            if (code != null && !leaveCodes.Contains(code))
+                return BadRequest(new { message = $"\"{d.Note}\" on {d.Date:dd MMM} is not a leave code. Use one of: {string.Join(", ", leaveCodes)}." });
+
             period.Days.Add(new AttendancePeriodDay
             {
                 AttendancePeriodId = period.Id,
                 Date             = DateTime.SpecifyKind(d.Date.Date, DateTimeKind.Utc),
-                Hours            = d.Hours,
-                Note             = d.Note,
+                Hours            = code != null ? 0 : d.Hours,   // a leave day has no working hours
+                Note             = code,
                 Remarks          = d.Remarks,
                 IsPublicHoliday  = d.IsPublicHoliday,
                 IsWeekend        = d.IsWeekend
@@ -895,6 +902,25 @@ public class SelfServiceController : ControllerBase
             period.StartDate,
             period.EndDate
         });
+    }
+
+    /// <summary>
+    /// GET /api/selfservice/attendance-periods/{id}/pdf - the employee's own timesheet as a PDF
+    /// </summary>
+    [HttpGet("attendance-periods/{id:int}/pdf")]
+    public async Task<IActionResult> DownloadTimesheetPdf(int id)
+    {
+        var username = User.FindFirst(ClaimTypes.Name)?.Value;
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == username);
+        if (user == null) return Unauthorized(new { message = "User not authenticated" });
+        var employee = await _db.Employees.FirstOrDefaultAsync(e => e.Email.ToLower() == user.Email.ToLower());
+        if (employee == null) return NotFound(new { message = "Employee profile not found" });
+
+        var period = await _db.AttendancePeriods.FirstOrDefaultAsync(p => p.Id == id && p.EmployeeId == employee.Id);
+        if (period == null) return NotFound(new { message = "Attendance period not found or does not belong to you" });
+
+        var pdf = await _pdfService.GenerateTimesheetPdfAsync(id);
+        return File(pdf, "application/pdf", $"Timesheet_{employee.EmployeeCode}_{period.StartDate:yyyyMMdd}-{period.EndDate:yyyyMMdd}.pdf");
     }
 
     /// <summary>
@@ -928,6 +954,20 @@ public class SelfServiceController : ControllerBase
         if (period.Status == "Approved")
             return BadRequest(new { message = "Attendance period is already approved" });
 
+        // Every leave day needs a comment (the reason) before the timesheet goes to HR
+        var leaveDaysWithoutComment = await _db.AttendancePeriodDays
+            .Where(d => d.AttendancePeriodId == id && d.Note != null && d.Note != "" && (d.Remarks == null || d.Remarks == ""))
+            .OrderBy(d => d.Date)
+            .Select(d => new { d.Date, d.Note })
+            .ToListAsync();
+        if (leaveDaysWithoutComment.Count > 0)
+            return BadRequest(new
+            {
+                message = "Add a comment for each leave day before submitting: " +
+                          string.Join(", ", leaveDaysWithoutComment.Select(d => $"{d.Date:dd MMM} ({d.Note})")),
+                code = "LEAVE_COMMENT_REQUIRED"
+            });
+
         period.Status      = "Submitted";
         period.SubmittedAt = DateTime.UtcNow;
 
@@ -940,7 +980,7 @@ public class SelfServiceController : ControllerBase
             title:   "Attendance Submitted for Approval",
             message: $"{employee.Name} has submitted attendance for {period.StartDate:dd MMM} - {period.EndDate:dd MMM yyyy}. Please review.",
             type:    "attendance_submitted",
-            link:    "/attendance/approval");
+            link:    $"/attendance/approval?period={id}");   // opens this period
 
         return Ok(new
         {

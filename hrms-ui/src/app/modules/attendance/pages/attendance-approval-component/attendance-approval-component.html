@@ -199,7 +199,13 @@
         <i class="bi bi-exclamation-triangle-fill"></i>
         Pending Leave Requests ({{ selectedPeriod.pendingLeaves.length }})
       </h4>
-      <p class="warning-note"><strong>Warning:</strong> Cannot approve attendance until these leave requests are approved or rejected</p>
+      <p class="warning-note">
+        <strong>Warning:</strong> Cannot approve attendance until these leave requests are approved or rejected.
+        Decide them below, or
+        <a class="quick-link" routerLink="/leave/requests" [queryParams]="leaveApprovalsLink()">
+          view in Leave Approvals <i class="bi bi-arrow-right"></i>
+        </a>
+      </p>
       <div class="leave-cards">
         <div class="leave-card" *ngFor="let leave of selectedPeriod.pendingLeaves">
           <div class="leave-header">
@@ -221,6 +227,22 @@
               <i class="bi bi-clock-history"></i>
               <span class="pending-status">Requested on {{ formatDate(leave.requestedOn) }} - Awaiting Approval</span>
             </div>
+          </div>
+          <!-- Decide right here -->
+          <div class="leave-decision" *ngIf="rejectingLeaveId !== leave.id">
+            <button class="btn-leave-approve" (click)="approveLeave(leave)" [disabled]="decidingLeaveId !== null">
+              <i class="bi" [class.bi-check-lg]="decidingLeaveId !== leave.id" [class.bi-hourglass-split]="decidingLeaveId === leave.id"></i>
+              Approve leave
+            </button>
+            <button class="btn-leave-reject" (click)="startRejectLeave(leave)" [disabled]="decidingLeaveId !== null">
+              <i class="bi bi-x-lg"></i> Reject
+            </button>
+          </div>
+          <div class="leave-decision reject-row" *ngIf="rejectingLeaveId === leave.id">
+            <input type="text" [(ngModel)]="leaveRejectReason" placeholder="Reason for rejecting (sent to the employee)"
+                   aria-label="Reason for rejecting" (keyup.enter)="confirmRejectLeave(leave)" />
+            <button class="btn-leave-reject solid" (click)="confirmRejectLeave(leave)" [disabled]="decidingLeaveId !== null">Reject leave</button>
+            <button class="btn-leave-cancel" (click)="cancelRejectLeave()">Cancel</button>
           </div>
         </div>
       </div>
@@ -284,7 +306,7 @@
           <select [(ngModel)]="onBehalfLeaveType" class="leave-type-select">
             <option value="AL">Annual Leave</option>
             <option value="EL">Emergency Leave</option>
-            <option value="MC">Medical Leave</option>
+            <option value="ML">Medical Leave</option>
           </select>
           <button class="btn-create-leave" (click)="createLeaveOnBehalf()" [disabled]="creatingLeave">
             <i class="bi bi-plus-circle"></i>

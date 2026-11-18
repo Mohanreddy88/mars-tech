@@ -11,6 +11,7 @@ public interface IPdfService
 {
     Task<byte[]> GeneratePayslipPdfAsync(int payrollId);
     Task<byte[]> GenerateEaFormPdfAsync(int employeeId, int year);
+    Task<byte[]> GenerateTimesheetPdfAsync(int periodId);
 }
 
 public class PdfService : IPdfService
@@ -663,6 +664,116 @@ public class PdfService : IPdfService
             });
         });
 
+        return doc.GeneratePdf();
+    }
+
+    /// <summary>
+    /// Timesheet of one attendance period: every day with hours or leave code and comment,
+    /// totals, and the leave-code legend. Used by the employee's Download button.
+    /// </summary>
+    public async Task<byte[]> GenerateTimesheetPdfAsync(int periodId)
+    {
+        var period = await _db.AttendancePeriods
+            .Include(p => p.Employee).ThenInclude(e => e.Department)
+            .Include(p => p.Days)
+            .FirstOrDefaultAsync(p => p.Id == periodId)
+            ?? throw new KeyNotFoundException($"Attendance period {periodId} not found.");
+        var company    = await _company.GetAsync();
+        var leaveNames = await _db.LeaveTypes.ToDictionaryAsync(t => t.Code, t => t.Name);
+        var days       = period.Days.OrderBy(d => d.Date).ToList();
+        var brand      = company.BrandColor;
+
+        var workedHours = days.Where(d => string.IsNullOrEmpty(d.Note)).Sum(d => d.Hours);
+        var leaveDays   = days.Where(d => !string.IsNullOrEmpty(d.Note)).GroupBy(d => d.Note!)
+                              .Select(g => $"{g.Key} × {g.Count()}").ToList();
+        var usedCodes   = days.Select(d => d.Note).Where(n => !string.IsNullOrEmpty(n)).Distinct().ToList();
+
+        var doc = Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Size(PageSizes.A4);
+                page.Margin(30);
+                page.DefaultTextStyle(t => t.FontSize(9));
+
+                page.Header().Column(col =>
+                {
+                    col.Item().Row(row =>
+                    {
+                        row.RelativeItem().Column(c =>
+                        {
+                            c.Item().Text(company.NameForDocuments).FontSize(14).Bold().FontColor(brand);
+                            if (!string.IsNullOrWhiteSpace(company.RegistrationNo))
+                                c.Item().Text(company.RegistrationNo).FontSize(8).FontColor(Colors.Grey.Darken1);
+                        });
+                        row.ConstantItem(160).AlignRight().Column(c =>
+                        {
+                            c.Item().AlignRight().Text("TIMESHEET").FontSize(14).Bold();
+                            c.Item().AlignRight().Text($"{period.StartDate:dd MMM yyyy} – {period.EndDate:dd MMM yyyy}").FontSize(8);
+                        });
+                    });
+                    col.Item().PaddingTop(8).LineHorizontal(1.5f).LineColor(brand);
+                    col.Item().PaddingTop(8).Row(row =>
+                    {
+                        row.RelativeItem().Text(t => { t.Span("Employee: ").Bold(); t.Span($"{period.Employee.Name} ({period.Employee.EmployeeCode})"); });
+                        row.RelativeItem().Text(t => { t.Span("Department: ").Bold(); t.Span(period.Employee.Department?.Name ?? "—"); });
+                        row.RelativeItem().AlignRight().Text(t => { t.Span("Status: ").Bold(); t.Span(period.Status); });
+                    });
+                });
+
+                page.Content().PaddingTop(12).Column(col =>
+                {
+                    col.Item().Table(table =>
+                    {
+                        table.ColumnsDefinition(c =>
+                        {
+                            c.ConstantColumn(80); c.ConstantColumn(40); c.ConstantColumn(70); c.RelativeColumn();
+                        });
+                        static IContainer Head(IContainer c) => c.Background(Colors.Grey.Lighten3).Padding(5);
+                        table.Header(h =>
+                        {
+                            h.Cell().Element(Head).Text("Date").Bold();
+                            h.Cell().Element(Head).Text("Day").Bold();
+                            h.Cell().Element(Head).AlignCenter().Text("Hours / Leave").Bold();
+                            h.Cell().Element(Head).Text("Comment").Bold();
+                        });
+                        foreach (var d in days)
+                        {
+                            var off = d.IsWeekend || d.IsPublicHoliday;
+                            IContainer Cell(IContainer c) => c.BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2)
+                                .Background(off ? Colors.Grey.Lighten4 : Colors.White).PaddingVertical(4).PaddingHorizontal(5);
+                            var value = !string.IsNullOrEmpty(d.Note) ? d.Note
+                                      : d.IsPublicHoliday ? "PH" : d.IsWeekend ? "—" : d.Hours.ToString("0.#");
+                            table.Cell().Element(Cell).Text($"{d.Date:dd MMM yyyy}");
+                            table.Cell().Element(Cell).Text($"{d.Date:ddd}");
+                            table.Cell().Element(Cell).AlignCenter().Text(value).Bold()
+                                .FontColor(string.IsNullOrEmpty(d.Note) ? Colors.Black : Colors.Orange.Darken3);
+                            table.Cell().Element(Cell).Text(d.Remarks ?? "");
+                        }
+                    });
+
+                    col.Item().PaddingTop(10).Row(row =>
+                    {
+                        row.RelativeItem().Text(t => { t.Span("Hours worked: ").Bold(); t.Span(workedHours.ToString("0.#")); });
+                        row.RelativeItem().Text(t => { t.Span("Leave days: ").Bold(); t.Span(leaveDays.Count == 0 ? "none" : string.Join(", ", leaveDays)); });
+                    });
+
+                    if (usedCodes.Count > 0)
+                        col.Item().PaddingTop(6).Text(t =>
+                        {
+                            t.Span("Codes: ").Bold();
+                            t.Span(string.Join(" · ", usedCodes.Select(c => $"{c} = {(leaveNames.TryGetValue(c!, out var n) ? n : c)}")));
+                            t.Span(" · PH = Public holiday");
+                        });
+                });
+
+                page.Footer().AlignCenter().Text(t =>
+                {
+                    t.Span($"Generated {DateTime.Now:dd MMM yyyy HH:mm} · Page ").FontSize(7).FontColor(Colors.Grey.Darken1);
+                    t.CurrentPageNumber().FontSize(7); t.Span(" / ").FontSize(7); t.TotalPages().FontSize(7);
+                });
+            });
+        });
         return doc.GeneratePdf();
     }
 
