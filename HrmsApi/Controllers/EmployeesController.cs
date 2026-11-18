@@ -7,6 +7,8 @@ using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using System.Text.Json;
 using BCrypt.Net;
+using HrmsApi.Platform;
+using System.Security.Cryptography;
 
 namespace HrmsApi.Controllers;
 
@@ -18,12 +20,21 @@ public class EmployeesController : ControllerBase
     private readonly HrmsDbContext _db;
     private readonly IAuditService _audit;
     private readonly ILogger<EmployeesController> _logger;
+    private readonly IEmailQueue _emailQueue;
+    private readonly ICompanySettingsService _company;
+    private readonly ITenantContext _tenant;
+    private readonly IAccountService _accounts;
 
-    public EmployeesController(HrmsDbContext db, IAuditService audit, ILogger<EmployeesController> logger)
+    public EmployeesController(HrmsDbContext db, IAuditService audit, ILogger<EmployeesController> logger,
+        IEmailQueue emailQueue, ICompanySettingsService company, ITenantContext tenant, IAccountService accounts)
     {
         _db     = db;
         _audit  = audit;
         _logger = logger;
+        _emailQueue = emailQueue;
+        _company    = company;
+        _tenant     = tenant;
+        _accounts   = accounts;
     }
 
     private string CurrentUser() => User.FindFirst(ClaimTypes.Name)?.Value ?? "system";
@@ -49,7 +60,8 @@ public class EmployeesController : ControllerBase
                 e.JoinDate, e.Salary, e.IsActive,
                 e.BankId, e.AccountNumber,
                 BankName = e.Bank != null ? e.Bank.Name : null,
-                e.Gender
+                e.Gender,
+                e.PhoneCountryCode, e.IdType, e.IcPassport, e.IdCountry, e.TaxNumber, e.ProfilePicture, e.DateOfBirth
             })
             .ToListAsync();
 
@@ -83,7 +95,8 @@ public class EmployeesController : ControllerBase
                 e.JoinDate, e.Salary, e.IsActive,
                 e.BankId, e.AccountNumber,
                 BankName = e.Bank != null ? e.Bank.Name : null,
-                e.Gender
+                e.Gender,
+                e.PhoneCountryCode, e.IdType, e.IcPassport, e.IdCountry, e.TaxNumber, e.ProfilePicture, e.DateOfBirth
             })
             .ToListAsync();
 
@@ -116,7 +129,8 @@ public class EmployeesController : ControllerBase
                 e.JoinDate, e.Salary, e.IsActive,
                 e.BankId, e.AccountNumber,
                 BankName = e.Bank != null ? e.Bank.Name : null,
-                e.Gender
+                e.Gender,
+                e.PhoneCountryCode, e.IdType, e.IcPassport, e.IdCountry, e.TaxNumber, e.ProfilePicture, e.DateOfBirth
             })
             .FirstOrDefaultAsync()
             ?? throw new KeyNotFoundException($"Employee {id} not found.");
@@ -131,6 +145,14 @@ public class EmployeesController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] EmployeeRequest req)
     {
+        var (id, idField, idError) = EmployeeIdentity.Check(req);
+        if (id == null) return BadRequest(new { message = idError, field = idField });
+
+        // One email = one employee (the login is linked by email)
+        var email = (req.Email ?? "").Trim();
+        if (await _db.Employees.AnyAsync(e => e.Email.ToLower() == email.ToLower()))
+            return BadRequest(new { message = $"Another employee already uses {email}.", field = "email" });
+
         // Validate department exists if provided
         if (req.DepartmentId.HasValue)
         {
@@ -184,7 +206,14 @@ public class EmployeesController : ControllerBase
             EmployeeCode   = employeeCode,
             Name           = req.Name,
             Email          = req.Email,
-            Phone          = req.Phone,
+            Phone          = id.Phone,
+            PhoneCountryCode = id.PhoneCountryCode,
+            IdType         = id.IdType,
+            IcPassport     = id.IdNumber,
+            IdCountry      = id.IdCountry,
+            DateOfBirth    = id.DateOfBirth,
+            TaxNumber      = req.TaxNumber?.Trim() ?? string.Empty,
+            ProfilePicture = req.ProfilePicture ?? string.Empty,
             DepartmentId   = req.DepartmentId,
             Designation    = req.Designation,
             JoinDate       = joinDateUtc,
@@ -214,13 +243,12 @@ public class EmployeesController : ControllerBase
             });
         }
 
-        // Auto-create a User account for the employee
+        // Auto-create a login for the employee and email them a "Set my password" link.
         // Username = part of email before '@'  (e.g. "john.doe@company.com" → "john.doe")
         var userCreated = false;
         var userAlreadyExists = false;
-        var generatedUsername = emp.Email.Contains('@')
-            ? emp.Email.Split('@')[0].ToLower()
-            : emp.Email.ToLower();
+        var welcomeEmailSent = false;
+        var generatedUsername = _accounts.UsernameFor(emp.Email);
 
         var existingUser = await _db.Users
             .FirstOrDefaultAsync(u => u.Email.ToLower() == emp.Email.ToLower()
@@ -230,19 +258,11 @@ public class EmployeesController : ControllerBase
         {
             try
             {
-                var newUser = new User
-                {
-                    Username           = generatedUsername,
-                    Email              = emp.Email,
-                    PasswordHash       = BCrypt.Net.BCrypt.HashPassword("Employee@123"),
-                    Role               = "Employee",
-                    IsActive           = true,
-                    CreatedAt          = DateTime.UtcNow,
-                    MustChangePassword = true   // force password change on first login
-                };
+                var newUser = _accounts.NewUser(emp.Email, generatedUsername, "Employee");
                 _db.Users.Add(newUser);
                 await _db.SaveChangesAsync();
                 userCreated = true;
+                welcomeEmailSent = await _accounts.SendWelcomeAsync(newUser, emp.Name);
             }
             catch (Exception ex)
             {
@@ -271,8 +291,54 @@ public class EmployeesController : ControllerBase
             userCreated,
             userAlreadyExists,
             username     = userCreated ? generatedUsername : null,
-            defaultPassword = userCreated ? "Employee@123" : null
+            welcomeEmailSent,
+            email        = emp.Email
         });
+    }
+
+    /// <summary>
+    /// POST /api/employees/{id}/send-welcome
+    /// Emails the employee a new "Set my password" link (creates their login if it is missing).
+    /// Use when the first link expired or the email was lost. Their current password keeps working
+    /// until they use the link.
+    /// </summary>
+    [HttpPost("{id:int}/send-welcome")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> SendWelcome(int id)
+    {
+        var emp = await _db.Employees.FindAsync(id)
+            ?? throw new KeyNotFoundException($"Employee {id} not found.");
+        if (string.IsNullOrWhiteSpace(emp.Email) || !emp.Email.Contains('@'))
+            return BadRequest(new { message = "This employee has no valid email address." });
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == emp.Email.ToLower());
+        var created = false;
+        if (user == null)
+        {
+            var username = _accounts.UsernameFor(emp.Email);
+            if (await _db.Users.AnyAsync(u => u.Username.ToLower() == username))
+                return BadRequest(new { message = $"The username \"{username}\" is already used by another login. Change it under Master → Users." });
+            user = _accounts.NewUser(emp.Email, username, "Employee");
+            _db.Users.Add(user);
+            await _db.SaveChangesAsync();
+            created = true;
+        }
+        if (!user.IsActive)
+            return BadRequest(new { message = "This login is deactivated. Activate it under Master → Users first." });
+
+        var sent = await _accounts.SendWelcomeAsync(user, emp.Name);
+        if (!sent) return StatusCode(500, new { message = "The email could not be queued. Please try again." });
+
+        await _audit.LogAsync(
+            action:      "Updated",
+            entityType:  "Employee",
+            entityId:    emp.Id.ToString(),
+            description: $"Sent login email to {emp.Name} ({user.Email})" + (created ? $" and created user account ({user.Username})" : ""),
+            username:    CurrentUser(),
+            userId:      CurrentUserId(),
+            ipAddress:   HttpContext.Connection.RemoteIpAddress?.ToString());
+
+        return Ok(new { message = $"Login email sent to {user.Email}.", username = user.Username, email = user.Email, userCreated = created });
     }
 
     /// <summary>
@@ -282,6 +348,9 @@ public class EmployeesController : ControllerBase
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, [FromBody] EmployeeRequest req)
     {
+        var (ident, idField, idError) = EmployeeIdentity.Check(req);
+        if (ident == null) return BadRequest(new { message = idError, field = idField });
+
         var emp = await _db.Employees.FindAsync(id)
             ?? throw new KeyNotFoundException($"Employee {id} not found.");
 
@@ -308,9 +377,27 @@ public class EmployeesController : ControllerBase
 
         var oldSnap = JsonSerializer.Serialize(new { emp.Name, emp.Email, emp.Designation, emp.Salary, emp.IsActive });
 
+        // The login is linked by email: a new email must not belong to another employee or login
+        var oldEmail = emp.Email;
+        var newEmail = (req.Email ?? "").Trim();
+        if (!string.Equals(oldEmail, newEmail, StringComparison.OrdinalIgnoreCase))
+        {
+            if (await _db.Employees.AnyAsync(e => e.Id != id && e.Email.ToLower() == newEmail.ToLower()))
+                return BadRequest(new { message = $"Another employee already uses {newEmail}.", field = "email" });
+            if (await _db.Users.AnyAsync(u => u.Email.ToLower() == newEmail.ToLower()))
+                return BadRequest(new { message = $"{newEmail} is already used by another login (Master → Users).", field = "email" });
+        }
+
         emp.Name           = req.Name;
-        emp.Email          = req.Email;
-        emp.Phone          = req.Phone;
+        emp.Email          = newEmail;
+        emp.Phone          = ident.Phone;
+        emp.PhoneCountryCode = ident.PhoneCountryCode;
+        emp.IdType         = ident.IdType;
+        emp.IcPassport     = ident.IdNumber;
+        emp.IdCountry      = ident.IdCountry;
+        emp.DateOfBirth    = ident.DateOfBirth;
+        emp.TaxNumber      = req.TaxNumber?.Trim() ?? string.Empty;
+        emp.ProfilePicture = req.ProfilePicture ?? string.Empty;
         emp.DepartmentId   = req.DepartmentId;
         emp.Designation    = req.Designation;
         emp.JoinDate       = joinDateUtc;
@@ -322,18 +409,21 @@ public class EmployeesController : ControllerBase
 
         await _db.SaveChangesAsync();
 
+        // Keep the employee's login in step (email, active / inactive)
+        var loginNote = await _accounts.SyncFromEmployeeAsync(oldEmail, emp);
+
         await _audit.LogAsync(
             action:      "Updated",
             entityType:  "Employee",
             entityId:    id.ToString(),
-            description: $"Updated employee {emp.Name} ({emp.EmployeeCode})",
+            description: $"Updated employee {emp.Name} ({emp.EmployeeCode})" + (loginNote != null ? $"; {loginNote}" : ""),
             username:    CurrentUser(),
             userId:      CurrentUserId(),
             oldValues:   oldSnap,
             newValues:   JsonSerializer.Serialize(new { emp.Name, emp.Email, emp.Designation, emp.Salary, emp.IsActive }),
             ipAddress:   HttpContext.Connection.RemoteIpAddress?.ToString());
 
-        return NoContent();
+        return Ok(new { message = "Employee updated", loginNote });
     }
 
     /// <summary>
@@ -348,14 +438,18 @@ public class EmployeesController : ControllerBase
 
         var empName = emp.Name;
         var empCode = emp.EmployeeCode;
+        var empEmail = emp.Email;
         _db.Employees.Remove(emp);
         await _db.SaveChangesAsync();
+
+        // Someone who no longer works here must not be able to log in (login kept for the audit trail)
+        var loginNote = await _accounts.DeactivateForEmployeeAsync(empEmail);
 
         await _audit.LogAsync(
             action:      "Deleted",
             entityType:  "Employee",
             entityId:    id.ToString(),
-            description: $"Deleted employee {empName} ({empCode})",
+            description: $"Deleted employee {empName} ({empCode})" + (loginNote != null ? $"; {loginNote}" : ""),
             username:    CurrentUser(),
             userId:      CurrentUserId(),
             ipAddress:   HttpContext.Connection.RemoteIpAddress?.ToString());

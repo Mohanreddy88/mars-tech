@@ -350,6 +350,9 @@ namespace HrmsApi.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<DateTime?>("DateOfBirth")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<int?>("DepartmentId")
                         .HasColumnType("integer");
 
@@ -374,6 +377,14 @@ namespace HrmsApi.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("IdCountry")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("IdType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
@@ -385,6 +396,10 @@ namespace HrmsApi.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PhoneCountryCode")
                         .IsRequired()
                         .HasColumnType("text");
 

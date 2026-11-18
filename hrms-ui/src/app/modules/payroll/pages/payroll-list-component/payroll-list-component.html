@@ -241,7 +241,7 @@
               <option value="Overtime">Overtime</option>
             </select>
             <input type="text" [(ngModel)]="adjForm.description" placeholder="Description" class="form-control" />
-            <input type="number" [(ngModel)]="adjForm.amount" placeholder="Amount (RM)" class="form-control adj-amount" min="0.01" step="0.01" />
+            <input moneyInput [(ngModel)]="adjForm.amount" placeholder="Amount (RM)" aria-label="Amount (RM)" class="form-control adj-amount" />
             <button class="btn btn-sm btn-success" (click)="saveAdjustment()" [disabled]="savingAdj || !adjForm.adjustmentType || !adjForm.description.trim() || adjForm.amount <= 0">Save</button>
             <button class="btn btn-sm btn-secondary" (click)="cancelAddAdjustment()">Cancel</button>
           </div>

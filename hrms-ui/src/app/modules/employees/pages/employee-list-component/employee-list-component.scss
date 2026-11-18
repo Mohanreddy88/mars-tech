@@ -177,3 +177,33 @@ table tbody tr td {
     padding: 6px 12px;
   }
 }
+
+// Action buttons: one row, same size, never wrapping under each other
+.actions-cell { white-space: nowrap; width: 1%; }
+
+.row-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.act {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  display: inline-grid;
+  place-items: center;
+  font-size: 15px;
+  cursor: pointer;
+  transition: filter .15s, background .15s;
+  padding: 0;
+
+  &:disabled { opacity: .6; cursor: default; }
+  &:hover:not(:disabled) { filter: brightness(0.95); }
+}
+
+.act-edit   { background: #f59e0b; color: #fff; }
+.act-mail   { background: #fff; color: #2563eb; border-color: #93c5fd; &:hover:not(:disabled) { background: #eff6ff; } }
+.act-delete { background: #dc2626; color: #fff; }

@@ -4,7 +4,7 @@
   <div class="page-header">
     <div>
       <h3>User Management</h3>
-      <p>Manage system users and access roles</p>
+      <p>Logins and access roles. An employee's login is linked by email and follows the employee record.</p>
     </div>
     <div class="header-actions">
       <button class="btn btn-back" (click)="backToHome()">
@@ -17,6 +17,13 @@
       </button>
     </div>
   </div>
+
+  @if (!loading && warningCount > 0) {
+    <div class="sync-banner">
+      <i class="bi bi-exclamation-triangle-fill"></i>
+      {{ warningCount }} login{{ warningCount === 1 ? '' : 's' }} need{{ warningCount === 1 ? 's' : '' }} a look — see the notes in the Employee column.
+    </div>
+  }
 
   <!-- ── Loading / Table ──────────────────────────────────── -->
   @if (loading) {
@@ -33,6 +40,7 @@
             <th>Username</th>
             <th>Email</th>
             <th>Role</th>
+            <th>Employee</th>
             <th>Status</th>
             <th>Created On</th>
             <th>Actions</th>
@@ -40,7 +48,7 @@
         </thead>
         <tbody>
           @if (users.length === 0) {
-            <tr><td colspan="7" class="text-center text-muted py-4">No users found.</td></tr>
+            <tr><td colspan="8" class="text-center text-muted py-4">No users found.</td></tr>
           }
           @for (u of users; track u.id; let i = $index) {
             <tr>
@@ -53,9 +61,7 @@
                   <strong>{{ u.username }}</strong>
                 </div>
               </td>
-              <td>
-                <span class="text-muted">{{ u.email || '—' }}</span>
-              </td>
+              <td><span class="text-muted">{{ u.email || '—' }}</span></td>
               <td>
                 <span class="role-badge" [ngClass]="getRoleClass(u.role)">
                   <i class="bi" [ngClass]="u.role === 'Admin' ? 'bi-shield-fill' : (u.role === 'Employee' ? 'bi-person-badge-fill' : 'bi-person-fill')"></i>
@@ -63,18 +69,37 @@
                 </span>
               </td>
               <td>
+                @if (u.employee) {
+                  <div class="linked-emp">
+                    <span>{{ u.employee.name }}</span>
+                    <small>{{ u.employee.employeeCode }}{{ u.employee.isActive ? '' : ' · inactive' }}</small>
+                  </div>
+                } @else {
+                  <span class="text-muted">—</span>
+                }
+                @if (u.warning) {
+                  <div class="row-warning"><i class="bi bi-exclamation-triangle-fill"></i> {{ u.warning }}</div>
+                }
+              </td>
+              <td>
                 <span class="status-pill" [class.active-pill]="u.isActive" [class.inactive-pill]="!u.isActive">
                   {{ u.isActive ? 'Active' : 'Inactive' }}
                 </span>
               </td>
               <td>{{ u.createdAt | date: 'dd MMM yyyy' }}</td>
-              <td>
-                <button class="btn btn-sm btn-warning me-1" (click)="openEdit(u)" title="Edit">
-                  <i class="bi bi-pencil"></i>
-                </button>
-                <button class="btn btn-sm btn-danger" (click)="deleteUser(u)" title="Delete">
-                  <i class="bi bi-trash"></i>
-                </button>
+              <td class="actions-cell">
+                <div class="row-actions">
+                  <button class="act act-edit" (click)="openEdit(u)" title="Edit login" aria-label="Edit login">
+                    <i class="bi bi-pencil"></i>
+                  </button>
+                  <button class="act act-mail" (click)="sendLoginEmail(u)" [disabled]="!u.isActive || sendingId === u.id"
+                          title="Send a new 'Set my password' email" aria-label="Send login email">
+                    <i class="bi" [class.bi-envelope]="sendingId !== u.id" [class.bi-hourglass-split]="sendingId === u.id"></i>
+                  </button>
+                  <button class="act act-delete" (click)="deleteUser(u)" title="Delete login" aria-label="Delete login">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </div>
               </td>
             </tr>
           }
@@ -92,69 +117,103 @@
 
       <div class="modal-header-row">
         <h5>{{ isEdit ? 'Edit User' : 'Add New User' }}</h5>
-        <button class="btn-close-modal" (click)="closeModal()">
+        <button class="btn-close-modal" (click)="closeModal()" aria-label="Close">
           <i class="bi bi-x-lg"></i>
         </button>
       </div>
 
-      <!-- Inline error inside modal (e.g. duplicate username) -->
       @if (modalError) {
         <div class="alert alert-danger py-2 mb-3">{{ modalError }}</div>
       }
 
       <div class="modal-form">
 
-        <!-- Username -->
-        <div class="form-group">
-          <label>Username</label>
-          <input type="text" [(ngModel)]="form.username" placeholder="Enter username" />
-        </div>
-
-        <!-- Email -->
-        <div class="form-group">
-          <label>Email</label>
-          <input type="email" [(ngModel)]="form.email" (blur)="checkEmailDuplicate()" placeholder="Enter email address" />
-          @if (emailWarning) {
-            <div class="alert alert-warning py-1 px-2 mt-2" style="font-size: 12px;">
-              <i class="bi bi-exclamation-triangle-fill me-1"></i>{{ emailWarning }}
-            </div>
-          }
-        </div>
-
-        <!-- Password (required on create, optional on edit) -->
-        <div class="form-group">
-          <label>{{ isEdit ? 'New Password (leave blank to keep)' : 'Password' }}</label>
-          <input type="password" [(ngModel)]="form.password"
-                 [placeholder]="isEdit ? 'Leave blank to keep current' : 'Enter password'" />
-        </div>
-
         <!-- Role -->
         <div class="form-group">
-          <label>Role</label>
-          <select [(ngModel)]="form.role">
+          <label for="u-role">Role</label>
+          <select id="u-role" [(ngModel)]="form.role">
             @for (r of roleOptions; track r) {
               <option [value]="r">{{ r }}</option>
             }
           </select>
+          <small class="hint">
+            @switch (form.role) {
+              @case ('Admin') { Full access: employees, payroll, settings. }
+              @case ('Employee') { Self-service only: own profile, leave, attendance, payslips. }
+              @default { Limited staff access, not linked to an employee. }
+            }
+          </small>
         </div>
 
-        <!-- Active Status -->
-        <div class="form-group">
-          <label>Status</label>
-          <label class="toggle-wrap">
-            <input type="checkbox" [(ngModel)]="form.isActive" />
-            <span class="toggle-track" [class.on]="form.isActive"></span>
-            <span class="toggle-text">{{ form.isActive ? 'Active' : 'Inactive' }}</span>
-          </label>
-        </div>
+        @if (!isEdit && form.role === 'Employee') {
+          <!-- Employee login: pick the employee -->
+          <div class="form-group">
+            <label for="u-emp">Employee</label>
+            @if (loadingEmployees) {
+              <small class="hint">Loading employees…</small>
+            } @else if (availableEmployees.length === 0) {
+              <div class="info-box">Every active employee already has a login. New employees get one automatically when you add them in <strong>Employees</strong>.</div>
+            } @else {
+              <select id="u-emp" [(ngModel)]="form.employeeId">
+                <option [ngValue]="null">— Select an employee without a login —</option>
+                @for (e of availableEmployees; track e.id) {
+                  <option [ngValue]="e.id">{{ e.name }} ({{ e.employeeCode }})</option>
+                }
+              </select>
+              @if (selectedEmployee; as e) {
+                <small class="hint">Login: <strong>{{ e.email.split('@')[0].toLowerCase() }}</strong> · {{ e.email }}</small>
+              }
+            }
+          </div>
+        } @else {
+          <!-- Username -->
+          <div class="form-group">
+            <label for="u-name">Username</label>
+            <input id="u-name" type="text" [(ngModel)]="form.username" placeholder="At least 3 characters" />
+          </div>
+
+          <!-- Email -->
+          <div class="form-group">
+            <label for="u-email">Email</label>
+            <input id="u-email" type="email" [(ngModel)]="form.email" placeholder="Enter email address"
+                   [disabled]="isEdit && !!editingLinked" />
+            @if (isEdit && editingLinked) {
+              <small class="hint">Linked to {{ editingLinked.name }} — change the email in Employees → Edit; this login follows.</small>
+            }
+          </div>
+        }
+
+        @if (isEdit) {
+          <!-- Password (optional on edit) -->
+          <div class="form-group">
+            <label for="u-pass">New Password <span class="hint">(optional)</span></label>
+            <input id="u-pass" type="password" [(ngModel)]="form.password" placeholder="Leave blank to keep the current password" autocomplete="new-password" />
+            <small class="hint">They will be asked to change it at their next login. Or use the envelope button to email a "Set my password" link.</small>
+          </div>
+
+          <!-- Active Status -->
+          <div class="form-group">
+            <label>Status</label>
+            <label class="toggle-wrap">
+              <input type="checkbox" [(ngModel)]="form.isActive" />
+              <span class="toggle-track" [class.on]="form.isActive"></span>
+              <span class="toggle-text">{{ form.isActive ? 'Active' : 'Inactive' }}</span>
+            </label>
+            @if (editingLinked) {
+              <small class="hint">Deactivating the employee in Employees also deactivates this login.</small>
+            }
+          </div>
+        } @else {
+          <div class="info-box"><i class="bi bi-envelope-check"></i> They'll get an email with a <strong>Set my password</strong> link (valid 7 days). No password is typed here.</div>
+        }
 
       </div>
 
       <div class="modal-footer-row">
         <button class="btn btn-secondary" (click)="closeModal()">Cancel</button>
-        <button class="btn btn-primary" (click)="save()" [disabled]="saving || !form.username.trim() || !form.email.trim()">
+        <button class="btn btn-primary" (click)="save()" [disabled]="!canSave">
           @if (saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
-          {{ isEdit ? 'Update' : 'Create' }}
+          {{ isEdit ? 'Update' : 'Create & send email' }}
         </button>
       </div>
 
@@ -173,4 +232,3 @@
   (confirmed)="onConfirmDelete()"
   (cancelled)="onCancelDelete()"
 ></app-confirm-modal>
-

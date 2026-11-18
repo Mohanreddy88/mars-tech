@@ -67,7 +67,7 @@
 
               @if (emp.profilePicture) {
                 <div class="emp-avatar-img">
-                  <img [src]="emp.profilePicture" [alt]="emp.name" />
+                  <img [src]="photoUrl(emp.profilePicture)" [alt]="emp.name" />
                 </div>
               } @else {
                 <div class="emp-avatar">
@@ -106,14 +106,20 @@
 
           </td>
 
-          <td>
+          <td class="actions-cell">
             @if (isAdmin) {
-              <button class="btn btn-sm btn-warning me-1" (click)="editEmployee(emp.id)">
+              <div class="row-actions">
+              <button class="act act-edit" (click)="editEmployee(emp.id)" title="Edit employee" aria-label="Edit employee">
                 <i class="bi bi-pencil"></i>
               </button>
-              <button class="btn btn-sm btn-danger" (click)="deleteEmployee(emp.id, emp.name)">
+              <button class="act act-mail" (click)="sendLoginEmail(emp)" aria-label="Send login email"
+                      [disabled]="sendingId === emp.id" title="Send login email (Set my password link)">
+                <i class="bi" [class.bi-envelope]="sendingId !== emp.id" [class.bi-hourglass-split]="sendingId === emp.id"></i>
+              </button>
+              <button class="act act-delete" (click)="deleteEmployee(emp.id, emp.name)" title="Delete employee" aria-label="Delete employee">
                 <i class="bi bi-trash"></i>
               </button>
+              </div>
             } @else {
               <span class="text-muted">View Only</span>
             }

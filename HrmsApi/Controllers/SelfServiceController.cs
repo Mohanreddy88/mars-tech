@@ -22,6 +22,7 @@ public class SelfServiceController : ControllerBase
     private readonly IEmailQueue _emailQueue;
     private readonly INotificationService _notif;
     private readonly ICompanySettingsService _company;
+    private readonly ILeaveService _leave;
 
     public SelfServiceController(
         HrmsDbContext db,
@@ -31,9 +32,11 @@ public class SelfServiceController : ControllerBase
         IPdfService pdfService,
         IEmailQueue emailQueue,
         INotificationService notif,
-        ICompanySettingsService company)
+        ICompanySettingsService company,
+        ILeaveService leave)
     {
         _company = company;
+        _leave   = leave;
         _db               = db;
         _logger           = logger;
         _timesheetService = timesheetService;
@@ -131,6 +134,13 @@ public class SelfServiceController : ControllerBase
             employee.Name,
             employee.Email,
             employee.Phone,
+            employee.PhoneCountryCode,
+            employee.IdType,
+            employee.IcPassport,
+            employee.IdCountry,
+            employee.DateOfBirth,
+            employee.ProfilePicture,
+            employee.TaxNumber,
             departmentId = employee.DepartmentId,
             departmentName = employee.Department?.Name,
             employee.Designation,
@@ -168,7 +178,13 @@ public class SelfServiceController : ControllerBase
 
         // Allow employees to update only specific fields
         if (!string.IsNullOrWhiteSpace(request.Phone))
-            employee.Phone = request.Phone;
+        {
+            var phone = System.Text.RegularExpressions.Regex.Replace(request.Phone, @"[\s\-()]", "");
+            if (phone.StartsWith(employee.PhoneCountryCode)) phone = phone[employee.PhoneCountryCode.Length..];
+            if (!System.Text.RegularExpressions.Regex.IsMatch(phone, @"^\d{7,12}$"))
+                return BadRequest(new { message = "Mobile number must be 7–12 digits (numbers only)." });
+            employee.Phone = phone;
+        }
 
         if (!string.IsNullOrWhiteSpace(request.Email))
             employee.Email = request.Email;
@@ -212,6 +228,7 @@ public class SelfServiceController : ControllerBase
         var currentMonth = DateTime.Now.Month;
 
         // 1. Leave Balance Summary
+        await _leave.InitializeLeaveBalancesAsync(employee.Id, currentYear);   // entitlement for this year
         var leaveBalances = await _db.EmployeeLeaveBalances
             .Include(lb => lb.LeaveType)
             .Where(lb => lb.EmployeeId == employee.Id && lb.Year == currentYear)
@@ -669,6 +686,7 @@ public class SelfServiceController : ControllerBase
 
         var targetYear = year ?? DateTime.Now.Year;
 
+        await _leave.InitializeLeaveBalancesAsync(employee.Id, targetYear);   // entitlement for this year
         var leaveBalances = await _db.EmployeeLeaveBalances
             .Include(lb => lb.LeaveType)
             .Where(lb => lb.EmployeeId == employee.Id && lb.Year == targetYear)

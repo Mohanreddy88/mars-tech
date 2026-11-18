@@ -214,4 +214,59 @@ public class DashboardController : ControllerBase
             recentActivities = sortedActivities
         });
     }
+
+    /// <summary>
+    /// GET /api/dashboard/birthdays — Home page "Upcoming" (next 30 days) and "Recent" (last 7 days)
+    /// birthdays of active employees, from their Date of Birth. Only day and month are returned
+    /// (no year / age). 29 February birthdays are celebrated on 28 February in non-leap years.
+    /// </summary>
+    [HttpGet("birthdays")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GetBirthdays([FromQuery] int upcomingDays = 30, [FromQuery] int recentDays = 7)
+    {
+        upcomingDays = Math.Clamp(upcomingDays, 1, 366);
+        recentDays   = Math.Clamp(recentDays, 1, 60);
+
+        var today = DateTime.Now.Date;   // container runs in Asia/Kuala_Lumpur
+        var people = await _db.Employees
+            .Where(e => e.IsActive && e.DateOfBirth != null)
+            .Select(e => new { e.Id, e.Name, e.EmployeeCode, e.ProfilePicture, e.DateOfBirth,
+                               Department = e.Department != null ? e.Department.Name : null })
+            .ToListAsync();
+
+        // Birthday falling in a given year (Feb 29 → Feb 28 when that year isn't a leap year)
+        static DateTime InYear(DateTime dob, int year) =>
+            dob.Month == 2 && dob.Day == 29 && !DateTime.IsLeapYear(year)
+                ? new DateTime(year, 2, 28)
+                : new DateTime(year, dob.Month, dob.Day);
+
+        var list = people.Select(p =>
+        {
+            var dob  = p.DateOfBirth!.Value;
+            var next = InYear(dob, today.Year);
+            if (next < today) next = InYear(dob, today.Year + 1);
+            var last = InYear(dob, today.Year);
+            if (last > today) last = InYear(dob, today.Year - 1);
+            return new
+            {
+                p.Id, p.Name, p.EmployeeCode, p.ProfilePicture, p.Department,
+                birthday  = $"{dob:dd MMM}",
+                nextDate  = next,
+                daysUntil = (next - today).Days,
+                daysAgo   = (today - last).Days
+            };
+        }).ToList();
+
+        return Ok(new
+        {
+            today,
+            employeesWithDob = people.Count,
+            upcoming = list.Where(x => x.daysUntil <= upcomingDays)
+                           .OrderBy(x => x.daysUntil).ThenBy(x => x.Name)
+                           .Select(x => new { x.Id, x.Name, x.EmployeeCode, x.ProfilePicture, x.Department, x.birthday, x.daysUntil }),
+            recent   = list.Where(x => x.daysAgo >= 1 && x.daysAgo <= recentDays)
+                           .OrderBy(x => x.daysAgo).ThenBy(x => x.Name)
+                           .Select(x => new { x.Id, x.Name, x.EmployeeCode, x.ProfilePicture, x.Department, x.birthday, x.daysAgo })
+        });
+    }
 }

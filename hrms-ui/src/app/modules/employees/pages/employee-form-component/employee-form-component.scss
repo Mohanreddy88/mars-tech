@@ -293,3 +293,20 @@ input[type="checkbox"]:checked + .toggle-slider {
     }
   }
 }
+
+// Mobile number: country code dropdown + number
+.phone-row {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+
+  .dial-code { flex: 0 0 150px; min-width: 0; }
+  input { flex: 1 1 auto; min-width: 0; }
+}
+
+// Country is fixed to Malaysia for NRIC
+select:disabled {
+  background: #f3f4f6;
+  color: #6b7280;
+  cursor: not-allowed;
+}

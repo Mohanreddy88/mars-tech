@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { AppUser, UserRequest, UserUpdateRequest } from '../models/user.model';
+import { AppUser, UserRequest, UserUpdateRequest, AvailableEmployee } from '../models/user.model';
 import { environment } from '../../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
@@ -18,8 +18,18 @@ export class UserService {
     return this.http.get<AppUser>(`${this.apiUrl}/${id}`);
   }
 
-  create(payload: UserRequest): Observable<AppUser> {
-    return this.http.post<AppUser>(this.apiUrl, payload);
+  create(payload: UserRequest): Observable<AppUser & { welcomeEmailSent: boolean }> {
+    return this.http.post<AppUser & { welcomeEmailSent: boolean }>(this.apiUrl, payload);
+  }
+
+  /** Active employees that don't have a login yet. */
+  availableEmployees(): Observable<AvailableEmployee[]> {
+    return this.http.get<AvailableEmployee[]>(`${this.apiUrl}/available-employees`);
+  }
+
+  /** New "Set my password" email. */
+  sendWelcome(id: number): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/${id}/send-welcome`, {});
   }
 
   update(id: number, payload: UserUpdateRequest): Observable<AppUser> {

@@ -208,3 +208,31 @@ table tbody tr td {
 }
 
 /* Active/inactive toggle styles are now in global styles.scss */
+
+// ── Login ↔ employee link ─────────────────────────────────
+.sync-banner {
+  display: flex; gap: 8px; align-items: center;
+  background: #fffbeb; border: 1px solid #fcd34d; color: #92400e;
+  border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; font-size: 14px;
+}
+.linked-emp { display: grid; line-height: 1.3; small { color: #6b7280; font-size: 12px; } }
+.row-warning { color: #b45309; font-size: 12px; margin-top: 4px; display: flex; gap: 4px; align-items: baseline; }
+.hint { color: #6b7280; font-size: 12px; font-weight: 400; }
+.info-box {
+  background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; border-radius: 8px;
+  padding: 10px 12px; font-size: 13px; display: flex; gap: 8px; align-items: baseline;
+}
+input:disabled { background: #f3f4f6; color: #6b7280; cursor: not-allowed; }
+
+// Action buttons: one row, same size (same look as the Employees list)
+.actions-cell { white-space: nowrap; width: 1%; }
+.row-actions { display: flex; gap: 6px; align-items: center; flex-wrap: nowrap; }
+.act {
+  width: 34px; height: 34px; border-radius: 8px; border: 1px solid transparent; display: inline-grid;
+  place-items: center; font-size: 15px; cursor: pointer; padding: 0;
+  &:disabled { opacity: .5; cursor: default; }
+  &:hover:not(:disabled) { filter: brightness(0.95); }
+}
+.act-edit   { background: #f59e0b; color: #fff; }
+.act-mail   { background: #fff; color: #2563eb; border-color: #93c5fd; }
+.act-delete { background: #dc2626; color: #fff; }

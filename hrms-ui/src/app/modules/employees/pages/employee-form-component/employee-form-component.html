@@ -58,31 +58,30 @@
 
         <div class="form-row">
 
-          <!-- Phone -->
+          <!-- Mobile: country code + number -->
           <div class="form-group">
-            <label>Phone <span class="req">*</span></label>
-            <input type="text" formControlName="phone" placeholder="e.g. +60123456789"
-              [class.is-invalid]="f['phone'].invalid && f['phone'].touched" />
+            <label for="emp-phone">Mobile No. <span class="req">*</span></label>
+            <div class="phone-row">
+              <select formControlName="phoneCountryCode" class="dial-code" aria-label="Country code">
+                @for (d of dialCodes; track d.dial) {
+                  <option [value]="d.dial">{{ d.label }}</option>
+                }
+              </select>
+              <input id="emp-phone" type="text" inputmode="numeric" formControlName="phone"
+                placeholder="e.g. 123456789" (input)="onPhoneInput()"
+                [class.is-invalid]="f['phone'].invalid && f['phone'].touched" />
+            </div>
             @if (f['phone'].invalid && f['phone'].touched) {
-              <span class="field-error">Phone is required</span>
+              <span class="field-error">{{ phoneError }}</span>
+            } @else {
+              <small class="field-hint">Numbers only, without the country code</small>
             }
           </div>
 
-          <!-- IC / Passport -->
-          <div class="form-group">
-            <label>IC / Passport No.</label>
-            <input type="text" formControlName="icPassport" placeholder="e.g. 900101-14-1234 or A1234567" />
-            <small class="field-hint">Used as NRIC on the payslip</small>
-          </div>
-
-        </div>
-
-        <div class="form-row">
-
           <!-- Gender -->
           <div class="form-group">
-            <label>Gender <span class="req">*</span></label>
-            <select formControlName="gender">
+            <label for="emp-gender">Gender <span class="req">*</span></label>
+            <select id="emp-gender" formControlName="gender">
               <option value="">— Select Gender —</option>
               <option value="Male">Male</option>
               <option value="Female">Female</option>
@@ -91,7 +90,66 @@
             <small class="field-hint">Determines Maternity / Paternity leave entitlement</small>
           </div>
 
-          <div class="form-group"><!-- spacer --></div>
+        </div>
+
+        <div class="form-row">
+
+          <!-- 1. Identification type -->
+          <div class="form-group">
+            <label for="emp-idtype">Identification Type <span class="req">*</span></label>
+            <select id="emp-idtype" formControlName="idType">
+              <option value="NRIC">NRIC (MyKad)</option>
+              <option value="Passport">Passport</option>
+            </select>
+            <small class="field-hint">{{ isPassport ? 'For non-Malaysian employees' : 'Malaysian citizens and PR' }}</small>
+          </div>
+
+          <!-- 2. Country of the ID -->
+          <div class="form-group">
+            <label for="emp-country">Country <span class="req">*</span></label>
+            <select id="emp-country" formControlName="idCountry"
+              [class.is-invalid]="f['idCountry'].invalid && f['idCountry'].touched">
+              @if (isPassport) { <option value="">— Select country —</option> }
+              @for (c of countries; track c.name) {
+                <option [value]="c.name">{{ c.name }}</option>
+              }
+            </select>
+            @if (f['idCountry'].invalid && f['idCountry'].touched) {
+              <span class="field-error">{{ f['idCountry'].errors?.['server'] || 'Select the passport\'s country' }}</span>
+            } @else {
+              <small class="field-hint">{{ isPassport ? 'Country that issued the passport' : 'Fixed to Malaysia for NRIC' }}</small>
+            }
+          </div>
+
+        </div>
+
+        <div class="form-row">
+
+          <!-- 3. NRIC / Passport number -->
+          <div class="form-group">
+            <label for="emp-id">NRIC / Passport No. <span class="req">*</span></label>
+            <input id="emp-id" type="text" formControlName="icPassport" (input)="onIdInput()"
+              [attr.inputmode]="isPassport ? 'text' : 'numeric'"
+              [placeholder]="isPassport ? 'e.g. A12345678 (8–10 letters/numbers)' : 'e.g. 900101141234 (12 digits)'"
+              [class.is-invalid]="f['icPassport'].invalid && f['icPassport'].touched" />
+            @if (f['icPassport'].invalid && f['icPassport'].touched) {
+              <span class="field-error">{{ idError }}</span>
+            } @else {
+              <small class="field-hint">{{ isPassport ? 'Passport: 8–10 letters and numbers' : 'NRIC: 12 digits, numbers only' }}. Printed on payslips and the EA form.</small>
+            }
+          </div>
+
+          <!-- Date of birth -->
+          <div class="form-group">
+            <label for="emp-dob">Date of Birth <span class="req">*</span></label>
+            <input id="emp-dob" type="date" formControlName="dateOfBirth" [max]="maxDob"
+              [class.is-invalid]="f['dateOfBirth'].invalid && f['dateOfBirth'].touched" />
+            @if (f['dateOfBirth'].invalid && f['dateOfBirth'].touched) {
+              <span class="field-error">{{ dobError }}</span>
+            } @else {
+              <small class="field-hint">{{ isPassport ? 'As shown in the passport' : 'Filled in from the NRIC (first 6 digits) — check it' }}</small>
+            }
+          </div>
 
         </div>
 
@@ -153,7 +211,7 @@
           <!-- Salary -->
           <div class="form-group">
             <label>Salary (RM) <span class="req">*</span></label>
-            <input type="number" formControlName="salary" placeholder="e.g. 5000"
+            <input moneyInput id="emp-salary" formControlName="salary" placeholder="0.00"
               [class.is-invalid]="f['salary'].invalid && f['salary'].touched" />
             @if (f['salary'].invalid && f['salary'].touched) {
               <span class="field-error">Salary must be 0 or more</span>
@@ -180,9 +238,9 @@
             <label>Upload Profile Picture</label>
             <div class="profile-upload-container">
               <!-- Preview area -->
-              @if (profilePictureUrl || form.value.profilePicture) {
+              @if (profilePictureUrl) {
                 <div class="profile-preview">
-                  <img [src]="profilePictureUrl || form.value.profilePicture" alt="Profile Picture" />
+                  <img [src]="profilePictureUrl" alt="Profile Picture" />
                   <button type="button" class="btn btn-sm btn-danger remove-btn" 
                     (click)="removeProfilePicture()" [disabled]="uploading">
                     <i class="bi bi-trash"></i> Remove

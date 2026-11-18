@@ -4,9 +4,15 @@ import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { UserService } from '../../../../core/services/user.service';
 import { ToastService } from '../../../../core/services/toast.service';
-import { AppUser } from '../../../../core/models/user.model';
+import { AppUser, AvailableEmployee } from '../../../../core/models/user.model';
 import { ConfirmModalComponent } from '../../../../shared/components/confirm-modal/confirm-modal.component';
 
+/**
+ * Master → Users. A login belongs to an employee when both have the same email.
+ *   Employee role → pick an employee who has no login yet (same as the automatic login from Employees)
+ *   Admin / User  → username + email (HR, office staff)
+ * New logins get a "Set my password" email; nobody types a password for someone else.
+ */
 @Component({
   selector: 'app-user-list',
   standalone: true,
@@ -22,8 +28,12 @@ export class UserListComponent implements OnInit {
   showModal = false;
   isEdit    = false;
   editId: number | null = null;
+  editingLinked: AppUser['employee'] = null;   // employee the edited login belongs to
   modalError = '';
-  emailWarning = '';
+  sendingId: number | null = null;
+
+  availableEmployees: AvailableEmployee[] = [];
+  loadingEmployees = false;
 
   // Confirmation modal state
   showConfirmModal = false;
@@ -32,31 +42,29 @@ export class UserListComponent implements OnInit {
   confirmModalVariant: 'danger' | 'warning' | 'info' = 'danger';
   pendingDeleteUser: AppUser | null = null;
 
-  form = { username: '', email: '', password: '', role: 'Admin', isActive: true };
+  form = { username: '', email: '', password: '', role: 'Admin', isActive: true, employeeId: null as number | null };
 
   constructor(
     private userService: UserService,
     private toast: ToastService,
-    private cdr: ChangeDetectorRef
-  ,
+    private cdr: ChangeDetectorRef,
     private router: Router
   ) {}
 
   ngOnInit(): void { this.loadUsers(); }
 
+  get warningCount(): number { return this.users.filter(u => u.warning).length; }
+
+  get selectedEmployee(): AvailableEmployee | undefined {
+    return this.availableEmployees.find(e => e.id === this.form.employeeId);
+  }
+
   loadUsers(): void {
     this.loading = true;
     this.userService.getAll().subscribe({
-      next: (data) => {
-        this.users = data;
-        this.loading = false;
-        this.cdr.detectChanges();
-      },
+      next: (data) => { this.users = data; this.loading = false; this.cdr.detectChanges(); },
       error: (err) => {
-        // Only show error toast for actual errors (not empty data)
-        if (err.status !== 404) {
-          this.toast.error('Load Failed', 'Could not load users.');
-        }
+        if (err.status !== 404) this.toast.error('Load Failed', 'Could not load users.');
         this.loading = false;
         this.cdr.detectChanges();
       }
@@ -64,56 +72,37 @@ export class UserListComponent implements OnInit {
   }
 
   openCreate(): void {
-    this.isEdit = false; this.editId = null;
-    this.form = { username: '', email: '', password: '', role: 'Admin', isActive: true };
-    this.showModal = true; this.modalError = ''; this.emailWarning = '';
+    this.isEdit = false; this.editId = null; this.editingLinked = null;
+    this.form = { username: '', email: '', password: '', role: 'Admin', isActive: true, employeeId: null };
+    this.showModal = true; this.modalError = '';
+    this.loadingEmployees = true;
+    this.userService.availableEmployees().subscribe({
+      next: list => { this.availableEmployees = list; this.loadingEmployees = false; this.cdr.detectChanges(); },
+      error: () => { this.availableEmployees = []; this.loadingEmployees = false; this.cdr.detectChanges(); }
+    });
   }
 
   openEdit(u: AppUser): void {
-    this.isEdit = true; this.editId = u.id;
-    this.form = { username: u.username, email: u.email, password: '', role: u.role, isActive: u.isActive };
-    this.showModal = true; this.modalError = ''; this.emailWarning = '';
+    this.isEdit = true; this.editId = u.id; this.editingLinked = u.employee;
+    this.form = { username: u.username, email: u.email, password: '', role: u.role, isActive: u.isActive, employeeId: null };
+    this.showModal = true; this.modalError = '';
   }
 
-  closeModal(): void { this.showModal = false; this.modalError = ''; this.emailWarning = ''; }
+  closeModal(): void { this.showModal = false; this.modalError = ''; }
 
-  checkEmailDuplicate(): void {
-    if (!this.form.email || !this.form.email.trim()) {
-      this.emailWarning = '';
-      return;
-    }
-
-    const emailExists = this.users.some(u => 
-      u.email && u.email.toLowerCase() === this.form.email.toLowerCase() && 
-      u.id !== this.editId
-    );
-
-    if (emailExists) {
-      this.emailWarning = 'Email already exists. Please choose another email.';
-    } else {
-      this.emailWarning = '';
-    }
+  get canSave(): boolean {
+    if (this.saving) return false;
+    if (!this.isEdit && this.form.role === 'Employee') return this.form.employeeId != null;
+    return this.form.username.trim().length >= 3 && this.form.email.includes('@');
   }
 
   save(): void {
-    if (!this.form.username.trim()) {
-      this.modalError = 'Username is required.';
-      return;
-    }
-    if (!this.form.email.trim()) {
-      this.modalError = 'Email is required.';
-      return;
-    }
-    if (this.emailWarning) {
-      this.modalError = this.emailWarning;
-      return;
-    }
-
+    this.modalError = '';
     this.saving = true;
 
     if (this.isEdit && this.editId !== null) {
       this.userService.update(this.editId, {
-        username: this.form.username, email: this.form.email, role: this.form.role,
+        username: this.form.username.trim(), email: this.form.email.trim(), role: this.form.role,
         isActive: this.form.isActive, password: this.form.password || undefined
       }).subscribe({
         next: () => {
@@ -121,28 +110,42 @@ export class UserListComponent implements OnInit {
           this.toast.success('User Updated', `${this.form.username} updated.`);
           this.closeModal(); this.loadUsers();
         },
-        error: (err: any) => { this.saving = false; this.modalError = err?.error?.message ?? 'Failed to update.'; }
+        error: (err: any) => { this.saving = false; this.modalError = err?.error?.message ?? 'Failed to update.'; this.cdr.detectChanges(); }
       });
-    } else {
-      if (!this.form.password.trim()) { this.modalError = 'Password is required.'; this.saving = false; return; }
-      this.userService.create({
-        username: this.form.username, email: this.form.email, password: this.form.password,
-        role: this.form.role, isActive: this.form.isActive
-      }).subscribe({
-        next: () => {
-          this.saving = false;
-          this.toast.success('User Created', `${this.form.username} created.`);
-          this.closeModal(); this.loadUsers();
-        },
-        error: (err: any) => { this.saving = false; this.modalError = err?.error?.message ?? 'Failed to create.'; }
-      });
+      return;
     }
+
+    const payload = this.form.role === 'Employee'
+      ? { role: 'Employee', employeeId: this.form.employeeId }
+      : { role: this.form.role, username: this.form.username.trim(), email: this.form.email.trim() };
+    this.userService.create(payload).subscribe({
+      next: (res) => {
+        this.saving = false;
+        if (res.welcomeEmailSent) {
+          this.toast.success('Login created', `${res.username}: a "Set my password" link was emailed to ${res.email}.`);
+        } else {
+          this.toast.warning('Login created, email not sent', `Use the envelope button to send ${res.username} the link again.`);
+        }
+        this.closeModal(); this.loadUsers();
+      },
+      error: (err: any) => { this.saving = false; this.modalError = err?.error?.message ?? 'Failed to create.'; this.cdr.detectChanges(); }
+    });
+  }
+
+  sendLoginEmail(u: AppUser): void {
+    this.sendingId = u.id;
+    this.userService.sendWelcome(u.id).subscribe({
+      next: res => { this.sendingId = null; this.toast.success('Email sent', res.message); this.cdr.detectChanges(); },
+      error: err => { this.sendingId = null; this.toast.error('Email not sent', err?.error?.message ?? 'Please try again.'); this.cdr.detectChanges(); }
+    });
   }
 
   deleteUser(u: AppUser): void {
     this.pendingDeleteUser = u;
     this.confirmModalTitle = 'Delete User';
-    this.confirmModalMessage = `Are you sure you want to delete user "${u.username}"? This action cannot be undone.`;
+    this.confirmModalMessage = u.employee
+      ? `Delete the login "${u.username}"? ${u.employee.name} will no longer be able to sign in. The employee record is kept.`
+      : `Are you sure you want to delete user "${u.username}"? This action cannot be undone.`;
     this.confirmModalVariant = 'danger';
     this.showConfirmModal = true;
   }
@@ -162,17 +165,13 @@ export class UserListComponent implements OnInit {
     });
   }
 
-  onCancelDelete(): void {
-    this.pendingDeleteUser = null;
-  }
+  onCancelDelete(): void { this.pendingDeleteUser = null; }
 
-  getRoleClass(role: string): string { 
+  getRoleClass(role: string): string {
     if (role === 'Admin') return 'role-admin';
     if (role === 'Employee') return 'role-employee';
     return 'role-user';
   }
 
-  backToHome(): void {
-    this.router.navigate(['/home']);
-  }
+  backToHome(): void { this.router.navigate(['/home']); }
 }

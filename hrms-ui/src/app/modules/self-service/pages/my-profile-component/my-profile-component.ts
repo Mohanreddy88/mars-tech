@@ -1,3 +1,4 @@
+import { photoUrl } from '../../../../core/utils/photo-url';
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -97,6 +98,6 @@ export class MyProfileComponent implements OnInit {
     if (!this.profile?.profilePicture) {
       return 'assets/img/default-avatar.svg';
     }
-    return `${this.apiUrl}/uploads/profiles/${this.profile.profilePicture}`;
+    return photoUrl(this.profile.profilePicture) ?? 'assets/img/default-avatar.svg';
   }
 }

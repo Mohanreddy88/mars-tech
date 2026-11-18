@@ -146,7 +146,7 @@ public class PdfService : IPdfService
                                 });
                             }
                             LR("NAME:       ", payroll.Employee.Name.ToUpper());
-                            LR("NRIC NO:    ", payroll.Employee.IcPassport ?? "—");
+                            LR(payroll.Employee.IdType == IdTypes.Passport ? "PASSPORT NO:" : "NRIC NO:    ", payroll.Employee.IcPassport ?? "—");
                             LR("ACCOUNT No: ", payroll.Employee.AccountNumber ?? "—");
                             LR("DEPARTMENT: ", payroll.Employee.Department?.Name ?? "—");
                         });
@@ -459,9 +459,9 @@ public class PdfService : IPdfService
                             grid.Cell().ColumnSpan(5).Text(t => { t.Span("No. Staff / No. Salary  ").Bold(); t.Span(employee.EmployeeCode); });
 
                             grid.Cell().ColumnSpan(1).Text("4.").Bold();
-                            grid.Cell().ColumnSpan(5).Text(t => { t.Span("New Identification No.  ").Bold(); t.Span(employee.IcPassport ?? "—"); });
+                            grid.Cell().ColumnSpan(5).Text(t => { t.Span("New Identification No.  ").Bold(); t.Span(employee.IdType == IdTypes.Passport ? "—" : employee.IcPassport ?? "—"); });
                             grid.Cell().ColumnSpan(1).Text("5.").Bold();
-                            grid.Cell().ColumnSpan(5).Text(t => { t.Span("Passport No.  ").Bold(); t.Span(employee.IcPassport ?? "—"); });
+                            grid.Cell().ColumnSpan(5).Text(t => { t.Span("Passport No.  ").Bold(); t.Span(employee.IdType == IdTypes.Passport ? $"{employee.IcPassport} ({employee.IdCountry})" : "—"); });
 
                             grid.Cell().ColumnSpan(1).Text("6.").Bold();
                             grid.Cell().ColumnSpan(5).Text(t => { t.Span("KWSP No.  ").Bold(); t.Span("0"); });

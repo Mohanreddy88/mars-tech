@@ -70,12 +70,17 @@
             type="text" 
             [(ngModel)]="editData.phone" 
             class="form-control">
-          <p *ngIf="!isEditMode">{{ profile.phone || 'N/A' }}</p>
+          <p *ngIf="!isEditMode">{{ profile.phone ? (profile.phoneCountryCode || '+60') + ' ' + profile.phone : 'N/A' }}</p>
         </div>
 
         <div class="info-item">
-          <label>IC/Passport Number</label>
-          <p>{{ profile.icPassport || 'N/A' }}</p>
+          <label>{{ profile.idType === 'Passport' ? 'Passport No.' : 'NRIC No.' }}</label>
+          <p>{{ profile.icPassport || 'N/A' }}{{ profile.idType === 'Passport' && profile.idCountry ? ' (' + profile.idCountry + ')' : '' }}</p>
+        </div>
+
+        <div class="info-item">
+          <label>Date of Birth</label>
+          <p>{{ profile.dateOfBirth ? (profile.dateOfBirth | date:'d MMM y') : 'N/A' }}</p>
         </div>
 
         <div class="info-item">

@@ -283,52 +283,42 @@ public class LeaveService : ILeaveService
     }
 
     /// <summary>
-    /// Initialize leave balances for an employee for a specific year
-    /// Creates balance records for all active leave types
+    /// Creates the leave balances an employee is missing for a year, with their entitlement
+    /// (see <see cref="LeaveEntitlement"/>: Employment Act tiers by service, company minimum,
+    /// pro-rated joining year, Maternity for women, Paternity for men).
+    /// Existing balances are never changed or removed — admins adjust those on the Leave Balance page.
     /// </summary>
     public async Task InitializeLeaveBalancesAsync(int employeeId, int year)
     {
         var employee = await _db.Employees.FindAsync(employeeId)
             ?? throw new KeyNotFoundException($"Employee {employeeId} not found");
 
-        var activeLeaveTypes = await _db.LeaveTypes
-            .Where(lt => lt.IsActive)
+        var activeLeaveTypes = await _db.LeaveTypes.Where(lt => lt.IsActive).ToListAsync();
+        var existingTypeIds = await _db.EmployeeLeaveBalances
+            .Where(b => b.EmployeeId == employeeId && b.Year == year)
+            .Select(b => b.LeaveTypeId)
             .ToListAsync();
 
         foreach (var leaveType in activeLeaveTypes)
         {
-            // Skip gender-specific leave types that don't apply to this employee
-            var gender = (employee.Gender ?? "").ToLower();
-            if (leaveType.Code == "MTL" && gender != "female") continue; // Maternity = Female only
-            if (leaveType.Code == "PTL" && gender != "male")   continue; // Paternity = Male only
+            if (existingTypeIds.Contains(leaveType.Id)) continue;          // admin's numbers stay as they are
 
-            // Check if balance already exists
-            var existing = await _db.EmployeeLeaveBalances
-                .AnyAsync(b => b.EmployeeId == employeeId 
-                            && b.LeaveTypeId == leaveType.Id 
-                            && b.Year == year);
+            var days = LeaveEntitlement.DaysFor(leaveType, employee, year);
+            if (days == null) continue;                                       // e.g. Maternity for a male employee
 
-            if (existing)
-                continue;
-
-            var balance = new EmployeeLeaveBalance
+            _db.EmployeeLeaveBalances.Add(new EmployeeLeaveBalance
             {
-                EmployeeId = employeeId,
-                LeaveTypeId = leaveType.Id,
-                Year = year,
-                TotalDays = leaveType.DefaultDaysPerYear,
-                UsedDays = 0,
-                BalanceDays = leaveType.DefaultDaysPerYear,
+                EmployeeId       = employeeId,
+                LeaveTypeId      = leaveType.Id,
+                Year             = year,
+                TotalDays        = days.Value,
+                UsedDays         = 0,
+                BalanceDays      = days.Value,
                 CarryForwardDays = 0
-            };
-
-            _db.EmployeeLeaveBalances.Add(balance);
+            });
         }
 
         await _db.SaveChangesAsync();
-
-        _logger.LogInformation("Leave balances initialized for Employee {EmployeeId} for year {Year}",
-            employeeId, year);
     }
 
     /// <summary>
