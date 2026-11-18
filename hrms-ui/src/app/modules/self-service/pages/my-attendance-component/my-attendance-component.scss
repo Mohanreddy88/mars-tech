@@ -1396,3 +1396,81 @@
   }
 }
 
+
+// ── Leave codes in the day boxes ──────────────────────────
+.day-cell .hours-input.code {
+  color: #b45309;
+  font-weight: 700;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+
+// Leave day still without a comment: small red dot
+.day-cell.needs-comment { position: relative; }
+.day-cell.needs-comment::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #dc2626;
+  box-shadow: 0 0 0 2px #fff;
+}
+
+// ── Note + legend under the grid ──────────────────────────
+.leave-guide {
+  margin: 12px 0;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+  padding: 14px 18px;
+  display: grid;
+  gap: 10px;
+  font-size: 14px;
+  color: #374151;
+
+  a { color: #0d9488; font-weight: 600; }
+}
+
+.guide-note {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  > i { color: #0d9488; font-size: 18px; margin-top: 1px; }
+}
+
+.guide-warning {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  i { margin-right: 4px; }
+}
+
+.code-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+
+  .legend-title { font-size: 13px; color: #6b7280; margin-right: 4px; }
+}
+
+.legend-chip {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12.5px;
+  color: #334155;
+  b { color: #b45309; margin-right: 4px; }
+}
+
+.info-body {
+  ol { padding-left: 20px; margin: 0 0 12px; display: grid; gap: 8px; font-size: 14px; }
+  .info-foot { margin: 12px 0 0; font-size: 13px; color: #6b7280; }
+}

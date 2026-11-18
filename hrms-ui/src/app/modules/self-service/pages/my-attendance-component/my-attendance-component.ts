@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { SelfServiceService, AttendanceResponse } from '../../../../core/services/self-service.service';
 import { LoadingService } from '../../../../core/services/loading.service';
@@ -33,7 +34,7 @@ interface AttendancePeriod {
 @Component({
   selector: 'app-my-attendance',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterModule],
   templateUrl: './my-attendance-component.html',
   styleUrl: './my-attendance-component.scss'
 })
@@ -75,6 +76,11 @@ export class MyAttendanceComponent implements OnInit {
   // Public holidays loaded from API — keyed as 'YYYY-MM-DD' strings
   publicHolidays: string[] = [];
 
+  /** Leave codes this employee can type in a day (from their leave types: AL, ML, HPL, …) */
+  leaveCodes: { code: string; name: string }[] = [];
+  showInfoModal = false;
+  downloading = false;
+
   constructor(
     private http: HttpClient,
     private selfServiceService: SelfServiceService,
@@ -87,6 +93,113 @@ export class MyAttendanceComponent implements OnInit {
   ngOnInit(): void {
     this.loadEmployeeInfo();
     this.loadPublicHolidays();
+    this.loadLeaveCodes();
+  }
+
+  // ── Leave codes typed into a day ─────────────────────────────────────────
+
+  /** The employee's own leave types (already matched to their gender): AL, ML, HPL, MTL/PTL, … */
+  loadLeaveCodes(): void {
+    this.http.get<{ balances: { leaveTypeCode: string; leaveTypeName: string }[] }>(
+      `${environment.apiUrl}/selfservice/my-leave-balance`
+    ).subscribe({
+      next: r => {
+        const seen = new Set<string>();
+        this.leaveCodes = (r.balances || [])
+          .filter(b => b.leaveTypeCode && !seen.has(b.leaveTypeCode) && seen.add(b.leaveTypeCode))
+          .map(b => ({ code: b.leaveTypeCode.toUpperCase(), name: b.leaveTypeName }));
+      },
+      error: () => { this.leaveCodes = []; }
+    });
+  }
+
+  /** What a day box shows: the leave code (e.g. "AL") or the hours. */
+  cellText(day: DayEntry): string {
+    return day.note ? day.note : String(day.hours ?? 0);
+  }
+
+  leaveName(code: string): string {
+    return this.leaveCodes.find(c => c.code === code)?.name ?? code;
+  }
+
+  /** Leave days that still need a comment (reason) before submitting. */
+  get leaveDaysWithoutComment(): DayEntry[] {
+    return this.currentPeriodDays.filter(d => d.note && !(d.remarks || '').trim());
+  }
+
+  /** While typing: letters = leave code (capitals, max 4), digits = hours. */
+  onCellInput(event: Event, dayIndex: number): void {
+    this.hasClickedAnyInput = true;
+    this.lastClickedDayIndex = dayIndex;
+    const input = event.target as HTMLInputElement;
+    let v = input.value;
+    if (/^\s*[a-zA-Z]/.test(v)) v = v.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 4);
+    else {
+      v = v.replace(/[^0-9.]/g, '');
+      const parts = v.split('.');
+      if (parts.length > 2) v = parts[0] + '.' + parts.slice(1).join('');
+    }
+    if (v !== input.value) input.value = v;
+  }
+
+  /** Leaving the box: accept a known leave code or hours (0–24, rounded to 0.5). */
+  onCellBlur(event: Event, dayIndex: number): void {
+    const input = event.target as HTMLInputElement;
+    const day = this.currentPeriodDays[dayIndex];
+    const v = input.value.trim().toUpperCase();
+
+    if (/^[A-Z]+$/.test(v)) {
+      const known = this.leaveCodes.find(c => c.code === v);
+      if (!known) {
+        this.toast.warning('Unknown leave code',
+          `"${v}" is not a leave code. Use: ${this.leaveCodes.map(c => c.code).join(', ') || 'see the list below the timesheet'}.`);
+        input.value = this.cellText(day);
+        return;
+      }
+      if (day.note !== known.code) {
+        day.note = known.code;
+        day.hours = 0;
+        if (!(day.remarks || '').trim())
+          this.toast.info(`${known.name} on ${this.formatDisplayDate(day.date)}`, 'Now add a comment (💬 button) with the reason for your leave.');
+      }
+    } else {
+      let hours = parseFloat(v);
+      if (isNaN(hours) || hours < 0) hours = 0;
+      if (hours > 24) hours = 24;
+      day.hours = Math.round(hours * 2) / 2;
+      day.note = '';
+    }
+    input.value = this.cellText(day);
+    this.syncDayToPeriod(dayIndex);
+  }
+
+  private syncDayToPeriod(dayIndex: number): void {
+    const period = this.periods[this.currentPeriodIndex];
+    const day = this.currentPeriodDays[dayIndex];
+    const target = period?.days.find(d => d.date.getTime() === day.date.getTime());
+    if (target && target !== day) { target.hours = day.hours; target.note = day.note; target.remarks = day.remarks; }
+  }
+
+  /** Download this period as a PDF (saved data). */
+  downloadPdf(): void {
+    const period = this.periods[this.currentPeriodIndex];
+    if (!period?.id) {
+      this.toast.warning('Save first', 'Click Save, then download the timesheet.');
+      return;
+    }
+    this.downloading = true;
+    this.http.get(`${environment.apiUrl}/selfservice/attendance-periods/${period.id}/pdf`, { responseType: 'blob' }).subscribe({
+      next: blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Timesheet_${this.employeeCode || 'me'}_${this.formatDateForApi(period.startDate).substring(0, 10)}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.downloading = false;
+      },
+      error: () => { this.downloading = false; this.toast.error('Download failed', 'Could not create the PDF. Please try again.'); }
+    });
   }
 
   loadPublicHolidays(): void {
@@ -632,7 +745,7 @@ export class MyAttendanceComponent implements OnInit {
       error: (error) => {
         console.error('Save error:', error);
         this.loadingService.hide();
-        this.toast.error('Save Failed', error.error?.detail || 'Could not save attendance');
+        this.toast.error('Save Failed', error.error?.message || error.error?.detail || 'Could not save attendance');
       }
     });
   }
@@ -642,7 +755,16 @@ export class MyAttendanceComponent implements OnInit {
       this.toast.warning('Agreement Required', 'Please agree to the terms before submitting');
       return;
     }
-    
+
+    // Every leave day needs a comment with the reason
+    const missing = this.leaveDaysWithoutComment;
+    if (missing.length > 0) {
+      this.toast.warning('Comment needed for leave',
+        'Click each leave day, then 💬, and add the reason: ' +
+        missing.map(d => `${this.formatDisplayDate(d.date)} (${d.note})`).join(', '));
+      return;
+    }
+
     // First save, then submit
     this.loadingService.show();
     const currentPeriod = this.periods[this.currentPeriodIndex];
@@ -678,14 +800,14 @@ export class MyAttendanceComponent implements OnInit {
           error: (error) => {
             console.error('Submit error:', error);
             this.loadingService.hide();
-            this.toast.error('Submit Failed', error.error?.detail || 'Could not submit attendance');
+            this.toast.error('Submit Failed', error.error?.message || error.error?.detail || 'Could not submit attendance');
           }
         });
       },
       error: (error) => {
         console.error('Save before submit error:', error);
         this.loadingService.hide();
-        this.toast.error('Save Failed', error.error?.detail || 'Could not save attendance before submitting');
+        this.toast.error('Save Failed', error.error?.message || error.error?.detail || 'Could not save attendance before submitting');
       }
     });
   }
@@ -699,6 +821,9 @@ export class MyAttendanceComponent implements OnInit {
   }
 
   openCommentModal(): void {
+    // Edit the comment of the day that was last clicked
+    const day = this.currentPeriodDays[this.lastClickedDayIndex];
+    this.commentText = day?.remarks || '';
     this.showCommentModal = true;
   }
 
@@ -712,14 +837,10 @@ export class MyAttendanceComponent implements OnInit {
       return;
     }
 
-    // Write the comment into the note field of the last-clicked day
+    // The comment is the day's remarks (the leave code stays in note)
     if (this.lastClickedDayIndex >= 0 && this.lastClickedDayIndex < this.currentPeriodDays.length) {
-      this.currentPeriodDays[this.lastClickedDayIndex].note = this.commentText.trim();
-      // Sync back to the period model so saveAttendance picks it up
-      const currentPeriod = this.periods[this.currentPeriodIndex];
-      if (currentPeriod) {
-        currentPeriod.days[this.lastClickedDayIndex].note = this.commentText.trim();
-      }
+      this.currentPeriodDays[this.lastClickedDayIndex].remarks = this.commentText.trim();
+      this.syncDayToPeriod(this.lastClickedDayIndex);
     }
 
     this.commentText = '';

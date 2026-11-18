@@ -60,7 +60,7 @@ public class AttendanceManagementController : ControllerBase
                 leaveCount = p.Days.Count(d => !string.IsNullOrEmpty(d.Note)),
                 alCount = p.Days.Count(d => d.Note == "AL"),
                 elCount = p.Days.Count(d => d.Note == "EL"),
-                mcCount = p.Days.Count(d => d.Note == "MC"),
+                mcCount = p.Days.Count(d => d.Note == "MC" || d.Note == "ML"),
                 dayCount = p.Days.Count
             })
             .ToListAsync();
@@ -105,7 +105,7 @@ public class AttendanceManagementController : ControllerBase
                 leaveCount = p.Days.Count(d => !string.IsNullOrEmpty(d.Note)),
                 alCount = p.Days.Count(d => d.Note == "AL"),
                 elCount = p.Days.Count(d => d.Note == "EL"),
-                mcCount = p.Days.Count(d => d.Note == "MC")
+                mcCount = p.Days.Count(d => d.Note == "MC" || d.Note == "ML")
             })
             .ToListAsync();
 
@@ -217,7 +217,7 @@ public class AttendanceManagementController : ControllerBase
                 workingDays = period.Days.Count(d => d.Hours > 0),
                 alCount = period.Days.Count(d => d.Note == "AL"),
                 elCount = period.Days.Count(d => d.Note == "EL"),
-                mcCount = period.Days.Count(d => d.Note == "MC")
+                mcCount = period.Days.Count(d => d.Note == "MC" || d.Note == "ML")
             },
             approvedLeaves = approvedLeaves,
             pendingLeaves = pendingLeaves,
@@ -268,14 +268,22 @@ public class AttendanceManagementController : ControllerBase
         {
             var year = period.StartDate.Year;
 
+            // Approved leave requests already deducted their days (LeaveService). Only coded days
+            // that no approved leave request covers are deducted here, so a day is never counted twice.
+            var approvedRanges = await _db.LeaveRequests
+                .Where(lr => lr.EmployeeId == period.EmployeeId && lr.Status == "Approved"
+                          && lr.StartDate <= period.EndDate && lr.EndDate >= period.StartDate)
+                .Select(lr => new { lr.StartDate, lr.EndDate })
+                .ToListAsync();
+
             // Group leave days by note type and deduct from corresponding leave balance
             var leaveGroups = days
-                .Where(d => d.Note == "AL" || d.Note == "EL" || d.Note == "MC")
+                .Where(d => !approvedRanges.Any(r => d.Date.Date >= r.StartDate.Date && d.Date.Date <= r.EndDate.Date))
                 .GroupBy(d => d.Note);
 
             foreach (var group in leaveGroups)
             {
-                var leaveCode = group.Key; // AL, EL, MC
+                var leaveCode = group.Key; // the day's leave code (AL, ML, …)
                 var daysCount = group.Count();
 
                 var leaveType = await _db.LeaveTypes
