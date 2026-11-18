@@ -1503,3 +1503,27 @@
   position: absolute !important;
 }
 .modal .modal-dialog { z-index: 1 !important; }
+
+// Comment Entry: compact so it fits on one screen (no scrolling), even on small laptops / zoom
+.modal .modal-dialog.comment-modal {
+  max-width: 460px;
+  max-height: calc(100vh - 24px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+
+  .modal-header { padding: 12px 18px; h3 { font-size: 17px; } }
+  .modal-body {
+    padding: 12px 18px;
+    overflow: visible;
+    .comment-info-box { padding: 8px 12px; margin-bottom: 10px;
+      .info-title { margin-bottom: 2px; font-size: 13px; }
+      .info-subtitle { font-size: 13px; } }
+    .form-group { margin-bottom: 10px; }
+    .comment-label { margin-bottom: 4px; }
+    select.form-control { padding: 7px 10px; }
+    .comment-textarea { min-height: 72px; height: 72px; padding: 8px 10px; }
+    .character-limit { margin-top: 4px; }
+  }
+  .modal-footer { padding: 10px 18px; }
+}

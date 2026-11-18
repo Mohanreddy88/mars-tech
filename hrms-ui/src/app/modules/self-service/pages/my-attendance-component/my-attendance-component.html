@@ -216,7 +216,7 @@
 <!-- Comment Entry Modal -->
 <div class="modal" [class.show]="showCommentModal" *ngIf="showCommentModal">
   <div class="modal-backdrop"></div>
-  <div class="modal-dialog">
+  <div class="modal-dialog comment-modal">
     <div class="modal-header">
       <h3>Comment Entry</h3>
       <button class="btn-close" (click)="closeCommentModal()">
@@ -240,7 +240,7 @@
         <textarea id="comment-text"
           [(ngModel)]="commentText" 
           class="form-control comment-textarea" 
-          rows="5" 
+          rows="3" 
           maxlength="200"
           [placeholder]="commentLeaveCode ? 'e.g. Fever, clinic visit — MC attached' : 'Enter your comments...'"></textarea>
         <div class="character-limit">Character Limit : {{ 200 - commentText.length }}</div>
