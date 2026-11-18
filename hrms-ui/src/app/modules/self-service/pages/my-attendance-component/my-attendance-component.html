@@ -81,9 +81,11 @@
              [class.before-join-date]="day.isBeforeJoinDate"
              [class.leave-day]="!!day.note"
              [class.needs-comment]="!!day.note && !(day.remarks || '').trim()"
+             [class.has-comment]="!!(day.remarks || '').trim()"
              [title]="day.note ? leaveName(day.note) + (day.remarks ? ' — ' + day.remarks : ' — add a comment (💬)') : (day.remarks || '')"
              [style.display]="isWeekend(day.date) && !showWeekend ? 'none' : 'flex'">
           <div class="cell-content">
+            <i class="bi bi-chat-left-text-fill comment-flag" *ngIf="day.remarks" aria-hidden="true"></i>
             <input
               type="text"
               class="hours-input"
@@ -227,17 +229,25 @@
         <div class="info-subtitle">Build | {{ getSelectedCommentDateDisplay() }}</div>
       </div>
       <div class="form-group">
-        <textarea 
+        <label class="comment-label" for="comment-leave">Leave type</label>
+        <select id="comment-leave" class="form-control" [(ngModel)]="commentLeaveCode">
+          <option value="">None — working day</option>
+          <option *ngFor="let c of leaveCodes" [value]="c.code">{{ c.code }} — {{ c.name }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="comment-label" for="comment-text">{{ commentLeaveCode ? 'Reason for leave (required)' : 'Comment' }}</label>
+        <textarea id="comment-text"
           [(ngModel)]="commentText" 
           class="form-control comment-textarea" 
           rows="5" 
           maxlength="200"
-          placeholder="Enter your comments..."></textarea>
+          [placeholder]="commentLeaveCode ? 'e.g. Fever, clinic visit — MC attached' : 'Enter your comments...'"></textarea>
         <div class="character-limit">Character Limit : {{ 200 - commentText.length }}</div>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn-cancel" (click)="closeCommentModal()">Clear</button>
+      <button class="btn-cancel" (click)="commentText = ''; commentLeaveCode = ''">Clear</button>
       <button class="btn-save-comment" (click)="saveComment()">Save</button>
     </div>
   </div>

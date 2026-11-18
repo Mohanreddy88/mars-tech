@@ -69,6 +69,7 @@ export class MyAttendanceComponent implements OnInit {
   
   showCommentModal: boolean = false;
   commentText: string = '';
+  commentLeaveCode = '';   // leave type chosen in the comment pop-up ('' = working day)
   lastClickedDayIndex: number = -1;  // Track which input was last clicked
   
   showDeleteModal: boolean = false;
@@ -827,9 +828,10 @@ export class MyAttendanceComponent implements OnInit {
   }
 
   openCommentModal(): void {
-    // Edit the comment of the day that was last clicked
+    // Edit the leave type and comment of the day that was last clicked
     const day = this.currentPeriodDays[this.lastClickedDayIndex];
     this.commentText = day?.remarks || '';
+    this.commentLeaveCode = day?.note || '';
     this.showCommentModal = true;
   }
 
@@ -838,15 +840,34 @@ export class MyAttendanceComponent implements OnInit {
   }
 
   saveComment(): void {
-    if (!this.commentText.trim()) {
-      this.toast.warning('Empty Comment', 'Please enter a comment before saving');
+    if (this.lastClickedDayIndex < 0 || this.lastClickedDayIndex >= this.currentPeriodDays.length) {
+      this.closeCommentModal();
+      return;
+    }
+    const day = this.currentPeriodDays[this.lastClickedDayIndex];
+    let code = this.commentLeaveCode;
+    let text = this.commentText.trim();
+
+    // Only a leave code typed in the comment (e.g. "ML"): use it as the leave type, ask for the reason
+    const typedCode = this.leaveCodes.find(c => c.code === text.toUpperCase());
+    if (typedCode && !code) { code = typedCode.code; text = ''; }
+
+    if (!code && !text) {
+      this.toast.warning('Nothing to save', 'Choose a leave type or write a comment.');
       return;
     }
 
-    // The comment is the day's remarks (the leave code stays in note)
-    if (this.lastClickedDayIndex >= 0 && this.lastClickedDayIndex < this.currentPeriodDays.length) {
-      this.currentPeriodDays[this.lastClickedDayIndex].remarks = this.commentText.trim();
-      this.syncDayToPeriod(this.lastClickedDayIndex);
+    day.note = code;
+    if (code) day.hours = 0;
+    day.remarks = text;
+    this.syncDayToPeriod(this.lastClickedDayIndex);
+
+    if (code && !text) {
+      this.toast.info(`${this.leaveName(code)} set for ${this.formatDisplayDate(day.date)}`,
+        'Now add the reason in the comment — it is needed before you submit.');
+      this.commentText = '';
+      this.commentLeaveCode = code;
+      return;   // keep the pop-up open so the reason can be typed
     }
 
     this.commentText = '';

@@ -410,12 +410,15 @@
           }
         }
 
+        // Leave day (AL, ML, …): amber box with the code, easy to spot
         &.leave-day {
           background: white;
-          
+
           .hours-input {
-            color: #1e293b;
-            background: white;
+            color: #ffffff;
+            background: #f59e0b;
+            font-weight: 800;
+            letter-spacing: .04em;
           }
         }
 
@@ -1399,10 +1402,7 @@
 
 // ── Leave codes in the day boxes ──────────────────────────
 .day-cell .hours-input.code {
-  color: #b45309;
-  font-weight: 700;
-  letter-spacing: .03em;
-  text-transform: uppercase;
+  text-transform: uppercase;   // colours: see &.leave-day (amber box, white code)
 }
 
 // Leave day still without a comment: small red dot
@@ -1474,3 +1474,32 @@
   ol { padding-left: 20px; margin: 0 0 12px; display: grid; gap: 8px; font-size: 14px; }
   .info-foot { margin: 12px 0 0; font-size: 13px; color: #6b7280; }
 }
+
+// Day with a comment: small speech-bubble badge in the corner
+.day-cell .cell-content { position: relative; }
+.comment-flag {
+  position: absolute;
+  top: -6px;
+  left: -4px;
+  z-index: 2;
+  font-size: 13px;
+  color: #2563eb;
+  background: #fff;
+  border-radius: 50%;
+  line-height: 1;
+  padding: 2px;
+  pointer-events: none;
+}
+.day-cell.has-comment .hours-input { box-shadow: inset 0 0 0 2px #2563eb; }
+
+// Comment pop-up labels
+.comment-label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px; }
+
+// Bootstrap's global .modal-backdrop (z-index 1050) sat on top of these pop-ups and dimmed them:
+// keep this page's backdrop behind its dialog.
+.modal .modal-backdrop {
+  z-index: 0 !important;
+  opacity: 1 !important;
+  position: absolute !important;
+}
+.modal .modal-dialog { z-index: 1 !important; }
