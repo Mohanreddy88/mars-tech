@@ -110,8 +110,17 @@ export class AdminDashboardComponent implements OnInit {
     });
   }
 
+  /** Accepts a path with a query string, e.g. "/leave/requests?status=Pending". */
   navigateTo(route: string): void {
-    this.router.navigate([route]);
+    this.router.navigateByUrl(route);
+  }
+
+  /** "Pending Approvals" number: open the first list that has something waiting. */
+  openPending(): void {
+    const p = this.dashboardData?.pendingCounts;
+    if ((p?.leaveRequests ?? 0) > 0) this.navigateTo('/leave/requests?status=Pending');
+    else if ((p?.attendancePeriods ?? 0) > 0) this.navigateTo('/attendance/approval');
+    else if ((p?.timesheets ?? 0) > 0) this.navigateTo('/timesheets');
   }
 
   formatDate(dateStr: string): string {

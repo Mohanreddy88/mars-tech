@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { ToastService } from '../../../../core/services/toast.service';
 import { PayrollService } from '../../../../core/services/payroll.service';
@@ -32,7 +33,7 @@ interface YearEndEmployee {
 @Component({
   selector: 'app-year-end-reports',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterModule],
   templateUrl: './year-end-reports-component.html',
   styleUrls: ['./year-end-reports-component.scss']
 })

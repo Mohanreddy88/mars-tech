@@ -1,5 +1,11 @@
 <div class="leave-request-list-page">
 
+  @if (backToAttendancePeriod) {
+    <a class="back-link" routerLink="/attendance/approval" [queryParams]="{ period: backToAttendancePeriod }">
+      <i class="bi bi-arrow-left"></i> Back to attendance approval
+    </a>
+  }
+
   <div class="page-header">
     <div>
       <h3>{{ isAdmin ? 'Leave Approvals' : 'Leave Requests' }}</h3>

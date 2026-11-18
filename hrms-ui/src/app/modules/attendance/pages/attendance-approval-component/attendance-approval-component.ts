@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, RouterModule, ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { LoadingService } from '../../../../core/services/loading.service';
@@ -62,6 +62,7 @@ interface PeriodDay {
 
 interface PeriodDetails {
   id: number;
+  employeeId: number;
   employeeName: string;
   employeeEmail: string;
   startDate: string;
@@ -83,7 +84,7 @@ interface PeriodDetails {
 @Component({
   selector: 'app-attendance-approval',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterModule],
   templateUrl: './attendance-approval-component.html',
   styleUrl: './attendance-approval-component.scss'
 })
@@ -97,6 +98,11 @@ export class AttendanceApprovalComponent implements OnInit {
   notifying: boolean = false;
   creatingLeave: boolean = false;
   onBehalfLeaveType: string = 'AL';
+
+  // Pending leave decided right here (no need to leave this page)
+  decidingLeaveId: number | null = null;
+  rejectingLeaveId: number | null = null;
+  leaveRejectReason = '';
   
   // Filters
   filterStatus: string = 'Submitted';
@@ -115,15 +121,18 @@ export class AttendanceApprovalComponent implements OnInit {
   constructor(
     private http: HttpClient,
     private loadingService: LoadingService,
-    private toast: ToastService
-  ,
-    private router: Router
+    private toast: ToastService,
+    private router: Router,
+    private route: ActivatedRoute
   ) {}
 
   ngOnInit(): void {
     this.initializeFilters();
     this.loadEmployees();
     this.loadAllPeriods();
+    // Coming back from Leave Approvals (?period=ID): reopen that period
+    const periodId = Number(this.route.snapshot.queryParamMap.get('period'));
+    if (periodId) this.viewPeriodDetails(periodId);
   }
 
   initializeFilters(): void {
@@ -228,6 +237,60 @@ export class AttendanceApprovalComponent implements OnInit {
 
   closeDetails(): void {
     this.selectedPeriod = null;
+  }
+
+  // ── Pending leave: decide here instead of going to Leave Approvals ──────
+
+  approveLeave(leave: PendingLeave): void {
+    this.decideLeave(leave, 'approve', '');
+  }
+
+  startRejectLeave(leave: PendingLeave): void {
+    this.rejectingLeaveId = leave.id;
+    this.leaveRejectReason = '';
+  }
+
+  cancelRejectLeave(): void {
+    this.rejectingLeaveId = null;
+    this.leaveRejectReason = '';
+  }
+
+  confirmRejectLeave(leave: PendingLeave): void {
+    if (!this.leaveRejectReason.trim()) {
+      this.toast.warning('Reason needed', 'Enter a reason so the employee knows why the leave was rejected.');
+      return;
+    }
+    this.decideLeave(leave, 'reject', this.leaveRejectReason.trim());
+  }
+
+  private decideLeave(leave: PendingLeave, action: 'approve' | 'reject', remarks: string): void {
+    if (!this.selectedPeriod) return;
+    const periodId = this.selectedPeriod.id;
+    this.decidingLeaveId = leave.id;
+    this.http.put(`${environment.apiUrl}/leavemanagement/requests/${leave.id}/${action}`, { approvalRemarks: remarks }).subscribe({
+      next: () => {
+        this.decidingLeaveId = null;
+        this.rejectingLeaveId = null;
+        this.leaveRejectReason = '';
+        this.toast.success(action === 'approve' ? 'Leave approved' : 'Leave rejected',
+          `${leave.leaveType} (${this.formatDate(leave.startDate)} – ${this.formatDate(leave.endDate)})`);
+        this.viewPeriodDetails(periodId);   // refresh: the box shrinks and Approve unlocks when none are left
+      },
+      error: (err) => {
+        this.decidingLeaveId = null;
+        this.toast.error(`Could not ${action} leave`, err?.error?.message || 'Please try again.');
+      }
+    });
+  }
+
+  /** Leave Approvals filtered to this employee's pending requests, with a way back here. */
+  leaveApprovalsLink(): { [k: string]: string | number } {
+    return {
+      employeeId: this.selectedPeriod!.employeeId,
+      status: 'Pending',
+      returnTo: 'attendance',
+      period: this.selectedPeriod!.id
+    };
   }
 
   openApproveModal(): void {

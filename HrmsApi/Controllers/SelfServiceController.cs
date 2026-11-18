@@ -940,7 +940,7 @@ public class SelfServiceController : ControllerBase
             title:   "Attendance Submitted for Approval",
             message: $"{employee.Name} has submitted attendance for {period.StartDate:dd MMM} - {period.EndDate:dd MMM yyyy}. Please review.",
             type:    "attendance_submitted",
-            link:    "/attendance/approval");
+            link:    $"/attendance/approval?period={id}");   // opens this period
 
         return Ok(new
         {

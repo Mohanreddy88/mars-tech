@@ -497,3 +497,16 @@ table tbody tr td {
     padding: 3px 8px;
   }
 }
+
+// Shortcut back to the screen that sent the admin here
+.back-link {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 12px;
+  color: #2563eb;
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  &:hover { text-decoration: underline; }
+}
