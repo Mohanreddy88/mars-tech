@@ -139,6 +139,7 @@ public class SelfServiceController : ControllerBase
             employee.IcPassport,
             employee.IdCountry,
             employee.DateOfBirth,
+            employee.ProfilePicture,
             employee.TaxNumber,
             departmentId = employee.DepartmentId,
             departmentName = employee.Department?.Name,

@@ -10,6 +10,7 @@ import { ToastService } from '../../../../core/services/toast.service';
 import { Bank } from '../../../../core/models/bank.model';
 import { IdType } from '../../../../core/models/employee.model';
 import { COUNTRIES_SORTED, DIAL_CODES } from '../../../../core/data/countries';
+import { photoUrl } from '../../../../core/utils/photo-url';
 
 /** NRIC: exactly 12 digits. Passport: 8–10 letters or digits. Mobile: 7–12 digits. */
 const NRIC_PATTERN     = /^\d{12}$/;
@@ -180,7 +181,7 @@ export class EmployeeFormComponent implements OnInit {
         this.applyIdType(emp.idType || 'NRIC');
         if (emp.idType === 'Passport') this.form.get('idCountry')!.setValue(emp.idCountry ?? '');
         // Set preview URL for existing profile picture
-        this.profilePictureUrl = emp.profilePicture || null;
+        this.profilePictureUrl = photoUrl(emp.profilePicture);
         this.loading = false;
         this.cdr.detectChanges(); // force view to re-render with loaded data
       },
@@ -402,7 +403,7 @@ export class EmployeeFormComponent implements OnInit {
 
     this.employeeService.uploadProfilePicture(formData).subscribe({
       next: (response: any) => {
-        this.profilePictureUrl = response.filePath;
+        this.profilePictureUrl = photoUrl(response.filePath);
         this.form.patchValue({ profilePicture: response.filePath });
         this.toast.success('Upload Success', 'Profile picture uploaded successfully.');
         this.uploading = false;

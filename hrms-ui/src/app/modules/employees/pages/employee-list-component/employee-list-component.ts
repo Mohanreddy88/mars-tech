@@ -6,6 +6,7 @@ import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { Employee } from '../../../../core/models/employee.model';
 import { ConfirmModalComponent } from '../../../../shared/components/confirm-modal/confirm-modal.component';
+import { photoUrl } from '../../../../core/utils/photo-url';
 
 @Component({
   selector: 'app-employee-list',
@@ -27,6 +28,7 @@ export class EmployeeListComponent implements OnInit {
   pendingDeleteId: number | null = null;
   pendingDeleteName = '';
   sendingId: number | null = null;   // employee whose login email is being sent
+  readonly photoUrl = photoUrl;   // uploaded photo → browser address
 
   constructor(
     private employeeService: EmployeeService,

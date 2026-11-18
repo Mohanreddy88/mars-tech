@@ -1,3 +1,4 @@
+import { photoUrl } from '../../../../core/utils/photo-url';
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
@@ -88,7 +89,7 @@ export class EmployeeDirectoryComponent implements OnInit {
 
   getProfilePictureUrl(fileName: string | null): string {
     if (!fileName) return 'assets/img/default-avatar.svg';
-    return `${this.apiUrl}/uploads/profiles/${fileName}`;
+    return photoUrl(fileName) ?? 'assets/img/default-avatar.svg';
   }
 
   onIncludeInactiveChange(): void {

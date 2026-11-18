@@ -67,7 +67,7 @@
 
               @if (emp.profilePicture) {
                 <div class="emp-avatar-img">
-                  <img [src]="emp.profilePicture" [alt]="emp.name" />
+                  <img [src]="photoUrl(emp.profilePicture)" [alt]="emp.name" />
                 </div>
               } @else {
                 <div class="emp-avatar">

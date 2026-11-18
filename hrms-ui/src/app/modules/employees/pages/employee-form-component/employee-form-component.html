@@ -238,9 +238,9 @@
             <label>Upload Profile Picture</label>
             <div class="profile-upload-container">
               <!-- Preview area -->
-              @if (profilePictureUrl || form.value.profilePicture) {
+              @if (profilePictureUrl) {
                 <div class="profile-preview">
-                  <img [src]="profilePictureUrl || form.value.profilePicture" alt="Profile Picture" />
+                  <img [src]="profilePictureUrl" alt="Profile Picture" />
                   <button type="button" class="btn btn-sm btn-danger remove-btn" 
                     (click)="removeProfilePicture()" [disabled]="uploading">
                     <i class="bi bi-trash"></i> Remove
