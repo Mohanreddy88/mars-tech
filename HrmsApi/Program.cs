@@ -212,6 +212,7 @@ builder.Services.AddScoped<IPayrollCalculationService, PayrollCalculationService
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<ICompanySettingsService, CompanySettingsService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IAccountService, AccountService>();
 
 // Background email queue — singleton hosted service that survives request lifetime
 // Controllers inject IEmailQueue and call Enqueue() — returns instantly, no 504

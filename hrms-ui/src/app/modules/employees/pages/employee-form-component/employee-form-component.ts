@@ -233,17 +233,19 @@ export class EmployeeFormComponent implements OnInit {
     };
 
     // Shared success/error handlers
-    const onSuccess = (res?: EmployeeCreateResult | void) => {
+    const onSuccess = (res?: EmployeeCreateResult | void | { loginNote: string | null }) => {
       this.saving = false;
       const action = this.isEdit ? 'Updated' : 'Created';
       this.toast.success(`Employee ${action}`, `${raw.name} has been ${action.toLowerCase()} successfully.`);
-      if (res && res.userCreated) {
+      if (res && 'userCreated' in res && res.userCreated) {
         if (res.welcomeEmailSent) {
           this.toast.success('Login email sent', `Username ${res.username}. A "Set my password" link was emailed to ${res.email}.`);
         } else {
           this.toast.warning('Login email not sent', `Username ${res.username}. Use the envelope button in the employee list to send it again.`);
         }
-      } else if (res && res.userAlreadyExists) {
+      } else if (res && 'loginNote' in res && res.loginNote) {
+        this.toast.info('Login updated', res.loginNote.charAt(0).toUpperCase() + res.loginNote.slice(1) + '.');
+      } else if (res && 'userAlreadyExists' in res && res.userAlreadyExists) {
         this.toast.info('Existing login', `${res.email} already has a login, so no new account was created.`);
       }
       this.router.navigate(['/employees']);

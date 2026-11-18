@@ -43,8 +43,9 @@ export class EmployeeService {
     return this.http.post<{ message: string; username: string; email: string; userCreated: boolean }>(`${this.apiUrl}/${id}/send-welcome`, {});
   }
 
-  update(id: number, payload: EmployeeRequest): Observable<void> {
-    return this.http.put<void>(`${this.apiUrl}/${id}`, payload);
+  /** Returns loginNote when the employee's login followed the change (email, active / inactive). */
+  update(id: number, payload: EmployeeRequest): Observable<{ message: string; loginNote: string | null }> {
+    return this.http.put<{ message: string; loginNote: string | null }>(`${this.apiUrl}/${id}`, payload);
   }
 
   delete(id: number): Observable<void> {
