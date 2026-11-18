@@ -4,11 +4,18 @@
 
   <div class="main-content">
 
-    <app-navbar (mobileMenuToggle)="onMobileMenuToggle($event)"></app-navbar>
+    <!-- Header: always visible -->
+    <app-navbar class="layout-header" (mobileMenuToggle)="onMobileMenuToggle($event)"></app-navbar>
 
-    <div class="page-content">
+    <!-- Body: the only part that scrolls -->
+    <main class="page-content">
       <router-outlet></router-outlet>
-    </div>
+    </main>
+
+    <!-- Footer: always visible -->
+    <footer class="layout-footer">
+      © {{ year }} MarsHRMS. All rights reserved.
+    </footer>
 
   </div>
 

@@ -1,3 +1,4 @@
+// Header / body / footer: the header and footer stay put, only the page body scrolls.
 .layout-container {
   display: flex;
   height: 100vh;
@@ -10,17 +11,38 @@
   flex-direction: column;
   background: #f5f7fb;
   min-width: 0;
-  overflow-y: auto;  // scroll here instead of page-content so fixed modals escape correctly
+  min-height: 0;
+}
+
+.layout-header {
+  display: block;
+  flex: none;
 }
 
 .page-content {
   flex: 1;
-  // overflow removed — scrolling handled by .main-content
+  min-height: 0;
+  overflow-y: auto;  // the body scrolls; overflow (unlike transform) does not trap position:fixed modals
+}
+
+.layout-footer {
+  flex: none;
+  padding: 10px 16px;
+  border-top: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #6b7280;
+  font-size: 13px;
+  text-align: center;
 }
 
 // Mobile responsive
 @media (max-width: 768px) {
   .layout-container {
     flex-direction: column;
+  }
+
+  .layout-footer {
+    padding: 8px 12px;
+    font-size: 12px;
   }
 }

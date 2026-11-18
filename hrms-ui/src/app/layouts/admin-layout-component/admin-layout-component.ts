@@ -13,6 +13,8 @@ import { ToastComponent } from '../../shared/components/toast-component/toast-co
 })
 export class AdminLayoutComponent {
   mobileMenuOpen = false;
+  /** Footer copyright year (current year, so it never goes stale). */
+  readonly year = new Date().getFullYear();
 
   onMobileMenuToggle(isOpen: boolean): void {
     this.mobileMenuOpen = isOpen;
