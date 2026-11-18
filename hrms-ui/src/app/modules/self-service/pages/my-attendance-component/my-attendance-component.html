@@ -154,7 +154,7 @@
     <div class="checkbox-agreement">
       <input type="checkbox" id="agreeCheckbox" [(ngModel)]="agreedToTerms" [disabled]="!canSubmitPeriod()">
       <label for="agreeCheckbox">
-        I agree with <a href="#" class="agreement-link">PETRONAS Statement of Ethical Standards and PETRONAS Code of Conduct and Business Ethics.</a>
+        I confirm this timesheet is accurate and agree with the <strong>{{ (branding$ | async)?.displayName || 'company' }}</strong> Statement of Ethical Standards and Code of Conduct and Business Ethics.
       </label>
     </div>
     <div class="button-group">

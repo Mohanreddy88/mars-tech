@@ -8,6 +8,7 @@ import { LoadingService } from '../../../../core/services/loading.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { EmployeeService } from '../../../../core/services/employee.service';
+import { CompanySettingsService } from '../../../../core/services/company-settings.service';
 import { environment } from '../../../../../environments/environment';
 
 interface DayEntry {
@@ -87,13 +88,18 @@ export class MyAttendanceComponent implements OnInit {
     private loadingService: LoadingService,
     private toast: ToastService,
     private authService: AuthService,
-    private employeeService: EmployeeService
+    private employeeService: EmployeeService,
+    private companySettings: CompanySettingsService
   ) {}
+
+  /** Company name for the agreement line (each company's own, from Company Settings). */
+  get branding$() { return this.companySettings.branding$; }
 
   ngOnInit(): void {
     this.loadEmployeeInfo();
     this.loadPublicHolidays();
     this.loadLeaveCodes();
+    this.companySettings.loadBranding();
   }
 
   // ── Leave codes typed into a day ─────────────────────────────────────────
