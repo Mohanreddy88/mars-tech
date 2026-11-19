@@ -92,7 +92,7 @@
           <button class="btn-link" (click)="navigateTo('/leave/requests')">View All →</button>
         </div>
         <div class="card-body">
-          <div class="leave-balance-grid" *ngIf="dashboardData.leaveBalances.length > 0">
+          <div class="leave-balance-grid card-scroll" *ngIf="dashboardData.leaveBalances.length > 0">
             <div 
               class="leave-type-card" 
               *ngFor="let balance of dashboardData.leaveBalances"
@@ -139,7 +139,7 @@
         </div>
         <div class="card-body">
           <div class="payslip-list" *ngIf="dashboardData.recentPayslips.length > 0">
-            <div class="payslip-item" *ngFor="let payslip of dashboardData.recentPayslips">
+            <div class="payslip-item" *ngFor="let payslip of dashboardData.recentPayslips | slice:0:5">
               <div class="payslip-info">
                 <h4>{{ payslip.monthYear }}</h4>
                 <span class="payslip-status" [ngClass]="getStatusClass(payslip.status)">{{ payslip.status }}</span>
@@ -167,7 +167,7 @@
         </div>
         <div class="card-body">
           <div class="leave-list" *ngIf="dashboardData.upcomingLeaves.length > 0">
-            <div class="leave-item" *ngFor="let leave of dashboardData.upcomingLeaves">
+            <div class="leave-item" *ngFor="let leave of dashboardData.upcomingLeaves | slice:0:5">
               <div class="leave-icon" [style.background-color]="getLeaveTypeColor(leave.leaveTypeCode)">
                 {{ leave.leaveTypeCode }}
               </div>
@@ -193,7 +193,7 @@
         </div>
         <div class="card-body">
           <div class="attendance-list" *ngIf="dashboardData.recentAttendance.length > 0">
-            <div class="attendance-item" *ngFor="let attendance of dashboardData.recentAttendance">
+            <div class="attendance-item" *ngFor="let attendance of dashboardData.recentAttendance | slice:0:5">
               <div class="attendance-period">
                 <h4>{{ attendance.periodLabel }}</h4>
                 <span class="attendance-status" [ngClass]="getStatusClass(attendance.status)">
@@ -215,7 +215,7 @@
           <h2><i class="bi bi-calendar-event-fill"></i> Upcoming Holidays</h2>
         </div>
         <div class="card-body">
-          <div class="holiday-list" *ngIf="dashboardData.upcomingHolidays.length > 0">
+          <div class="holiday-list card-scroll" *ngIf="dashboardData.upcomingHolidays.length > 0">
             <div class="holiday-item" *ngFor="let holiday of dashboardData.upcomingHolidays">
               <div class="holiday-date">
                 <span class="day">{{ formatDate(holiday.date).split(' ')[1] }}</span>

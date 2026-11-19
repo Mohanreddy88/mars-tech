@@ -275,7 +275,7 @@
         </div>
         <div class="card-body">
           <div class="list-view" *ngIf="dashboardData.recentLeaveRequests.length > 0">
-            <div class="list-item" *ngFor="let leave of dashboardData.recentLeaveRequests">
+            <div class="list-item" *ngFor="let leave of dashboardData.recentLeaveRequests | slice:0:5">
               <div class="item-icon" [style.background-color]="getLeaveTypeColor(leave.leaveTypeCode)">
                 {{ leave.leaveTypeCode }}
               </div>
@@ -304,7 +304,7 @@
         </div>
         <div class="card-body">
           <div class="list-view" *ngIf="dashboardData.recentAttendance.length > 0">
-            <div class="list-item" *ngFor="let attendance of dashboardData.recentAttendance">
+            <div class="list-item" *ngFor="let attendance of dashboardData.recentAttendance | slice:0:5">
               <div class="item-icon secondary">
                 <i class="bi bi-calendar-week"></i>
               </div>
@@ -332,7 +332,7 @@
           <button class="btn-link" (click)="navigateTo('/employees')">View All →</button>
         </div>
         <div class="card-body">
-          <div class="department-stats" *ngIf="dashboardData.departmentStats.length > 0">
+          <div class="department-stats card-scroll" *ngIf="dashboardData.departmentStats.length > 0">
             <div class="dept-item" *ngFor="let dept of dashboardData.departmentStats">
               <div class="dept-info">
                 <h4>{{ dept.departmentName }}</h4>
@@ -360,7 +360,7 @@
           <button class="btn-link" (click)="navigateTo('/leave/balance')">View All →</button>
         </div>
         <div class="card-body">
-          <div class="leave-usage-stats" *ngIf="dashboardData.leaveUsageStats.length > 0">
+          <div class="leave-usage-stats card-scroll" *ngIf="dashboardData.leaveUsageStats.length > 0">
             <div class="leave-usage-item" *ngFor="let leave of dashboardData.leaveUsageStats">
               <div class="leave-usage-header">
                 <span class="leave-badge" [style.background-color]="getLeaveTypeColor(leave.leaveTypeCode)">
@@ -393,7 +393,7 @@
           <h2><i class="bi bi-activity"></i> Recent Activities</h2>
         </div>
         <div class="card-body">
-          <div class="activity-timeline" *ngIf="dashboardData.recentActivities.length > 0">
+          <div class="activity-timeline card-scroll" *ngIf="dashboardData.recentActivities.length > 0">
             <div class="activity-item" *ngFor="let activity of dashboardData.recentActivities">
               <div class="activity-icon">
                 <i class="bi bi-{{ activity.icon }}"></i>
@@ -419,7 +419,7 @@
           <button class="btn-link" (click)="navigateTo('/payroll/list')">View All →</button>
         </div>
         <div class="card-body">
-          <div class="payroll-summary">
+          <div class="payroll-summary card-scroll">
             <div class="payroll-item" *ngFor="let payroll of dashboardData.currentMonthPayrolls">
               <div class="payroll-status" [ngClass]="getStatusClass(payroll.status)">
                 {{ payroll.status }}
