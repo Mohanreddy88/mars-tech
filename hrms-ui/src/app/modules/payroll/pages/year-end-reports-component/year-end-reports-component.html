@@ -70,6 +70,19 @@
   </div>
 
   <!-- Table -->
+  <div class="list-toolbar" *ngIf="!loading && hasRecords">
+    <div class="list-search">
+      <i class="bi bi-search" aria-hidden="true"></i>
+      <input type="search" [(ngModel)]="search" placeholder="Search employee, code or department" aria-label="Search employees" />
+    </div>
+    <select [(ngModel)]="eaFilter" aria-label="EA form status">
+      <option value="">All employees</option>
+      <option value="ready">EA ready</option>
+      <option value="notready">Not ready</option>
+    </select>
+    <span class="list-count">{{ filteredEmployees.length }} of {{ employees.length }}</span>
+  </div>
+
   <div class="year-end-table-card" *ngIf="!loading && hasRecords">
     <table class="year-end-table">
       <thead>
@@ -87,7 +100,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let emp of employees" [class.sent-row]="isSent(emp.employeeId)">
+        <tr *ngFor="let emp of filteredEmployees" [class.sent-row]="isSent(emp.employeeId)">
           <td>
             <div class="employee-cell">
               <div class="employee-avatar">{{ emp.employeeName.charAt(0) }}</div>

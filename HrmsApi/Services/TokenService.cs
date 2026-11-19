@@ -12,6 +12,9 @@ public class TokenService
     /// <summary>Claim naming the company a token was issued for; checked on every request.</summary>
     public const string TenantClaim = "tenant";
 
+    /// <summary>Claim holding the login session id; must match User.CurrentSessionId (one login at a time).</summary>
+    public const string SessionClaim = "sid";
+
     private readonly IConfiguration _config;
     private readonly ITenantContext _tenant;
 
@@ -22,9 +25,9 @@ public class TokenService
     }
 
     public (string token, DateTime expiresAt) GenerateToken(User user) =>
-        GenerateToken(user.Id, user.Username, user.Role);
+        GenerateToken(user.Id, user.Username, user.Role, user.CurrentSessionId);
 
-    public (string token, DateTime expiresAt) GenerateToken(int userId, string username, string role)
+    public (string token, DateTime expiresAt) GenerateToken(int userId, string username, string role, string? sessionId = null)
     {
         var jwtConfig   = _config.GetSection("Jwt");
         var key         = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtConfig["Key"]!));
@@ -42,6 +45,8 @@ public class TokenService
         // A token from one company's site must not work on another's (they share the signing key).
         if (_tenant.MultiTenant)
             claims.Add(new Claim(TenantClaim, _tenant.TokenScope));
+        if (!string.IsNullOrEmpty(sessionId))
+            claims.Add(new Claim(SessionClaim, sessionId));
 
         var token = new JwtSecurityToken(
             issuer:             jwtConfig["Issuer"],

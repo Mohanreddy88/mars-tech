@@ -14,6 +14,13 @@ import { ConfirmModalComponent } from '../../../../shared/components/confirm-mod
 })
 export class PublicHolidaysComponent implements OnInit {
   holidays: PublicHoliday[] = [];
+  search = '';
+  get filteredHolidays(): PublicHoliday[] {
+    const q = this.search.trim().toLowerCase();
+    return !q ? this.holidays : this.holidays.filter(h =>
+      h.name.toLowerCase().includes(q) || (h.state ?? '').toLowerCase().includes(q) ||
+      (h.isNational ? 'national' : 'state').includes(q));
+  }
   years: number[] = [];
   selectedYear: number = new Date().getFullYear();
 

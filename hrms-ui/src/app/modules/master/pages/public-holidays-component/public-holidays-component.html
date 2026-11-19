@@ -7,6 +7,10 @@
       <p>Manage national and state public holidays</p>
     </div>
     <div class="header-actions">
+      <div class="list-search">
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <input type="search" [(ngModel)]="search" placeholder="Search holiday or state" aria-label="Search holidays" />
+      </div>
       <select class="year-select" [(ngModel)]="selectedYear" (change)="onYearChange()">
         @for (y of years; track y) {
           <option [value]="y">{{ y }}</option>
@@ -68,6 +72,9 @@
           </tr>
         </thead>
         <tbody>
+          @if (holidays.length > 0 && filteredHolidays.length === 0) {
+            <tr><td colspan="8" class="text-center text-muted py-4">No holidays match "{{ search }}".</td></tr>
+          }
           @if (holidays.length === 0) {
             <tr>
               <td colspan="8" class="text-center text-muted py-4">
@@ -75,7 +82,7 @@
               </td>
             </tr>
           }
-          @for (h of holidays; track h.id; let i = $index) {
+          @for (h of filteredHolidays; track h.id; let i = $index) {
             <tr>
               <td>{{ i + 1 }}</td>
               <td>

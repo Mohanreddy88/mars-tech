@@ -294,7 +294,8 @@ public class LeaveManagementController : ControllerBase
                 lr.RequestedOn,
                 lr.ApprovedBy,
                 lr.ApprovedOn,
-                lr.ApprovalRemarks
+                lr.ApprovalRemarks,
+                attachmentName = _db.LeaveAttachments.Where(a => a.LeaveRequestId == lr.Id).Select(a => a.FileName).FirstOrDefault(),
             })
             .ToListAsync();
 
@@ -343,7 +344,8 @@ public class LeaveManagementController : ControllerBase
                 lr.EndDate,
                 lr.TotalDays,
                 lr.Reason,
-                lr.RequestedOn
+                lr.RequestedOn,
+                attachmentName = _db.LeaveAttachments.Where(a => a.LeaveRequestId == lr.Id).Select(a => a.FileName).FirstOrDefault(),
             })
             .ToListAsync();
 

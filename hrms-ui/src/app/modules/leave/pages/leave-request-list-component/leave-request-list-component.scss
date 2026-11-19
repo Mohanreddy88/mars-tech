@@ -510,3 +510,27 @@ table tbody tr td {
   text-decoration: none;
   &:hover { text-decoration: underline; }
 }
+
+// MC letter / supporting document
+.doc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  &:hover { background: #dbeafe; }
+}
+
+.doc-missing {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 11px;
+  color: #b45309;
+}

@@ -484,6 +484,48 @@ namespace HrmsApi.Migrations
                     b.ToTable("EmployeeLeaveBalances");
                 });
 
+            modelBuilder.Entity("HrmsApi.Models.LeaveAttachment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<int>("LeaveRequestId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SizeBytes")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int?>("UploadedByUserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LeaveRequestId")
+                        .IsUnique();
+
+                    b.ToTable("LeaveAttachments", (string)null);
+                });
+
             modelBuilder.Entity("HrmsApi.Models.LeaveRequest", b =>
                 {
                     b.Property<int>("Id")
@@ -1061,6 +1103,10 @@ namespace HrmsApi.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<string>("CurrentSessionId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -1166,6 +1212,17 @@ namespace HrmsApi.Migrations
                     b.Navigation("Employee");
 
                     b.Navigation("LeaveType");
+                });
+
+            modelBuilder.Entity("HrmsApi.Models.LeaveAttachment", b =>
+                {
+                    b.HasOne("HrmsApi.Models.LeaveRequest", "LeaveRequest")
+                        .WithMany()
+                        .HasForeignKey("LeaveRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("LeaveRequest");
                 });
 
             modelBuilder.Entity("HrmsApi.Models.LeaveRequest", b =>

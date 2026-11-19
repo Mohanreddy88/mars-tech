@@ -34,6 +34,15 @@ export class PayrollGenerateComponent implements OnInit {
   employees: Employee[] = [];
   selectedEmployeeIds: number[] = [];
   allSelected = false;
+  employeeSearch = '';
+
+  /** Employees matching the search box (name or employee code). */
+  get filteredEmployees(): Employee[] {
+    const q = this.employeeSearch.trim().toLowerCase();
+    if (!q) return this.employees;
+    return this.employees.filter(e =>
+      e.name.toLowerCase().includes(q) || (e.employeeCode ?? '').toLowerCase().includes(q));
+  }
   
   // Month/Year selection
   currentMonth = new Date().getMonth() + 1;
@@ -144,8 +153,8 @@ export class PayrollGenerateComponent implements OnInit {
   }
 
   toggleSelectAll(): void {
-    // Only include employees without existing payroll
-    const eligible = this.employees.filter(e => !this.hasExistingPayroll(e.id)).map(e => e.id);
+    // Only include employees without existing payroll (and, when searching, only the ones shown)
+    const eligible = this.filteredEmployees.filter(e => !this.hasExistingPayroll(e.id)).map(e => e.id);
     if (this.allSelected) {
       this.selectedEmployeeIds = [];
     } else {

@@ -37,6 +37,11 @@ public class AuthController : ControllerBase
         if (user is null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
             throw new UnauthorizedAccessException("Invalid username or password.");
 
+        // One login at a time: this login becomes the user's only valid session; a session open
+        // elsewhere is signed out on its next request.
+        user.CurrentSessionId = Guid.NewGuid().ToString("N");
+        await _db.SaveChangesAsync();
+
         var (token, expiresAt) = _tokenService.GenerateToken(user);
 
         // Find associated employee record (for non-admin users)

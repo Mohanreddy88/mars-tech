@@ -16,6 +16,11 @@ import { ConfirmModalComponent } from '../../../../shared/components/confirm-mod
 })
 export class BankListComponent implements OnInit {
   banks: Bank[] = [];
+  search = '';
+  get filteredBanks(): Bank[] {
+    const q = this.search.trim().toLowerCase();
+    return !q ? this.banks : this.banks.filter(b => b.name.toLowerCase().includes(q));
+  }
   loading = false;
   saving = false;
   showModal = false;

@@ -7,6 +7,7 @@ import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { LoadingService } from '../../../../core/services/loading.service';
 import { environment } from '../../../../../environments/environment';
+import { LeaveAttachmentService } from '../../../../core/services/leave-attachment.service';
 
 @Component({
   selector: 'app-leave-request-list',
@@ -63,7 +64,8 @@ export class LeaveRequestListComponent implements OnInit {
     private toast: ToastService,
     private router: Router,
     private loadingService: LoadingService,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private attachments: LeaveAttachmentService
   ) {
     const currentYear = new Date().getFullYear();
     for (let year = currentYear - 5; year <= currentYear + 1; year++) {
@@ -255,6 +257,11 @@ export class LeaveRequestListComponent implements OnInit {
         this.toast.error('Error', msg);
       }
     });
+  }
+
+  /** Opens the employee's MC letter / supporting document in a new tab. */
+  viewDocument(req: any): void {
+    this.attachments.open(req.id, (msg) => this.toast.error('Document', msg));
   }
 
   formatDate(dateString: string): string {

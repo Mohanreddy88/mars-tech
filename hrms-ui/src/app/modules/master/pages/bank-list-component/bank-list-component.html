@@ -25,6 +25,13 @@
       <p class="mt-2 text-muted">Loading banks...</p>
     </div>
   } @else {
+    <div class="list-toolbar">
+      <div class="list-search">
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <input type="search" [(ngModel)]="search" placeholder="Search bank name" aria-label="Search bank name" />
+      </div>
+      <span class="list-count">{{ filteredBanks.length }} of {{ banks.length }}</span>
+    </div>
     <div class="card banks-table-card">
       <table class="table align-middle mb-0">
         <thead>
@@ -39,7 +46,7 @@
           @if (banks.length === 0) {
             <tr><td colspan="4" class="text-center text-muted py-4">No banks found.</td></tr>
           }
-          @for (bank of banks; track bank.id; let i = $index) {
+          @for (bank of filteredBanks; track bank.id; let i = $index) {
             <tr>
               <td>{{ i + 1 }}</td>
               <td>

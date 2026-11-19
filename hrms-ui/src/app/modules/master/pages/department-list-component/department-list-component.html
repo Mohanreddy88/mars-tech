@@ -25,6 +25,13 @@
       <p class="mt-2 text-muted">Loading departments...</p>
     </div>
   } @else {
+    <div class="list-toolbar">
+      <div class="list-search">
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <input type="search" [(ngModel)]="search" placeholder="Search department name or description" aria-label="Search department name or description" />
+      </div>
+      <span class="list-count">{{ filteredDepartments.length }} of {{ departments.length }}</span>
+    </div>
     <div class="card departments-table-card">
       <table class="table align-middle mb-0">
         <thead>
@@ -41,7 +48,7 @@
           @if (departments.length === 0) {
             <tr><td colspan="6" class="text-center text-muted py-4">No departments found.</td></tr>
           }
-          @for (dept of departments; track dept.id; let i = $index) {
+          @for (dept of filteredDepartments; track dept.id; let i = $index) {
             <tr>
               <td>{{ i + 1 }}</td>
               <td>

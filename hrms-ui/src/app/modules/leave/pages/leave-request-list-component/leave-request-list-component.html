@@ -24,7 +24,7 @@
   </div>
 
   <!-- Filter Section -->
-  <div class="filter-card">
+  <div class="filter-card compact-filters">
     <h5 class="section-title"><i class="bi bi-funnel me-2"></i>Filters</h5>
     <div class="filter-form">
       <div class="form-group">
@@ -118,6 +118,14 @@
               }
               <td>
                 <span class="leave-type-badge">{{ req.leaveTypeName }}</span>
+                @if (req.attachmentName) {
+                  <button type="button" class="doc-btn" (click)="viewDocument(req)"
+                          [title]="'View ' + (req.leaveTypeCode === 'ML' ? 'MC letter' : 'document') + ': ' + req.attachmentName">
+                    <i class="bi bi-paperclip"></i> {{ req.leaveTypeCode === 'ML' ? 'MC letter' : 'Document' }}
+                  </button>
+                } @else if (req.leaveTypeCode === 'ML') {
+                  <span class="doc-missing" title="The employee has not uploaded an MC letter yet">No MC yet</span>
+                }
               </td>
               <td>{{ formatDate(req.startDate) }}</td>
               <td>{{ formatDate(req.endDate) }}</td>

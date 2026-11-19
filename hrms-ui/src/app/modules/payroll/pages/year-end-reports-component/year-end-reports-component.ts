@@ -46,6 +46,15 @@ export class YearEndReportsComponent implements OnInit {
   isCurrentYear = false;
   message       = '';
   employees: YearEndEmployee[] = [];
+  search = '';
+  eaFilter: '' | 'ready' | 'notready' = '';
+  get filteredEmployees(): YearEndEmployee[] {
+    const q = this.search.trim().toLowerCase();
+    return this.employees.filter(e =>
+      (!this.eaFilter || (this.eaFilter === 'ready') === e.isEaReady) &&
+      (!q || [e.employeeName, e.employeeCode, e.departmentName, e.designation]
+              .some(v => (v ?? '').toLowerCase().includes(q))));
+  }
 
   // Bulk email
   bulkSending = false;

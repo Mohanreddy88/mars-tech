@@ -65,43 +65,43 @@
         <h3 class="mgmt-title">Employees Management</h3>
         <div class="mgmt-action">
           <span class="action-label">
-            <span class="action-text">Add New Employee</span>
-            <small>Creating new employee record</small>
+            <span class="action-text">Add Employee</span>
+            <small>Create a new employee record</small>
           </span>
-          <button class="action-btn add-btn" routerLink="/employees/add">
+          <button class="action-btn add-btn" routerLink="/employees/add" aria-label="Add employee">
             <i class="bi bi-plus-lg"></i>
           </button>
         </div>
       </div>
 
       <div class="mgmt-links">
-        <div class="mgmt-link-item" routerLink="/master/departments">
-          <div>
-            <strong>Departments</strong>
-            <small>Active teams</small>
-          </div>
-          <span class="link-badge purple"><i class="bi bi-diagram-3-fill"></i></span>
-        </div>
         <div class="mgmt-link-item" routerLink="/employees">
           <div>
             <strong>All Employees</strong>
-            <small>Total active employees</small>
+            <small>Search, view and edit</small>
           </div>
           <span class="link-badge blue"><i class="bi bi-people-fill"></i></span>
         </div>
-        <div class="mgmt-link-item" routerLink="/employees">
+        <div class="mgmt-link-item" routerLink="/master/departments">
           <div>
-            <strong>Employee Profiles</strong>
-            <small>View employee details</small>
+            <strong>Departments</strong>
+            <small>Teams and headcount</small>
           </div>
-          <span class="link-badge teal"><i class="bi bi-person-badge"></i></span>
+          <span class="link-badge purple"><i class="bi bi-diagram-3-fill"></i></span>
         </div>
-        <div class="mgmt-link-item" routerLink="/employees/add">
+        <div class="mgmt-link-item" routerLink="/master/users">
           <div>
-            <strong>Register Employee</strong>
-            <small>Add a new employee</small>
+            <strong>User Logins</strong>
+            <small>Accounts and roles</small>
           </div>
-          <span class="link-badge green"><i class="bi bi-person-plus-fill"></i></span>
+          <span class="link-badge teal"><i class="bi bi-shield-lock-fill"></i></span>
+        </div>
+        <div class="mgmt-link-item" routerLink="/leave/balance">
+          <div>
+            <strong>Leave Balance</strong>
+            <small>Entitlements per employee</small>
+          </div>
+          <span class="link-badge green"><i class="bi bi-wallet2"></i></span>
         </div>
       </div>
     </div>
@@ -115,43 +115,43 @@
         <h3 class="mgmt-title">Salary Management</h3>
         <div class="mgmt-action">
           <span class="action-label">
-            <span class="action-text">Payroll History Records</span>
-            <small>View &amp; print payslips</small>
+            <span class="action-text">Generate Payroll</span>
+            <small>Monthly salary computation</small>
           </span>
-          <button class="action-btn payroll-btn" routerLink="/payroll/list">
+          <button class="action-btn payroll-btn" routerLink="/payroll/generate" aria-label="Generate payroll">
             <i class="bi bi-plus-lg"></i>
           </button>
         </div>
       </div>
 
       <div class="mgmt-links">
-        <div class="mgmt-link-item" routerLink="/payroll/generate">
+        <div class="mgmt-link-item" routerLink="/payroll/list">
           <div>
-            <strong>Generate Payroll</strong>
-            <small>Monthly salary computation</small>
+            <strong>Payroll Processing</strong>
+            <small>Review, adjust and approve</small>
           </div>
           <span class="link-badge blue"><i class="bi bi-cash-coin"></i></span>
         </div>
-        <div class="mgmt-link-item" routerLink="/payroll/list">
+        <div class="mgmt-link-item" routerLink="/payroll/salary-release">
           <div>
-            <strong>Print Payslip</strong>
-            <small>Download &amp; print payslips</small>
+            <strong>Salary Release</strong>
+            <small>Bank file and payslips</small>
           </div>
           <span class="link-badge orange"><i class="bi bi-printer-fill"></i></span>
         </div>
-        <div class="mgmt-link-item" routerLink="/payroll/generate">
+        <div class="mgmt-link-item" routerLink="/payroll/year-end-reports">
           <div>
-            <strong>PCB / EPF / SOCSO</strong>
-            <small>Malaysia statutory deductions</small>
+            <strong>Year-End Reports</strong>
+            <small>YTD totals and EA forms</small>
           </div>
-          <span class="link-badge teal"><i class="bi bi-wallet2"></i></span>
+          <span class="link-badge pink"><i class="bi bi-file-earmark-ruled-fill"></i></span>
         </div>
-        <div class="mgmt-link-item" routerLink="/payroll/generate">
+        <div class="mgmt-link-item" routerLink="/master/statutory-rates">
           <div>
-            <strong>Allowances &amp; Deductions</strong>
-            <small>Add special allowances</small>
+            <strong>Statutory Rates</strong>
+            <small>EPF, SOCSO, EIS and PCB</small>
           </div>
-          <span class="link-badge pink"><i class="bi bi-piggy-bank"></i></span>
+          <span class="link-badge teal"><i class="bi bi-percent"></i></span>
         </div>
       </div>
     </div>
@@ -171,19 +171,33 @@
       </div>
 
       <div class="mgmt-links">
-        <div class="mgmt-link-item" routerLink="/attendance">
+        <div class="mgmt-link-item" routerLink="/attendance/approval">
           <div>
-            <strong>View Attendance</strong>
-            <small>Daily attendance overview</small>
+            <strong>Pending Approval</strong>
+            <small>Approve submitted timesheets</small>
           </div>
-          <span class="link-badge orange"><i class="bi bi-calendar-check-fill"></i></span>
+          <span class="link-badge blue-dark"><i class="bi bi-check2-circle"></i></span>
         </div>
         <div class="mgmt-link-item" routerLink="/attendance">
           <div>
-            <strong>Mark Attendance</strong>
-            <small>Mark present / absent</small>
+            <strong>Attendance History</strong>
+            <small>All submitted months</small>
           </div>
-          <span class="link-badge blue-dark"><i class="bi bi-check2-circle"></i></span>
+          <span class="link-badge orange"><i class="bi bi-calendar-check-fill"></i></span>
+        </div>
+        <div class="mgmt-link-item" routerLink="/timesheets">
+          <div>
+            <strong>Timesheets</strong>
+            <small>Monthly summary per employee</small>
+          </div>
+          <span class="link-badge teal"><i class="bi bi-clock-history"></i></span>
+        </div>
+        <div class="mgmt-link-item" routerLink="/leave/requests">
+          <div>
+            <strong>Leave Approvals</strong>
+            <small>Requests and MC letters</small>
+          </div>
+          <span class="link-badge purple"><i class="bi bi-list-check"></i></span>
         </div>
       </div>
     </div>

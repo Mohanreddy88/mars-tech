@@ -28,6 +28,7 @@ public class HrmsDbContext : DbContext
     public DbSet<AuditLog>              AuditLogs             => Set<AuditLog>();
     public DbSet<CompanySettings>       CompanySettings       => Set<CompanySettings>();
     public DbSet<StatutoryRateSet>      StatutoryRateSets     => Set<StatutoryRateSet>();
+    public DbSet<LeaveAttachment>       LeaveAttachments      => Set<LeaveAttachment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -321,5 +322,23 @@ public class HrmsDbContext : DbContext
              .HasForeignKey(x => x.LeaveTypeId)
              .OnDelete(DeleteBehavior.Restrict);
         });
+
+        // ── LeaveAttachment (MC letter etc.; one per leave request) ──
+        modelBuilder.Entity<LeaveAttachment>(e =>
+        {
+            e.ToTable("LeaveAttachments");
+            e.Property(x => x.FileName).IsRequired().HasMaxLength(255);
+            e.Property(x => x.ContentType).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Data).IsRequired();
+            e.HasIndex(x => x.LeaveRequestId).IsUnique();
+
+            e.HasOne(x => x.LeaveRequest)
+             .WithMany()
+             .HasForeignKey(x => x.LeaveRequestId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── User: current login session (one login at a time) ──
+        modelBuilder.Entity<User>().Property(x => x.CurrentSessionId).HasMaxLength(64);
     }
 }

@@ -19,4 +19,11 @@ public class User
 
     // ── Force password change on first login ──────────────
     public bool MustChangePassword { get; set; } = false;
+
+    // ── One login at a time ───────────────────────────────
+    /// <summary>
+    /// Id of the user's current login session; each login replaces it and puts it in the token
+    /// ("sid" claim). A token whose sid no longer matches was replaced by a newer login elsewhere.
+    /// </summary>
+    public string? CurrentSessionId { get; set; }
 }

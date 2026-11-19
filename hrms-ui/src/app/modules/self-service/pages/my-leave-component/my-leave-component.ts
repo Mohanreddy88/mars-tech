@@ -6,6 +6,10 @@ import { SelfServiceService, LeaveBalanceResponse, LeaveRequest, LeaveType, Leav
 import { LoadingService } from '../../../../core/services/loading.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { InputModalComponent } from '../../../../shared/components/input-modal/input-modal.component';
+import { LeaveAttachmentService, LEAVE_DOC_ACCEPT } from '../../../../core/services/leave-attachment.service';
+
+/** Leave type code for medical leave (MC letter expected) */
+const MEDICAL_CODE = 'ML';
 
 @Component({
   selector: 'app-my-leave',
@@ -33,6 +37,11 @@ export class MyLeaveComponent implements OnInit {
     reason: ''
   };
   
+  // MC letter / supporting document
+  readonly docAccept = LEAVE_DOC_ACCEPT;
+  newRequestFile: File | null = null;
+  uploadingId: number | null = null;
+
   // Input modal state
   showInputModal = false;
   inputModalTitle = '';
@@ -44,7 +53,8 @@ export class MyLeaveComponent implements OnInit {
     private loadingService: LoadingService,
     private toast: ToastService
   ,
-    private router: Router
+    private router: Router,
+    private attachments: LeaveAttachmentService
   ) {
     // Generate last 3 years
     const currentYear = new Date().getFullYear();
@@ -136,12 +146,22 @@ export class MyLeaveComponent implements OnInit {
       return;
     }
 
+    if (this.newRequestFile) {
+      const err = LeaveAttachmentService.validate(this.newRequestFile);
+      if (err) { this.toast.warning('Document', err); return; }
+    }
+
     this.loadingService.show();
     this.selfServiceService.submitLeaveRequest(this.newLeaveRequest)
       .subscribe({
         next: (response) => {
           this.loadingService.hide();
           this.toast.success('Leave Request Submitted!', 'Your leave request has been submitted successfully and is pending approval.');
+          // Upload the MC letter / document chosen with the request
+          if (this.newRequestFile && response?.id) {
+            this.uploadDocument(response.id, this.newRequestFile);
+            this.newRequestFile = null;
+          }
           // Reset form
           this.newLeaveRequest = {
             leaveTypeId: 0,
@@ -234,6 +254,61 @@ export class MyLeaveComponent implements OnInit {
     if (percentage >= 70) return '#10b981'; // Green
     if (percentage >= 40) return '#f59e0b'; // Orange
     return '#ef4444'; // Red
+  }
+
+  // ── MC letter / supporting document ─────────────────────
+
+  /** True when the chosen leave type in the new-request form is medical leave. */
+  get isMedicalSelected(): boolean {
+    const t = this.leaveTypes.find(x => x.id == this.newLeaveRequest.leaveTypeId);
+    return t?.code === MEDICAL_CODE;
+  }
+
+  isMedical(request: LeaveRequest): boolean { return request.leaveTypeCode === MEDICAL_CODE; }
+
+  docLabel(request: LeaveRequest): string { return this.isMedical(request) ? 'MC letter' : 'Supporting document'; }
+
+  canAddDocument(request: LeaveRequest): boolean {
+    return request.status === 'Pending' || request.status === 'Approved';
+  }
+
+  onNewRequestFile(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    if (file) {
+      const err = LeaveAttachmentService.validate(file);
+      if (err) { this.toast.warning('Document', err); input.value = ''; this.newRequestFile = null; return; }
+    }
+    this.newRequestFile = file;
+  }
+
+  onRequestFile(request: LeaveRequest, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    const err = LeaveAttachmentService.validate(file);
+    if (err) { this.toast.warning('Document', err); return; }
+    this.uploadDocument(request.id, file);
+  }
+
+  private uploadDocument(leaveRequestId: number, file: File): void {
+    this.uploadingId = leaveRequestId;
+    this.attachments.upload(leaveRequestId, file).subscribe({
+      next: () => {
+        this.uploadingId = null;
+        this.toast.success('Document Uploaded', file.name + ' was added to your leave request. HR has been notified.');
+        this.loadLeaveRequests();
+      },
+      error: (e) => {
+        this.uploadingId = null;
+        this.toast.error('Upload Failed', e?.error?.message || 'Could not upload the document.');
+      }
+    });
+  }
+
+  viewDocument(request: LeaveRequest): void {
+    this.attachments.open(request.id, (msg) => this.toast.error('Document', msg));
   }
 
   canCancelRequest(status: string): boolean {

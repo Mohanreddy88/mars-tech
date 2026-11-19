@@ -156,12 +156,52 @@ builder.Services.AddAuthentication(options =>
     options.Events = new JwtBearerEvents
     {
         // Every company shares the signing key, so a token is only valid on the site that issued it.
-        OnTokenValidated = ctx =>
+        OnTokenValidated = async ctx =>
         {
             var tenant = ctx.HttpContext.RequestServices.GetRequiredService<ITenantContext>();
             if (tenant.MultiTenant && ctx.Principal?.FindFirst(TokenService.TenantClaim)?.Value != tenant.TokenScope)
+            {
                 ctx.Fail("This login belongs to a different company.");
-            return Task.CompletedTask;
+                return;
+            }
+
+            // One login at a time: a company user's token must carry their current session id.
+            // (Super Admin portal logins use the master database and are not limited here.)
+            var principal = ctx.Principal;
+            if (principal == null || principal.IsInRole(PlatformController.SuperAdminRole)) return;
+            if (!int.TryParse(principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var userId)) return;
+
+            var db = ctx.HttpContext.RequestServices.GetRequiredService<HrmsDbContext>();
+            var current = await db.Users.AsNoTracking()
+                .Where(u => u.Id == userId)
+                .Select(u => new { u.CurrentSessionId })
+                .FirstOrDefaultAsync();
+            if (current == null)
+            {
+                ctx.Fail("User no longer exists.");
+                return;
+            }
+            // No session recorded yet (logged in before this rule existed): allow until the next login.
+            if (current.CurrentSessionId != null
+                && principal.FindFirst(TokenService.SessionClaim)?.Value != current.CurrentSessionId)
+            {
+                ctx.HttpContext.Items["SessionReplaced"] = true;
+                ctx.Fail("Signed in elsewhere.");
+            }
+        },
+        // Tell the browser why, so it can explain the sign-out instead of showing errors.
+        OnChallenge = async ctx =>
+        {
+            if (ctx.HttpContext.Items.ContainsKey("SessionReplaced"))
+            {
+                ctx.HandleResponse();
+                ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                await ctx.Response.WriteAsJsonAsync(new
+                {
+                    code    = "session_replaced",
+                    message = "You were signed out because your account signed in on another device or browser."
+                });
+            }
         }
     };
 });
