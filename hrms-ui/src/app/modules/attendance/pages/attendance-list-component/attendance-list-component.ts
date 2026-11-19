@@ -18,6 +18,7 @@ interface AttendancePeriod {
   status: string;
   totalHours: number;
   dayCount: number;
+  leaveCount?: number;   // leave days in the period
   submittedAt: string;
   approvedAt?: string;
   approvedBy?: number;
@@ -54,9 +55,9 @@ export class AttendanceListComponent implements OnInit {
 
   // Filters
   selectedEmployeeId: number | null = null;
-  selectedMonth: number = new Date().getMonth() + 1;
-  selectedYear: number = new Date().getFullYear();
-  selectedStatus: string = 'Approved';
+  selectedMonth: number | null = null;   // null = all months
+  selectedYear: number | null = null;    // null = all years
+  selectedStatus: string = 'All';
   years: number[] = [];
   statuses = ['Approved', 'Rejected', 'All'];
 
@@ -148,9 +149,12 @@ export class AttendanceListComponent implements OnInit {
     let filtered = [...this.allPeriods];
 
     // Filter by month and year (frontend)
+    const month = this.selectedMonth != null ? Number(this.selectedMonth) : null;
+    const year  = this.selectedYear  != null ? Number(this.selectedYear)  : null;
     filtered = filtered.filter(p => {
       const date = new Date(p.startDate);
-      return date.getMonth() + 1 === this.selectedMonth && date.getFullYear() === this.selectedYear;
+      return (month == null || date.getMonth() + 1 === month)
+          && (year  == null || date.getFullYear() === year);
     });
 
     this.periods = filtered;
@@ -162,9 +166,9 @@ export class AttendanceListComponent implements OnInit {
 
   clearFilters(): void {
     this.selectedEmployeeId = null;
-    this.selectedMonth = new Date().getMonth() + 1;
-    this.selectedYear = new Date().getFullYear();
-    this.selectedStatus = 'Approved';
+    this.selectedMonth = null;
+    this.selectedYear = null;
+    this.selectedStatus = 'All';
     this.loadPeriods();
   }
 
@@ -206,6 +210,15 @@ export class AttendanceListComponent implements OnInit {
       'Draft': 'draft'
     };
     return map[status] || 'draft';
+  }
+
+  /** "in October 2026", "in 2026", "in October (all years)" or "" for the summary line. */
+  get periodLabel(): string {
+    const m = this.selectedMonth != null ? this.getMonthName(Number(this.selectedMonth)) : '';
+    const y = this.selectedYear != null ? String(this.selectedYear) : '';
+    if (m && y) return m + ' ' + y;
+    if (m) return m + ' (all years)';
+    return y;
   }
 
   getMonthName(month: number): string {

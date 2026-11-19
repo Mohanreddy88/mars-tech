@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { PayrollService } from '../../../../core/services/payroll.service';
 import { EmployeeService } from '../../../../core/services/employee.service';
@@ -22,7 +22,7 @@ interface Employee {
 @Component({
   selector: 'app-payroll-generate',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './payroll-generate-component.html',
   styleUrls: ['./payroll-generate-component.scss']
 })

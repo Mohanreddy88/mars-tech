@@ -19,9 +19,11 @@ public class AttendanceManagementController : ControllerBase
     private readonly IEmailQueue _emailQueue;
     private readonly IAuditService _audit;
     private readonly INotificationService _notif;
+    private readonly ILeaveService _leaveService;
 
-    public AttendanceManagementController(HrmsDbContext db, IEmailService emailService, ILogger<AttendanceManagementController> logger, IEmailQueue emailQueue, IAuditService audit, INotificationService notif)
+    public AttendanceManagementController(HrmsDbContext db, IEmailService emailService, ILogger<AttendanceManagementController> logger, IEmailQueue emailQueue, IAuditService audit, INotificationService notif, ILeaveService leaveService)
     {
+        _leaveService = leaveService;
         _db           = db;
         _emailService = emailService;
         _logger       = logger;
@@ -102,6 +104,8 @@ public class AttendanceManagementController : ControllerBase
                 p.RejectionReason,
                 p.Remarks,
                 totalHours = p.Days.Where(d => string.IsNullOrEmpty(d.Note)).Sum(d => d.Hours),
+                // Days worked (hours entered, not a leave day) — shown in the Days column
+                dayCount   = p.Days.Count(d => string.IsNullOrEmpty(d.Note) && d.Hours > 0),
                 leaveCount = p.Days.Count(d => !string.IsNullOrEmpty(d.Note)),
                 alCount = p.Days.Count(d => d.Note == "AL"),
                 elCount = p.Days.Count(d => d.Note == "EL"),
@@ -259,53 +263,9 @@ public class AttendanceManagementController : ControllerBase
         period.ApprovedAt = DateTime.UtcNow;
         period.ApprovedBy = adminUser.Id;
 
-        // Deduct leave balances based on day notes (AL/EL/MC)
-        var days = await _db.AttendancePeriodDays
-            .Where(d => d.AttendancePeriodId == id && !string.IsNullOrEmpty(d.Note))
-            .ToListAsync();
-
-        if (days.Any())
-        {
-            var year = period.StartDate.Year;
-
-            // Approved leave requests already deducted their days (LeaveService). Only coded days
-            // that no approved leave request covers are deducted here, so a day is never counted twice.
-            var approvedRanges = await _db.LeaveRequests
-                .Where(lr => lr.EmployeeId == period.EmployeeId && lr.Status == "Approved"
-                          && lr.StartDate <= period.EndDate && lr.EndDate >= period.StartDate)
-                .Select(lr => new { lr.StartDate, lr.EndDate })
-                .ToListAsync();
-
-            // Group leave days by note type and deduct from corresponding leave balance
-            var leaveGroups = days
-                .Where(d => !approvedRanges.Any(r => d.Date.Date >= r.StartDate.Date && d.Date.Date <= r.EndDate.Date))
-                .GroupBy(d => d.Note);
-
-            foreach (var group in leaveGroups)
-            {
-                var leaveCode = group.Key; // the day's leave code (AL, ML, …)
-                var daysCount = group.Count();
-
-                var leaveType = await _db.LeaveTypes
-                    .FirstOrDefaultAsync(lt => lt.Code == leaveCode && lt.IsActive);
-
-                if (leaveType == null) continue;
-
-                var balance = await _db.EmployeeLeaveBalances
-                    .FirstOrDefaultAsync(b => b.EmployeeId == period.EmployeeId
-                                           && b.LeaveTypeId == leaveType.Id
-                                           && b.Year == year);
-
-                if (balance != null)
-                {
-                    balance.UsedDays += daysCount;
-                    balance.BalanceDays = balance.TotalDays + balance.CarryForwardDays - balance.UsedDays;
-                    balance.UpdatedAt = DateTime.UtcNow;
-                    _logger.LogInformation("Deducted {Days} {Code} days from employee {EmployeeId} balance for year {Year}",
-                        daysCount, leaveCode, period.EmployeeId, year);
-                }
-            }
-        }
+        // Leave-coded days (AL, ML…) become approved leave requests, deducting the balance once.
+        // Days already covered by a pending or approved leave request are left to that request.
+        var recordedLeave = await _leaveService.RecordTimesheetLeaveAsync(period, adminUser.Id);
 
         await _db.SaveChangesAsync();
 
@@ -331,7 +291,8 @@ public class AttendanceManagementController : ControllerBase
             action:      "Approved",
             entityType:  "AttendancePeriod",
             entityId:    id.ToString(),
-            description: $"Approved attendance period for employee {period.EmployeeId} ({period.StartDate:dd MMM} - {period.EndDate:dd MMM yyyy})",
+            description: $"Approved attendance period for employee {period.EmployeeId} ({period.StartDate:dd MMM} - {period.EndDate:dd MMM yyyy})"
+                       + (recordedLeave.Count > 0 ? $"; recorded {recordedLeave.Sum(l => l.TotalDays)} leave day(s) as approved leave" : ""),
             username:    CurrentUser(),
             userId:      CurrentUserId(),
             ipAddress:   HttpContext.Connection.RemoteIpAddress?.ToString());
@@ -530,14 +491,10 @@ public class AttendanceManagementController : ControllerBase
         var startDate = DateTime.SpecifyKind(request.StartDate.Date, DateTimeKind.Utc);
         var endDate   = DateTime.SpecifyKind(request.EndDate.Date,   DateTimeKind.Utc);
 
-        // Check if leave request already exists for this range
-        var existing = await _db.LeaveRequests
-            .FirstOrDefaultAsync(lr => lr.EmployeeId == period.EmployeeId
-                                    && lr.StartDate == startDate
-                                    && lr.EndDate == endDate
-                                    && lr.LeaveTypeId == leaveType.Id);
-        if (existing != null)
-            return BadRequest(new { message = "A leave request already exists for these dates" });
+        // One record per leave day: no overlap with existing leave or leave recorded from an approved timesheet
+        var conflict = await _leaveService.FindLeaveConflictAsync(period.EmployeeId, startDate, endDate);
+        if (conflict != null)
+            return BadRequest(new { message = conflict });
 
         // Count working days in range
         decimal totalDays = 0;

@@ -227,10 +227,21 @@ public class TimesheetsController : ControllerBase
         int confirmedCount = 0;
         decimal totalLeaveDeducted = 0;
 
+        // Days covered by a pending or approved leave request are deducted by that request, never here too
+        var leaveRanges = await _db.LeaveRequests
+            .Where(lr => lr.EmployeeId == timesheet.EmployeeId
+                      && (lr.Status == "Pending" || lr.Status == "Approved")
+                      && lr.StartDate <= endDate && lr.EndDate >= startDate)
+            .Select(lr => new { lr.StartDate, lr.EndDate })
+            .ToListAsync();
+
         foreach (var attendance in pendingAttendances)
         {
             attendance.Remarks = $"APPROVED by Admin - {DateTime.Now:yyyy-MM-dd}";
             confirmedCount++;
+
+            if (leaveRanges.Any(r => attendance.Date.Date >= r.StartDate.Date && attendance.Date.Date <= r.EndDate.Date))
+                continue;
 
             // Count leave days for deduction
             if (attendance.Status == "Leave")

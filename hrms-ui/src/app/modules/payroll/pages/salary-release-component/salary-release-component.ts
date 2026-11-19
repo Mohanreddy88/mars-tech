@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { ToastService } from '../../../../core/services/toast.service';
 import { PayrollService } from '../../../../core/services/payroll.service';
@@ -11,7 +11,7 @@ import { environment } from '../../../../../environments/environment';
 @Component({
   selector: 'app-salary-release',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './salary-release-component.html',
   styleUrls: ['./salary-release-component.scss']
 })
@@ -23,8 +23,8 @@ export class SalaryReleaseComponent implements OnInit {
 
   // Filters — default to current month/year, Processed only
   filterEmployeeId: number | null = null;
-  filterMonth: number | null = new Date().getMonth() + 1;
-  filterYear:  number | null = new Date().getFullYear();
+  filterMonth: number | null = null;   // default: all months
+  filterYear:  number | null = null;   // default: all years
 
   months = [
     { value: 1,  name: 'January' },  { value: 2,  name: 'February' },
@@ -104,8 +104,8 @@ export class SalaryReleaseComponent implements OnInit {
 
   clearFilters(): void {
     this.filterEmployeeId = null;
-    this.filterMonth = new Date().getMonth() + 1;
-    this.filterYear  = new Date().getFullYear();
+    this.filterMonth = null;
+    this.filterYear  = null;
     this.applyFilters();
   }
 
