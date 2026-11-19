@@ -20,10 +20,12 @@ public class AttendanceManagementController : ControllerBase
     private readonly IAuditService _audit;
     private readonly INotificationService _notif;
     private readonly ILeaveService _leaveService;
+    private readonly IPdfService _pdfService;
 
-    public AttendanceManagementController(HrmsDbContext db, IEmailService emailService, ILogger<AttendanceManagementController> logger, IEmailQueue emailQueue, IAuditService audit, INotificationService notif, ILeaveService leaveService)
+    public AttendanceManagementController(HrmsDbContext db, IEmailService emailService, ILogger<AttendanceManagementController> logger, IEmailQueue emailQueue, IAuditService audit, INotificationService notif, ILeaveService leaveService, IPdfService pdfService)
     {
         _leaveService = leaveService;
+        _pdfService   = pdfService;
         _db           = db;
         _emailService = emailService;
         _logger       = logger;
@@ -114,6 +116,23 @@ public class AttendanceManagementController : ControllerBase
             .ToListAsync();
 
         return Ok(periods);
+    }
+
+    /// <summary>
+    /// GET /api/attendancemanagement/{id}/pdf - an employee's filled timesheet as a PDF (same file the employee downloads)
+    /// </summary>
+    [HttpGet("{id:int}/pdf")]
+    public async Task<IActionResult> DownloadTimesheetPdf(int id)
+    {
+        var period = await _db.AttendancePeriods.AsNoTracking()
+            .Include(p => p.Employee)
+            .FirstOrDefaultAsync(p => p.Id == id);
+        if (period == null)
+            return NotFound(new { message = "Attendance period not found" });
+
+        var pdf  = await _pdfService.GenerateTimesheetPdfAsync(id);
+        var code = period.Employee?.EmployeeCode ?? $"EMP{period.EmployeeId}";
+        return File(pdf, "application/pdf", $"Timesheet_{code}_{period.StartDate:yyyyMMdd}-{period.EndDate:yyyyMMdd}.pdf");
     }
 
     /// <summary>
