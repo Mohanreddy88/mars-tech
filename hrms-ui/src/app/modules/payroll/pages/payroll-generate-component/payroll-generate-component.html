@@ -34,6 +34,18 @@
           {{ allSelected ? 'Deselect All' : 'Select All' }}
         </button>
         <span class="selection-count">{{ selectedEmployeeIds.length }} selected</span>
+        <button class="btn btn-primary btn-sm" (click)="checkEligibility()"
+                [disabled]="generating || selectedEmployeeIds.length === 0">
+          <i class="bi bi-clipboard-check"></i>
+          Check Eligibility
+        </button>
+        <button class="btn btn-success btn-sm" (click)="generate()"
+                [disabled]="generating || selectedEmployeeIds.length === 0 || !hasEligibleEmployees()"
+                [title]="selectedEmployeeIds.length === 0 ? 'Select employees first'
+                         : !hasEligibleEmployees() && eligibilityResults.size > 0 ? 'No eligible employees selected' : ''">
+          <i class="bi bi-cash-stack"></i>
+          {{ generating ? 'Generating...' : 'Generate Payroll' }}
+        </button>
       </div>
     </div>
 
@@ -72,20 +84,6 @@
   </div>
 
   <!-- Action Buttons -->
-  <div class="action-buttons" *ngIf="selectedEmployeeIds.length > 0">
-    <button class="btn btn-primary" (click)="checkEligibility()" [disabled]="generating">
-      <i class="bi bi-clipboard-check"></i>
-      Check Eligibility
-    </button>
-    <button 
-      class="btn btn-success" 
-      (click)="generate()" 
-      [disabled]="generating || !hasEligibleEmployees()"
-      [title]="!hasEligibleEmployees() && eligibilityResults.size > 0 ? 'No eligible employees selected' : ''">
-      <i class="bi bi-cash-stack"></i>
-      {{ generating ? 'Generating...' : 'Generate Payroll' }}
-    </button>
-  </div>
 
   <!-- Eligibility Results Panel -->
   <div class="eligibility-panel" *ngIf="showEligibilityPanel">

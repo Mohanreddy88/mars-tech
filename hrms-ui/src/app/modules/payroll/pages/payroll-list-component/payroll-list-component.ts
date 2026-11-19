@@ -110,6 +110,29 @@ export class PayrollListComponent implements OnInit {
 
   navigateToGenerate(): void { this.router.navigate(['/payroll/generate']); }
 
+  /** Payroll whose payslip PDF is being prepared (shows a spinner on its button). */
+  downloadingId: number | null = null;
+
+  /** Downloads the employee's payslip PDF (same document the employee gets by email). */
+  downloadPayslip(p: any): void {
+    this.downloadingId = p.id;
+    this.http.get(`${environment.apiUrl}/payroll/pdf/${p.id}`, { responseType: 'blob' }).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Payslip_${p.employeeCode}_${p.year}-${String(p.month).padStart(2, '0')}.pdf`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 10_000);
+        this.downloadingId = null;
+      },
+      error: () => {
+        this.downloadingId = null;
+        this.toast.error('Download Failed', 'Could not create the payslip PDF.');
+      }
+    });
+  }
+
   viewDetails(id: number): void {
     this.http.get(`${environment.apiUrl}/payroll/${id}`).subscribe({
       next: (data) => { this.selectedPayroll = data; this.showDetailModal = true; },

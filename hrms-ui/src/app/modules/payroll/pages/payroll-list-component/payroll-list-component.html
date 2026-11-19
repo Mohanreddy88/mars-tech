@@ -128,6 +128,11 @@
               <button class="btn-icon" (click)="viewDetails(p.id)" title="View Details">
                 <i class="bi bi-eye"></i>
               </button>
+              <!-- Download payslip PDF -->
+              <button class="btn-icon btn-download" (click)="downloadPayslip(p)" [disabled]="downloadingId === p.id"
+                      [title]="'Download payslip (PDF)' + (p.status === 'Draft' ? ' — draft, not yet approved' : '')">
+                <i class="bi" [class.bi-file-earmark-arrow-down]="downloadingId !== p.id" [class.bi-hourglass-split]="downloadingId === p.id"></i>
+              </button>
               <!-- Approve -->
               <button *ngIf="p.status === 'Draft'" class="btn-icon btn-approve" (click)="openApproveModal(p.id)" title="Approve">
                 <i class="bi bi-check-circle"></i>
