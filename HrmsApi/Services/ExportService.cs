@@ -174,13 +174,8 @@ public class ExportService : IExportService
     /// </summary>
     public async Task<byte[]> ExportAttendanceToExcelAsync(DateTime startDate, DateTime endDate)
     {
-        var records = await _db.Attendances
-            .Include(a => a.Employee)
-            .ThenInclude(e => e.Department)
-            .Where(a => a.Date >= startDate && a.Date <= endDate)
-            .OrderBy(a => a.Date)
-            .ThenBy(a => a.Employee.Name)
-            .ToListAsync();
+        // From approved timesheets (see AttendanceDays)
+        var records = await AttendanceDays.ApprovedAsync(_db, startDate, endDate);
 
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Attendance");
@@ -190,13 +185,12 @@ public class ExportService : IExportService
         worksheet.Cell(1, 2).Value = "Employee Name";
         worksheet.Cell(1, 3).Value = "Department";
         worksheet.Cell(1, 4).Value = "Status";
-        worksheet.Cell(1, 5).Value = "Check In";
-        worksheet.Cell(1, 6).Value = "Check Out";
-        worksheet.Cell(1, 7).Value = "Work Hours";
-        worksheet.Cell(1, 8).Value = "Remarks";
+        worksheet.Cell(1, 5).Value = "Work Hours";
+        worksheet.Cell(1, 6).Value = "Leave Code";
+        worksheet.Cell(1, 7).Value = "Remarks";
 
         // Style headers
-        var headerRow = worksheet.Range("A1:H1");
+        var headerRow = worksheet.Range("A1:G1");
         headerRow.Style.Font.Bold = true;
         headerRow.Style.Fill.BackgroundColor = XLColor.LightBlue;
         headerRow.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
@@ -206,13 +200,12 @@ public class ExportService : IExportService
         foreach (var a in records)
         {
             worksheet.Cell(row, 1).Value = a.Date.ToString("yyyy-MM-dd");
-            worksheet.Cell(row, 2).Value = a.Employee.Name;
-            worksheet.Cell(row, 3).Value = a.Employee.Department?.Name ?? "Unassigned";
+            worksheet.Cell(row, 2).Value = a.EmployeeName;
+            worksheet.Cell(row, 3).Value = a.DepartmentName;
             worksheet.Cell(row, 4).Value = a.Status;
-            worksheet.Cell(row, 5).Value = a.CheckIn?.ToString("HH:mm") ?? "";
-            worksheet.Cell(row, 6).Value = a.CheckOut?.ToString("HH:mm") ?? "";
-            worksheet.Cell(row, 7).Value = a.WorkHours;
-            worksheet.Cell(row, 8).Value = a.Remarks;
+            worksheet.Cell(row, 5).Value = a.WorkHours;
+            worksheet.Cell(row, 6).Value = a.LeaveCode ?? "";
+            worksheet.Cell(row, 7).Value = a.Remarks ?? "";
 
             // Color code by status
             var statusCell = worksheet.Cell(row, 4);

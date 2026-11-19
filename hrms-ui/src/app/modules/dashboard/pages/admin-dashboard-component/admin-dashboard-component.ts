@@ -229,6 +229,7 @@ export class AdminDashboardComponent implements OnInit {
     if ((p?.leaveRequests ?? 0) > 0) this.navigateTo('/leave/requests?status=Pending');
     else if ((p?.attendancePeriods ?? 0) > 0) this.navigateTo('/attendance/approval');
     else if ((p?.timesheets ?? 0) > 0) this.navigateTo('/timesheets');
+    else this.navigateTo('/attendance/approval');   // nothing waiting: open the approvals page anyway
   }
 
   formatDate(dateStr: string): string {

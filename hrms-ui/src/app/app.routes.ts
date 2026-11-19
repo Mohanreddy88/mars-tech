@@ -27,6 +27,7 @@ import { LeaveBalanceComponent } from './modules/leave/pages/leave-balance-compo
 import { LeaveRequestFormComponent } from './modules/leave/pages/leave-request-form-component/leave-request-form-component';
 import { LeaveRequestListComponent } from './modules/leave/pages/leave-request-list-component/leave-request-list-component';
 import { ReportsDashboardComponent } from './modules/reports/pages/reports-dashboard-component/reports-dashboard-component';
+import { MonthlySummaryComponent } from './modules/reports/pages/monthly-summary-component/monthly-summary.component';
 import { PayrollReportComponent } from './modules/reports/pages/payroll-report-component/payroll-report-component';
 import { AttendanceReportComponent } from './modules/reports/pages/attendance-report-component/attendance-report-component';
 import { EmployeeDirectoryComponent } from './modules/reports/pages/employee-directory-component/employee-directory-component';
@@ -110,6 +111,7 @@ const companyRoutes: Routes = [
       { path: 'reports/payroll',    component: PayrollReportComponent },
       { path: 'reports/attendance', component: AttendanceReportComponent },
       { path: 'reports/directory',  component: EmployeeDirectoryComponent },
+      { path: 'reports/monthly-summary', component: MonthlySummaryComponent, canActivate: [adminGuard] },
       
       // Self-Service (Employee Portal)
       { path: 'self-service/dashboard',        component: EmployeeDashboardComponent },

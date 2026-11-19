@@ -113,9 +113,8 @@
               <th>Employee</th>
               <th>Department</th>
               <th>Status</th>
-              <th>Check In</th>
-              <th>Check Out</th>
               <th>Work Hours</th>
+              <th>Leave</th>
               <th>Remarks</th>
             </tr>
           </thead>
@@ -129,9 +128,8 @@
                   {{ record.status }}
                 </span>
               </td>
-              <td>{{ record.checkIn ? (record.checkIn | date:'HH:mm') : '-' }}</td>
-              <td>{{ record.checkOut ? (record.checkOut | date:'HH:mm') : '-' }}</td>
               <td>{{ record.workHours > 0 ? (record.workHours | number:'1.2-2') + ' hrs' : '-' }}</td>
+              <td>{{ record.leaveCode || '-' }}</td>
               <td class="remarks">{{ record.remarks || '-' }}</td>
             </tr>
           </tbody>
