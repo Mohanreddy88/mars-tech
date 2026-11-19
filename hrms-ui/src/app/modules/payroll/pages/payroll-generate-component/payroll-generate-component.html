@@ -1,44 +1,57 @@
 <div class="page-container">
   <div class="page-header">
-    <h2><i class="bi bi-cash-coin"></i> Generate Payroll</h2>
-    <p>Automatically generate payroll based on approved attendance and leave records</p>
-  </div>
-
-  <!-- Month/Year Selection -->
-  <div class="selection-card">
-    <h3><i class="bi bi-calendar3"></i> Select Period</h3>
-    <div class="period-selector">
-      <div class="form-group">
-        <label>Month</label>
-        <select [(ngModel)]="selectedMonth" (ngModelChange)="onPeriodChange()" class="form-control">
-          <option *ngFor="let m of months" [value]="m.value">{{ m.name }}</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Year</label>
-        <select [(ngModel)]="selectedYear" (ngModelChange)="onPeriodChange()" class="form-control">
-          <option *ngFor="let y of years" [value]="y">{{ y }}</option>
-        </select>
-      </div>
+    <div>
+      <h2><i class="bi bi-cash-coin"></i> Generate Payroll</h2>
+      <p>Automatically generate payroll based on approved attendance and leave records</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-back" routerLink="/home">
+        <i class="bi bi-house"></i>
+        Home
+      </button>
     </div>
   </div>
 
-  <!-- Employee Selection -->
+  <!-- Period + employee selection: one compact toolbar -->
   <div class="selection-card">
-    <div class="card-header-actions">
-      <h3><i class="bi bi-people-fill"></i> Select Employees</h3>
-      <div class="header-actions">
+    <div class="toolbar">
+      <div class="toolbar-group">
+        <label for="pg-month">Period</label>
+        <select id="pg-month" [(ngModel)]="selectedMonth" (ngModelChange)="onPeriodChange()" aria-label="Month">
+          <option *ngFor="let m of months" [value]="m.value">{{ m.name }}</option>
+        </select>
+        <select [(ngModel)]="selectedYear" (ngModelChange)="onPeriodChange()" aria-label="Year">
+          <option *ngFor="let y of years" [value]="y">{{ y }}</option>
+        </select>
+      </div>
+      <div class="toolbar-search">
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <input type="search" [(ngModel)]="employeeSearch" placeholder="Search employee name or code" aria-label="Search employees" />
+      </div>
+      <div class="toolbar-actions">
         <button class="btn btn-secondary btn-sm" (click)="toggleSelectAll()">
           <i class="bi" [class.bi-check-square]="allSelected" [class.bi-square]="!allSelected"></i>
           {{ allSelected ? 'Deselect All' : 'Select All' }}
         </button>
         <span class="selection-count">{{ selectedEmployeeIds.length }} selected</span>
+        <button class="btn btn-primary btn-sm" (click)="checkEligibility()"
+                [disabled]="generating || selectedEmployeeIds.length === 0">
+          <i class="bi bi-clipboard-check"></i>
+          Check Eligibility
+        </button>
+        <button class="btn btn-success btn-sm" (click)="generate()"
+                [disabled]="generating || selectedEmployeeIds.length === 0 || !hasEligibleEmployees()"
+                [title]="selectedEmployeeIds.length === 0 ? 'Select employees first'
+                         : !hasEligibleEmployees() && eligibilityResults.size > 0 ? 'No eligible employees selected' : ''">
+          <i class="bi bi-cash-stack"></i>
+          {{ generating ? 'Generating...' : 'Generate Payroll' }}
+        </button>
       </div>
     </div>
 
     <div class="employee-grid">
-      <div 
-        *ngFor="let emp of employees" 
+      <div
+        *ngFor="let emp of filteredEmployees"
         class="employee-card"
         [class.selected]="isSelected(emp.id)"
         [class.already-generated]="hasExistingPayroll(emp.id)"
@@ -64,23 +77,13 @@
       <i class="bi bi-inbox"></i>
       <p>No active employees found</p>
     </div>
+    <div *ngIf="employees.length > 0 && filteredEmployees.length === 0" class="empty-state">
+      <i class="bi bi-search"></i>
+      <p>No employees match "{{ employeeSearch }}"</p>
+    </div>
   </div>
 
   <!-- Action Buttons -->
-  <div class="action-buttons" *ngIf="selectedEmployeeIds.length > 0">
-    <button class="btn btn-primary" (click)="checkEligibility()" [disabled]="generating">
-      <i class="bi bi-clipboard-check"></i>
-      Check Eligibility
-    </button>
-    <button 
-      class="btn btn-success" 
-      (click)="generate()" 
-      [disabled]="generating || !hasEligibleEmployees()"
-      [title]="!hasEligibleEmployees() && eligibilityResults.size > 0 ? 'No eligible employees selected' : ''">
-      <i class="bi bi-cash-stack"></i>
-      {{ generating ? 'Generating...' : 'Generate Payroll' }}
-    </button>
-  </div>
 
   <!-- Eligibility Results Panel -->
   <div class="eligibility-panel" *ngIf="showEligibilityPanel">

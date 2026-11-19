@@ -40,6 +40,8 @@ export interface AttendanceReport {
   absentCount: number;
   leaveCount: number;
   halfDayCount: number;
+  weekendCount?: number;
+  holidayCount?: number;
   byDepartment: {
     department: string;
     totalRecords: number;
@@ -54,11 +56,10 @@ export interface AttendanceReport {
     employeeId: number;
     employeeName: string;
     departmentName: string;
-    status: string;
-    checkIn: string;
-    checkOut: string;
+    status: string;            // Present, HalfDay, Absent, Leave (from approved timesheets)
     workHours: number;
-    remarks: string;
+    leaveCode: string | null;  // AL, ML… on leave days
+    remarks: string | null;
   }[];
 }
 
@@ -107,6 +108,7 @@ export interface MonthlySummary {
     totalNet: number;
     totalEpf: number;
     totalSocso: number;
+    totalEis?: number;
     totalTax: number;
     averageSalary: number;
   };

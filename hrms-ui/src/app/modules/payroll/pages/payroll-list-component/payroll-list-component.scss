@@ -1138,3 +1138,10 @@
 
 .text-center { text-align: center; }
 .py-4 { padding: 24px 0; }
+
+// Download payslip PDF
+.action-buttons .btn-icon.btn-download {
+  color: #0f766e;
+  &:hover:not(:disabled) { background: #ccfbf1; color: #115e59; }
+  &:disabled { opacity: 0.6; cursor: progress; }
+}

@@ -85,43 +85,41 @@ public class ReportsController : ControllerBase
         [FromQuery] DateTime startDate,
         [FromQuery] DateTime endDate)
     {
-        var records = await _db.Attendances
-            .Include(a => a.Employee)
-            .ThenInclude(e => e.Department)
-            .Where(a => a.Date >= startDate && a.Date <= endDate)
-            .OrderBy(a => a.Date)
-            .ThenBy(a => a.Employee.Name)
-            .Select(a => new
-            {
-                a.Id,
-                a.Date,
-                employeeId = a.EmployeeId,
-                employeeName = a.Employee.Name,
-                departmentName = a.Employee.Department != null ? a.Employee.Department.Name : "Unassigned",
-                a.Status,
-                a.CheckIn,
-                a.CheckOut,
-                a.WorkHours,
-                a.Remarks
-            })
-            .ToListAsync();
+        // From approved timesheets (see AttendanceDays for how each day is classified)
+        // Weekends and public holidays are listed too (as "Weekend" / "Holiday") so the report shows every day
+        var days = await AttendanceDays.ApprovedAsync(_db, startDate, endDate, includeNonWorkingDays: true);
+        var records = days.Select(d => new
+        {
+            id             = d.Id,
+            date           = d.Date,
+            employeeId     = d.EmployeeId,
+            employeeName   = d.EmployeeName,
+            departmentName = d.DepartmentName,
+            Status         = d.Status,   // sent as "status" (camelCase JSON)
+            workHours      = d.WorkHours,
+            leaveCode      = d.LeaveCode,
+            remarks        = d.Remarks
+        }).ToList();
 
         var summary = new
         {
             startDate,
             endDate,
-            totalRecords = records.Count,
+            // Totals count working days only; weekends / holidays are counted separately
+            totalRecords = records.Count(r => !AttendanceDays.IsNonWorking(r.Status)),
             presentCount = records.Count(r => r.Status == "Present"),
             absentCount = records.Count(r => r.Status == "Absent"),
             leaveCount = records.Count(r => r.Status == "Leave"),
             halfDayCount = records.Count(r => r.Status == "HalfDay"),
-            
+            weekendCount = records.Count(r => r.Status == "Weekend"),
+            holidayCount = records.Count(r => r.Status == "Holiday"),
+
             byDepartment = records
                 .GroupBy(r => r.departmentName)
                 .Select(g => new
                 {
                     department = g.Key,
-                    totalRecords = g.Count(),
+                    totalRecords = g.Count(r => !AttendanceDays.IsNonWorking(r.Status)),
                     presentCount = g.Count(r => r.Status == "Present"),
                     absentCount = g.Count(r => r.Status == "Absent"),
                     leaveCount = g.Count(r => r.Status == "Leave"),
@@ -255,9 +253,8 @@ public class ReportsController : ControllerBase
         var startDate = new DateTime(year, month, 1);
         var endDate = startDate.AddMonths(1).AddDays(-1);
 
-        var attendances = await _db.Attendances
-            .Where(a => a.Date >= startDate && a.Date <= endDate)
-            .ToListAsync();
+        // From approved timesheets (see AttendanceDays)
+        var attendances = await AttendanceDays.ApprovedAsync(_db, startDate, endDate);
 
         var summary = new
         {
@@ -272,6 +269,7 @@ public class ReportsController : ControllerBase
                 totalNet = payrolls.Sum(p => p.NetSalary),
                 totalEpf = payrolls.Sum(p => p.EpfAmount),
                 totalSocso = payrolls.Sum(p => p.SocsoAmount),
+                totalEis = payrolls.Sum(p => p.EisAmount),
                 totalTax = payrolls.Sum(p => p.TaxAmount),
                 averageSalary = payrolls.Any() ? payrolls.Average(p => p.NetSalary) : 0
             },

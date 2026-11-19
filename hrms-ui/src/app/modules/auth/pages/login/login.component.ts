@@ -42,6 +42,11 @@ export class LoginComponent implements OnInit {
       this.sessionExpiredMessage = 'Your session has expired due to timeout. Please login again.';
       localStorage.removeItem('session_expired');
     }
+    // One login at a time: this browser was signed out because the account signed in elsewhere
+    if (localStorage.getItem('session_replaced') === 'true') {
+      this.sessionExpiredMessage = 'You were signed out because your account signed in on another device or browser.';
+      localStorage.removeItem('session_replaced');
+    }
   }
 
   get f() { return this.loginForm.controls; }

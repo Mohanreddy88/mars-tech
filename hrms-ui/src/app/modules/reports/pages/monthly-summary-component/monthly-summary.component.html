@@ -1,0 +1,73 @@
+<div class="summary-page">
+  <div class="page-header">
+    <div>
+      <h2><i class="bi bi-bar-chart-line-fill"></i> Monthly Summary</h2>
+      <p>Payroll and attendance for one month</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-back" routerLink="/reports"><i class="bi bi-arrow-left"></i> Reports</button>
+    </div>
+  </div>
+
+  <div class="list-toolbar">
+    <label for="ms-month" class="toolbar-label">Month</label>
+    <select id="ms-month" [(ngModel)]="month" (ngModelChange)="load()">
+      @for (m of months; track m; let i = $index) { <option [ngValue]="i + 1">{{ m }}</option> }
+    </select>
+    <select [(ngModel)]="year" (ngModelChange)="load()" aria-label="Year">
+      @for (y of years; track y) { <option [ngValue]="y">{{ y }}</option> }
+    </select>
+  </div>
+
+  @if (loading) {
+    <div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div></div>
+  } @else if (error) {
+    <div class="alert alert-danger">{{ error }}</div>
+  } @else if (summary; as s) {
+    <h3 class="month-title">{{ s.monthName }}</h3>
+
+    <section class="block">
+      <div class="block-head">
+        <h4><i class="bi bi-cash-stack"></i> Payroll</h4>
+        <a routerLink="/payroll/list">Payroll Processing →</a>
+      </div>
+      @if (s.payroll.totalPayslips === 0) {
+        <p class="empty">No payroll generated for {{ s.monthName }}.</p>
+      } @else {
+        <div class="tiles">
+          <div class="tile"><span class="label">Payslips</span><span class="value">{{ s.payroll.totalPayslips }}</span></div>
+          <div class="tile"><span class="label">Gross pay</span><span class="value">RM {{ s.payroll.totalGross | number:'1.2-2' }}</span></div>
+          <div class="tile"><span class="label">Statutory deductions</span><span class="value">RM {{ statutoryTotal | number:'1.2-2' }}</span></div>
+          <div class="tile accent"><span class="label">Net pay</span><span class="value">RM {{ s.payroll.totalNet | number:'1.2-2' }}</span></div>
+          <div class="tile"><span class="label">Average net salary</span><span class="value">RM {{ s.payroll.averageSalary | number:'1.2-2' }}</span></div>
+        </div>
+        <div class="breakdown">
+          <span>EPF RM {{ s.payroll.totalEpf | number:'1.2-2' }}</span>
+          <span>SOCSO RM {{ s.payroll.totalSocso | number:'1.2-2' }}</span>
+          @if (s.payroll.totalEis) { <span>EIS RM {{ s.payroll.totalEis | number:'1.2-2' }}</span> }
+          <span>PCB RM {{ s.payroll.totalTax | number:'1.2-2' }}</span>
+        </div>
+      }
+    </section>
+
+    <section class="block">
+      <div class="block-head">
+        <h4><i class="bi bi-calendar-check"></i> Attendance <small>(approved timesheets)</small></h4>
+        <a routerLink="/reports/attendance">Attendance Report →</a>
+      </div>
+      @if (s.attendance.totalRecords === 0) {
+        <p class="empty">No approved timesheet days for {{ s.monthName }}.</p>
+      } @else {
+        <div class="tiles">
+          <div class="tile accent"><span class="label">Attendance rate</span><span class="value">{{ attendanceRate }}%</span></div>
+          <div class="tile"><span class="label">Working days recorded</span><span class="value">{{ s.attendance.totalRecords }}</span></div>
+          <div class="tile ok"><span class="label">Present</span><span class="value">{{ s.attendance.presentCount }}</span></div>
+          <div class="tile"><span class="label">Half day</span><span class="value">{{ s.attendance.halfDayCount }}</span></div>
+          <div class="tile warn"><span class="label">Leave</span><span class="value">{{ s.attendance.leaveCount }}</span></div>
+          <div class="tile bad"><span class="label">Absent</span><span class="value">{{ s.attendance.absentCount }}</span></div>
+          <div class="tile"><span class="label">Average hours / day</span><span class="value">{{ s.attendance.averageWorkHours | number:'1.1-1' }}</span></div>
+        </div>
+      }
+    </section>
+  }
+</div>

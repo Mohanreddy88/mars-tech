@@ -1,0 +1,72 @@
+.summary-page { padding: 24px; }
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+
+  h2 { font-size: 24px; font-weight: 700; color: #1e293b; margin: 0 0 4px; i { color: #22c55e; margin-right: 8px; } }
+  p { margin: 0; color: #64748b; font-size: 14px; }
+}
+
+.toolbar-label { font-size: 13px; font-weight: 600; color: #475569; }
+
+.month-title { font-size: 18px; font-weight: 700; color: #1e293b; margin: 8px 0 12px; }
+
+.block {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  padding: 18px 20px;
+  margin-bottom: 18px;
+}
+
+.block-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+
+  h4 { margin: 0; font-size: 16px; font-weight: 700; color: #1e293b; i { color: #6366f1; margin-right: 6px; } small { font-weight: 400; color: #64748b; font-size: 12px; } }
+  a { font-size: 13px; color: #2563eb; text-decoration: none; &:hover { text-decoration: underline; } }
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 12px;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+
+  .label { font-size: 12px; color: #64748b; }
+  .value { font-size: 20px; font-weight: 700; color: #1e293b; }
+
+  &.accent { background: #eef2ff; border-color: #c7d2fe; .value { color: #3730a3; } }
+  &.ok     { background: #f0fdf4; border-color: #bbf7d0; .value { color: #166534; } }
+  &.warn   { background: #fffbeb; border-color: #fde68a; .value { color: #92400e; } }
+  &.bad    { background: #fef2f2; border-color: #fecaca; .value { color: #991b1b; } }
+}
+
+.breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.empty { margin: 0; color: #64748b; font-size: 14px; }

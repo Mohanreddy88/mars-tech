@@ -73,6 +73,15 @@
             placeholder="Please provide a reason for your leave request (minimum 5 characters)"
             required></textarea>
         </div>
+
+        <div class="form-group full-width">
+          <label for="leave-doc">
+            {{ isMedicalSelected ? 'MC letter' : 'Supporting document' }}
+            <span class="optional">(optional{{ isMedicalSelected ? ', but please attach your MC' : '' }})</span>
+          </label>
+          <input id="leave-doc" type="file" class="form-control" [accept]="docAccept" (change)="onNewRequestFile($event)" />
+          <small class="hint">PDF, JPG or PNG, up to 5 MB. You can also add it later from My Requests.</small>
+        </div>
       </div>
 
       <div class="form-actions">
@@ -228,6 +237,25 @@
               Cancelled on {{ request.cancelledOn | date:'dd MMM yyyy' }}
               <span *ngIf="request.cancellationReason"> - {{ request.cancellationReason }}</span>
             </div>
+          </div>
+
+          <div class="request-document" *ngIf="request.attachmentName || canAddDocument(request)">
+            <i class="bi bi-paperclip"></i>
+            <ng-container *ngIf="request.attachmentName; else noDoc">
+              <span class="doc-label">{{ docLabel(request) }}:</span>
+              <button type="button" class="btn-link" (click)="viewDocument(request)">{{ request.attachmentName }}</button>
+              <label class="btn-link" *ngIf="canAddDocument(request)">
+                Replace
+                <input type="file" hidden [accept]="docAccept" (change)="onRequestFile(request, $event)" />
+              </label>
+            </ng-container>
+            <ng-template #noDoc>
+              <span class="doc-missing">{{ isMedical(request) ? 'No MC letter yet' : 'No document attached' }}</span>
+              <label class="btn-upload" [class.busy]="uploadingId === request.id">
+                <i class="bi bi-upload"></i> {{ uploadingId === request.id ? 'Uploading…' : 'Upload ' + docLabel(request) }}
+                <input type="file" hidden [accept]="docAccept" (change)="onRequestFile(request, $event)" [disabled]="uploadingId === request.id" />
+              </label>
+            </ng-template>
           </div>
 
           <div class="request-actions" *ngIf="request.status === 'Pending'">

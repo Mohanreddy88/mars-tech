@@ -16,6 +16,8 @@ import { ToastService } from '../../../../core/services/toast.service';
 export class AttendanceReportComponent implements OnInit {
   startDate: string = '';
   endDate: string = '';
+  /** 'YYYY-MM' — picking a month fills the whole month into the date range */
+  month: string = '';
   reportData: AttendanceReport | null = null;
 
   constructor(
@@ -25,11 +27,33 @@ export class AttendanceReportComponent implements OnInit {
   ,
     private router: Router
   ) {
-    // Set default date range (current month)
+    // Default: the whole current month
     const today = new Date();
-    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-    this.startDate = this.formatDate(firstDay);
-    this.endDate = this.formatDate(today);
+    this.month = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    this.applyMonthRange();
+  }
+
+  /** Month picked → start = 1st, end = last day of that month, and reload */
+  onMonthChange(): void {
+    if (!this.month) return;
+    this.applyMonthRange();
+    this.loadReport();
+  }
+
+  /** Dates edited by hand → no longer a single month */
+  onDateChange(): void {
+    this.month = '';
+  }
+
+  private applyMonthRange(): void {
+    const [y, m] = this.month.split('-').map(Number);
+    if (!y || !m) return;
+    this.startDate = this.formatDate(new Date(y, m - 1, 1));
+    this.endDate = this.formatDate(new Date(y, m, 0)); // day 0 of next month = last day of this month
+  }
+
+  isNonWorking(status: string): boolean {
+    return status === 'Weekend' || status === 'Holiday';
   }
 
   ngOnInit(): void {
@@ -89,7 +113,9 @@ export class AttendanceReportComponent implements OnInit {
       'Present': 'status-present',
       'Absent': 'status-absent',
       'Leave': 'status-leave',
-      'HalfDay': 'status-halfday'
+      'HalfDay': 'status-halfday',
+      'Weekend': 'status-weekend',
+      'Holiday': 'status-holiday'
     };
     return statusMap[status] || '';
   }

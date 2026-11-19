@@ -88,14 +88,14 @@
       <div class="card-footer">
         <button class="btn-action btn-view" (click)="viewDetails(payslip.id)">
           <i class="bi bi-eye"></i>
-          View Details
+          View
         </button>
         <button 
           class="btn-action btn-download" 
           (click)="downloadPayslip(payslip)"
           *ngIf="payslip.status === 'Approved' || payslip.status === 'Processed'">
           <i class="bi bi-download"></i>
-          Download PDF
+          PDF
         </button>
         <button 
           class="btn-action btn-email" 

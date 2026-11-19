@@ -6,6 +6,11 @@
 
 .page-header {
   margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
 
   h2 {
     font-size: 24px;
@@ -42,6 +47,52 @@
       color: #6366f1;
       margin-right: 8px;
     }
+  }
+}
+
+// Compact toolbar: period, search and select-all in one row (wraps on small screens)
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin-bottom: 16px;
+
+  select, input {
+    height: 36px;
+    padding: 4px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 14px;
+    background: #fff;
+
+    &:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1); }
+  }
+
+  .toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    label { font-size: 13px; font-weight: 600; color: #475569; margin: 0; }
+  }
+
+  .toolbar-search {
+    position: relative;
+    flex: 1 1 220px;
+    max-width: 360px;
+
+    i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 14px; }
+    input { width: 100%; padding-left: 32px; }
+  }
+
+  .toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: auto;
+
+    .selection-count { font-size: 14px; color: #64748b; font-weight: 500; white-space: nowrap; }
   }
 }
 

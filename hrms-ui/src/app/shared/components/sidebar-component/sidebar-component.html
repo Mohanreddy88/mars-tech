@@ -23,13 +23,7 @@
          ══════════════════════════════════════════════════════ -->
     @if (isAdmin) {
 
-      <!-- 1. Home -->
-      <li routerLink="/home" routerLinkActive="active-menu" [routerLinkActiveOptions]="{exact:false}">
-        <i class="bi bi-house-fill"></i>
-        <span>Home</span>
-      </li>
-
-      <!-- 2. Dashboard -->
+      <!-- 1. Dashboard (first page after login; Home was merged into it) -->
       <li routerLink="/dashboard" routerLinkActive="active-menu" [routerLinkActiveOptions]="{exact:true}">
         <i class="bi bi-speedometer2"></i>
         <span>Dashboard</span>
@@ -121,24 +115,23 @@
         </ul>
       }
 
-      <!-- 8. Analytics & Reports -->
-      <li routerLink="/analytics" routerLinkActive="active-menu">
-        <i class="bi bi-bar-chart-fill"></i>
-        <span>Analytics</span>
-      </li>
-
+      <!-- 7. Insights: analytics, reports and the audit log -->
       <li class="menu-parent" [class.open]="reportsMenuOpen" (click)="toggleReportsMenu($event)">
         <div class="menu-parent-header">
           <i class="bi bi-graph-up-arrow"></i>
-          <span>Reports</span>
+          <span>Insights</span>
           <i class="bi bi-chevron-down submenu-arrow" [class.rotate]="reportsMenuOpen"></i>
         </div>
       </li>
       @if (reportsMenuOpen) {
         <ul class="submenu">
+          <li routerLink="/analytics" routerLinkActive="active-submenu">
+            <i class="bi bi-bar-chart-fill"></i>
+            <span>Analytics</span>
+          </li>
           <li routerLink="/reports" routerLinkActive="active-submenu" [routerLinkActiveOptions]="{exact:true}">
             <i class="bi bi-speedometer2"></i>
-            <span>Dashboard</span>
+            <span>Reports</span>
           </li>
           <li routerLink="/reports/attendance" routerLinkActive="active-submenu">
             <i class="bi bi-calendar-check"></i>
@@ -152,14 +145,12 @@
             <i class="bi bi-people"></i>
             <span>Employee Directory</span>
           </li>
+          <li routerLink="/audit" routerLinkActive="active-submenu">
+            <i class="bi bi-shield-check"></i>
+            <span>Audit Log</span>
+          </li>
         </ul>
       }
-
-      <!-- 9. Audit Log -->
-      <li routerLink="/audit" routerLinkActive="active-menu">
-        <i class="bi bi-shield-check"></i>
-        <span>Audit Log</span>
-      </li>
 
       <!-- 10. Master Settings -->
       <li class="menu-parent" [class.open]="masterMenuOpen" (click)="toggleMasterMenu($event)">

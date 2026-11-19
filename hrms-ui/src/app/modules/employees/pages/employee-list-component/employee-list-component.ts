@@ -1,7 +1,9 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { EmployeeService } from '../../../../core/services/employee.service';
+import { DepartmentService } from '../../../../core/services/department.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { Employee } from '../../../../core/models/employee.model';
@@ -11,12 +13,37 @@ import { photoUrl } from '../../../../core/utils/photo-url';
 @Component({
   selector: 'app-employee-list',
   standalone: true,
-  imports: [CommonModule, ConfirmModalComponent, RouterLink],
+  imports: [CommonModule, FormsModule, ConfirmModalComponent, RouterLink],
   templateUrl: './employee-list-component.html',
   styleUrl: './employee-list-component.scss'
 })
 export class EmployeeListComponent implements OnInit {
   employees: Employee[] = [];
+
+  // Search / filters (client-side; the list is the whole company)
+  search = '';
+  department = '';
+  status: '' | 'active' | 'inactive' = '';
+
+  /** Department names from Master → Departments (loaded below). */
+  private masterDepartments: string[] = [];
+
+  /** Every department (from the master list) plus any an employee is still assigned to. */
+  get departments(): string[] {
+    const fromEmployees = this.employees.map(e => e.departmentName).filter((d): d is string => !!d);
+    return [...new Set([...this.masterDepartments, ...fromEmployees])].sort((a, b) => a.localeCompare(b));
+  }
+
+  get filteredEmployees(): Employee[] {
+    const q = this.search.trim().toLowerCase();
+    return this.employees.filter(e =>
+      (!this.department || e.departmentName === this.department) &&
+      (!this.status || (this.status === 'active') === e.isActive) &&
+      (!q || [e.name, e.employeeCode, e.email, e.icPassport, e.phone, e.designation]
+              .some(v => (v ?? '').toString().toLowerCase().includes(q))));
+  }
+
+  clearFilters(): void { this.search = ''; this.department = ''; this.status = ''; }
   loading = false;
   isAdmin = false;
 
@@ -35,12 +62,17 @@ export class EmployeeListComponent implements OnInit {
     private authService: AuthService,
     private router: Router,
     private toast: ToastService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private departmentService: DepartmentService
   ) {}
 
   ngOnInit(): void {
     this.isAdmin = this.authService.isAdmin();
     this.loadEmployees();
+    this.departmentService.getActive().subscribe({
+      next: (list) => { this.masterDepartments = list.map(d => d.name); this.cdr.detectChanges(); },
+      error: () => { /* the filter still lists the employees' own departments */ }
+    });
   }
 
   loadEmployees(): void {

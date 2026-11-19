@@ -22,6 +22,17 @@ import { ConfirmModalComponent } from '../../../../shared/components/confirm-mod
 })
 export class UserListComponent implements OnInit {
   users: AppUser[] = [];
+  search = '';
+  roleFilter = '';
+  activeFilter: '' | 'active' | 'inactive' = '';
+  get filteredUsers(): AppUser[] {
+    const q = this.search.trim().toLowerCase();
+    return this.users.filter(u =>
+      (!this.roleFilter || u.role === this.roleFilter) &&
+      (!this.activeFilter || (this.activeFilter === 'active') === u.isActive) &&
+      (!q || [u.username, u.email, u.employee?.name, u.employee?.employeeCode]
+              .some(v => (v ?? '').toLowerCase().includes(q))));
+  }
   loading = false;
   saving  = false;
   roleOptions = ['Admin', 'Employee', 'User'];

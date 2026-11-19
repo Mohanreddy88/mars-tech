@@ -109,7 +109,7 @@ export class SidebarComponent implements OnInit {
       this.leaveMenuOpen = true;
     }
     // Keep Reports menu open if on any reports route
-    if (url.includes('/reports')) {
+    if (url.includes('/reports') || url.includes('/analytics') || url.includes('/audit')) {   // Insights group
       this.reportsMenuOpen = true;
     }
     // Keep Self-Service menu open if on any self-service route

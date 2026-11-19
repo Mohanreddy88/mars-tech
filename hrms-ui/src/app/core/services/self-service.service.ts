@@ -124,6 +124,9 @@ export interface LeaveRequest {
   approvalRemarks: string | null;
   cancelledOn: string | null;
   cancellationReason: string | null;
+  leaveTypeCode?: string;
+  /** File name of the MC letter / supporting document, if one was uploaded */
+  attachmentName?: string | null;
 }
 
 export interface Timesheet {

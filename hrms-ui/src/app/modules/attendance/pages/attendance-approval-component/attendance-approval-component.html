@@ -5,10 +5,14 @@
       <h2>📋 Attendance Period Approval</h2>
       <p>Review and approve employee attendance submissions</p>
     </div>
+    <button class="btn btn-back" (click)="backToHome()">
+      <i class="bi bi-house"></i>
+      Home
+    </button>
   </div>
 
   <!-- Filters -->
-  <div class="filter-card" *ngIf="!selectedPeriod">
+  <div class="filter-card compact-filters" *ngIf="!selectedPeriod">
     <h5 class="filter-title"><i class="bi bi-funnel me-2"></i>Filters</h5>
     <div class="filter-row">
       <div class="form-group">
@@ -96,6 +100,10 @@
         </div>
         <div class="card-footer">
           <button class="btn-view">View Details →</button>
+          <button class="btn-pdf" type="button" title="Download timesheet PDF"
+                  (click)="downloadTimesheetPdf(period, $event)" [disabled]="downloadingPdfId !== null">
+            <i class="bi" [ngClass]="downloadingPdfId === period.id ? 'bi-hourglass-split' : 'bi-file-earmark-pdf'"></i> PDF
+          </button>
         </div>
       </div>
     </div>
@@ -114,6 +122,11 @@
         Back to List
       </button>
       <h3>Attendance Period Details</h3>
+      <button class="btn-download-pdf" type="button" (click)="downloadTimesheetPdf(selectedPeriod)"
+              [disabled]="downloadingPdfId !== null">
+        <i class="bi" [ngClass]="downloadingPdfId === selectedPeriod.id ? 'bi-hourglass-split' : 'bi-download'"></i>
+        {{ downloadingPdfId === selectedPeriod.id ? 'Preparing…' : 'Download PDF' }}
+      </button>
     </div>
 
     <!-- Employee Info -->

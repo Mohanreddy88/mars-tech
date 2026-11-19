@@ -557,6 +557,23 @@ public class PayrollController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>GET /api/payroll/pdf/{id} — download an employee's payslip PDF (Admin)</summary>
+    [HttpGet("pdf/{id:int}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> DownloadPayslip(int id)
+    {
+        var payroll = await _db.Payrolls
+            .Include(p => p.Employee)
+            .FirstOrDefaultAsync(p => p.Id == id);
+        if (payroll == null)
+            return NotFound(new { message = $"Payroll record {id} not found." });
+
+        var pdfData   = await _pdfService.GeneratePayslipPdfAsync(id);
+        var monthName = new DateTime(payroll.Year, payroll.Month, 1).ToString("MMMM_yyyy");
+        var fileName  = $"Payslip_{payroll.Employee.EmployeeCode}_{payroll.Employee.Name.Replace(" ", "_")}_{monthName}.pdf";
+        return File(pdfData, "application/pdf", fileName);
+    }
+
     /// <summary>POST /api/payroll/email/{id} — send payslip email to employee</summary>
     [HttpPost("email/{id:int}")]
     public async Task<IActionResult> EmailPayslip(int id)

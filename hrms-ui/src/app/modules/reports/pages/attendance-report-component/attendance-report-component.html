@@ -2,7 +2,7 @@
   <div class="page-header">
     <div class="header-left">
       <h2>📅 Attendance Report</h2>
-      <p>Attendance records by date range</p>
+      <p>Attendance records by month or date range — weekends and public holidays shown in grey</p>
     </div>
     <button class="btn-export" (click)="exportToExcel()">
       <i class="bi bi-file-earmark-excel"></i>
@@ -11,14 +11,19 @@
   </div>
 
   <!-- Filters -->
-  <div class="filters-section">
+  <div class="filters-section compact-filters">
+    <div class="filter-group">
+      <label>Month</label>
+      <input type="month" [(ngModel)]="month" (ngModelChange)="onMonthChange()" class="form-control"
+             title="Pick a month to see that whole month">
+    </div>
     <div class="filter-group">
       <label>Start Date</label>
-      <input type="date" [(ngModel)]="startDate" class="form-control">
+      <input type="date" [(ngModel)]="startDate" (ngModelChange)="onDateChange()" class="form-control">
     </div>
     <div class="filter-group">
       <label>End Date</label>
-      <input type="date" [(ngModel)]="endDate" class="form-control">
+      <input type="date" [(ngModel)]="endDate" (ngModelChange)="onDateChange()" class="form-control">
     </div>
     <div class="filter-actions">
       <button class="btn-filter" (click)="loadReport()">
@@ -110,18 +115,19 @@
           <thead>
             <tr>
               <th>Date</th>
+              <th>Day</th>
               <th>Employee</th>
               <th>Department</th>
               <th>Status</th>
-              <th>Check In</th>
-              <th>Check Out</th>
               <th>Work Hours</th>
+              <th>Leave</th>
               <th>Remarks</th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let record of reportData.records">
+            <tr *ngFor="let record of reportData.records" [class.non-working]="isNonWorking(record.status)">
               <td>{{ record.date | date:'dd/MM/yyyy' }}</td>
+              <td class="day-name">{{ record.date | date:'EEE' }}</td>
               <td class="employee-name">{{ record.employeeName }}</td>
               <td>{{ record.departmentName }}</td>
               <td>
@@ -129,9 +135,8 @@
                   {{ record.status }}
                 </span>
               </td>
-              <td>{{ record.checkIn ? (record.checkIn | date:'HH:mm') : '-' }}</td>
-              <td>{{ record.checkOut ? (record.checkOut | date:'HH:mm') : '-' }}</td>
               <td>{{ record.workHours > 0 ? (record.workHours | number:'1.2-2') + ' hrs' : '-' }}</td>
+              <td>{{ record.leaveCode || '-' }}</td>
               <td class="remarks">{{ record.remarks || '-' }}</td>
             </tr>
           </tbody>

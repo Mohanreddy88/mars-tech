@@ -239,6 +239,32 @@ export class AttendanceApprovalComponent implements OnInit {
     this.selectedPeriod = null;
   }
 
+  // ── Download the employee's filled timesheet (same PDF the employee gets) ──
+
+  downloadingPdfId: number | null = null;
+
+  downloadTimesheetPdf(period: { id: number; employeeName: string; startDate: string }, event?: Event): void {
+    event?.stopPropagation(); // on a list card, don't also open the details
+    if (this.downloadingPdfId !== null) return;
+    this.downloadingPdfId = period.id;
+    this.http.get(`${environment.apiUrl}/attendancemanagement/${period.id}/pdf`, { responseType: 'blob' }).subscribe({
+      next: blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const name = (period.employeeName || 'employee').replace(/[^a-zA-Z0-9]+/g, '_');
+        a.href = url;
+        a.download = `Timesheet_${name}_${(period.startDate || '').substring(0, 10)}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.downloadingPdfId = null;
+      },
+      error: () => {
+        this.downloadingPdfId = null;
+        this.toast.error('Download failed', 'Could not create the timesheet PDF. Please try again.');
+      }
+    });
+  }
+
   // ── Pending leave: decide here instead of going to Leave Approvals ──────
 
   approveLeave(leave: PendingLeave): void {

@@ -15,6 +15,12 @@ import { ConfirmModalComponent } from '../../../../shared/components/confirm-mod
 })
 export class DepartmentListComponent implements OnInit {
   departments: Department[] = [];
+  search = '';
+  get filteredDepartments(): Department[] {
+    const q = this.search.trim().toLowerCase();
+    return !q ? this.departments
+      : this.departments.filter(d => d.name.toLowerCase().includes(q) || (d.description ?? '').toLowerCase().includes(q));
+  }
   loading = false;
   saving = false;
   showModal = false;

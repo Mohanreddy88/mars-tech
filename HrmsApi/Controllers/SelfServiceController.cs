@@ -1035,6 +1035,7 @@ public class SelfServiceController : ControllerBase
                 lr.Id,
                 lr.LeaveTypeId,
                 leaveTypeName = lr.LeaveType.Name,
+                leaveTypeCode = lr.LeaveType.Code,
                 lr.StartDate,
                 lr.EndDate,
                 lr.TotalDays,
@@ -1043,7 +1044,10 @@ public class SelfServiceController : ControllerBase
                 lr.RequestedOn,
                 lr.ApprovedBy,
                 lr.ApprovedOn,
-                lr.ApprovalRemarks
+                lr.ApprovalRemarks,
+                lr.CancelledOn,
+                lr.CancellationReason,
+                attachmentName = _db.LeaveAttachments.Where(a => a.LeaveRequestId == lr.Id).Select(a => a.FileName).FirstOrDefault(),
             })
             .ToListAsync();
 

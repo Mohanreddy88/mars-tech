@@ -1,72 +1,71 @@
 .page-container {
-  padding: 24px;
+  padding: 16px 20px;
   max-width: 1400px;
   margin: 0 auto;
 }
 
+// Compact title: heading and subtitle on one line
 .page-header {
-  margin-bottom: 24px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 14px;
 
   h2 {
-    font-size: 24px;
+    font-size: 20px;
     font-weight: 600;
     color: #1e293b;
-    margin: 0 0 8px 0;
+    margin: 0;
 
     i {
       color: #10b981;
-      margin-right: 8px;
+      margin-right: 6px;
+      font-size: 18px;
     }
   }
 
   p {
     color: #64748b;
-    font-size: 14px;
+    font-size: 13px;
     margin: 0;
   }
 }
 
+// Slim one-row filter bar
 .filter-card {
   background: white;
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 32px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 
-  h5 {
-    font-size: 15px;
-    font-weight: 600;
-    color: #1e293b;
-    margin: 0 0 16px 0;
-
-    i {
-      color: #6366f1;
-      margin-right: 6px;
-    }
-  }
+  h5 { display: none; }
 
   .filter-row {
     display: flex;
-    gap: 16px;
+    gap: 12px;
     align-items: end;
+    flex-wrap: wrap;
 
     .form-group {
-      flex: 1;
+      flex: 0 1 180px;
 
       label {
         display: block;
-        font-size: 13px;
-        font-weight: 500;
-        color: #475569;
-        margin-bottom: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #4b5563;
+        margin-bottom: 3px;
       }
 
       .form-control {
         width: 100%;
-        padding: 8px 12px;
+        height: 34px;
+        padding: 4px 10px;
         border: 1px solid #e2e8f0;
         border-radius: 6px;
-        font-size: 14px;
+        font-size: 13px;
 
         &:focus {
           outline: none;
@@ -77,12 +76,13 @@
     }
 
     .clear-btn {
-      padding: 8px 16px;
+      height: 34px;
+      padding: 0 12px;
       background: white;
       color: #64748b;
       border: 1px solid #cbd5e1;
       border-radius: 6px;
-      font-size: 14px;
+      font-size: 13px;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -96,77 +96,87 @@
   }
 }
 
+// 3–4 compact cards per row on a laptop
 .payslips-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
 }
 
 .payslip-card {
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   overflow: hidden;
-  transition: all 0.3s;
+  transition: box-shadow 0.2s, transform 0.2s;
+  display: flex;
+  flex-direction: column;
 
   &:hover {
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-    transform: translateY(-4px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
   }
 
   .card-header {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    padding: 24px;
+    padding: 10px 14px;
     color: white;
     display: flex;
     justify-content: space-between;
     align-items: center;
 
     .period-info {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+
       .period-month {
-        font-size: 24px;
+        font-size: 17px;
         font-weight: 700;
-        margin-bottom: 4px;
       }
 
       .period-year {
-        font-size: 16px;
+        font-size: 13px;
         opacity: 0.9;
       }
     }
   }
 
   .card-body {
-    padding: 24px;
+    padding: 12px 14px;
+    flex: 1;
 
     .salary-summary {
-      margin-bottom: 20px;
-      text-align: center;
-      padding: 20px;
-      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-      border-radius: 12px;
-      color: white;
+      margin-bottom: 10px;
+      padding: 8px 12px;
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
 
       .salary-label {
-        font-size: 13px;
-        opacity: 0.9;
-        margin-bottom: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #047857;
       }
 
       .salary-amount {
-        font-size: 32px;
+        font-size: 19px;
         font-weight: 700;
+        color: #065f46;
       }
     }
 
     .salary-details {
-      margin-bottom: 20px;
+      margin-bottom: 8px;
 
       .detail-row {
         display: flex;
         justify-content: space-between;
-        padding: 10px 0;
-        font-size: 14px;
+        padding: 5px 0;
+        font-size: 13px;
         border-bottom: 1px solid #f1f5f9;
 
         &:last-child {
@@ -190,22 +200,22 @@
 
     .breakdown-summary {
       display: flex;
-      flex-direction: column;
-      gap: 10px;
-      padding: 16px;
+      flex-wrap: wrap;
+      gap: 4px 14px;
+      padding: 6px 10px;
       background: #f8fafc;
-      border-radius: 8px;
-      margin-bottom: 16px;
+      border-radius: 6px;
+      margin-bottom: 8px;
 
       .breakdown-item {
         display: flex;
         align-items: center;
-        gap: 8px;
-        font-size: 13px;
+        gap: 5px;
+        font-size: 12px;
         color: #64748b;
 
         i {
-          font-size: 16px;
+          font-size: 13px;
           color: #6366f1;
         }
       }
@@ -214,36 +224,36 @@
     .generated-date {
       display: flex;
       align-items: center;
-      gap: 8px;
-      font-size: 12px;
+      gap: 6px;
+      font-size: 11px;
       color: #94a3b8;
 
       i {
-        font-size: 14px;
+        font-size: 12px;
       }
     }
   }
 
   .card-footer {
-    padding: 16px 24px;
+    padding: 8px 10px;
     background: #f8fafc;
+    border-top: 1px solid #f1f5f9;
     display: flex;
-    gap: 8px;
+    gap: 6px;
     flex-wrap: wrap;
 
     .btn-action {
-      flex: 1;
-      min-width: 100px;
-      padding: 10px 16px;
+      flex: 1 1 auto;
+      padding: 6px 8px;
       border-radius: 6px;
       border: none;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 500;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
+      gap: 4px;
       transition: all 0.2s;
 
       &.btn-view {
@@ -278,78 +288,56 @@
 
 .status-badge {
   display: inline-block;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
+  padding: 3px 9px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.22);
+  color: white;
 
-  &.status-draft {
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
-  }
-
-  &.status-review {
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
-  }
-
-  &.status-pending {
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
-  }
-
-  &.status-approved {
-    background: rgba(255, 255, 255, 0.3);
-    color: white;
-  }
-
+  &.status-approved,
   &.status-processed {
-    background: rgba(255, 255, 255, 0.3);
-    color: white;
-  }
-
-  &.status-rejected {
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
+    background: rgba(255, 255, 255, 0.32);
   }
 }
 
 .empty-state {
   text-align: center;
-  padding: 80px 20px;
+  padding: 40px 20px;
   background: white;
-  border-radius: 12px;
+  border-radius: 10px;
 
   i {
-    font-size: 80px;
+    font-size: 44px;
     color: #cbd5e1;
-    margin-bottom: 24px;
+    margin-bottom: 12px;
+    display: block;
   }
 
   h3 {
-    font-size: 20px;
+    font-size: 16px;
     font-weight: 600;
     color: #1e293b;
-    margin: 0 0 12px 0;
+    margin: 0 0 6px 0;
   }
 
   p {
-    font-size: 15px;
+    font-size: 13px;
     color: #64748b;
-    margin: 0 0 24px 0;
+    margin: 0 0 16px 0;
   }
 
   .btn {
-    padding: 10px 20px;
+    padding: 7px 14px;
     border-radius: 6px;
     border: 1px solid #cbd5e1;
     background: white;
     color: #64748b;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 13px;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
 
     &:hover {
       background: #f8fafc;

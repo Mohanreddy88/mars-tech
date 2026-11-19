@@ -5,6 +5,10 @@
       <p>Review, approve and process employee payroll records</p>
     </div>
     <div class="header-actions">
+      <button class="btn btn-back" routerLink="/home">
+        <i class="bi bi-house"></i>
+        Home
+      </button>
       <button class="btn btn-secondary" (click)="router.navigate(['/payroll/salary-release'])">
         <i class="bi bi-send-check"></i>
         Salary Release
@@ -17,13 +21,13 @@
   </div>
 
   <!-- Filters -->
-  <div class="filter-card">
+  <div class="filter-card compact-filters">
     <h5><i class="bi bi-funnel"></i> Filters</h5>
     <div class="filter-row">
       <div class="form-group">
         <label>Status</label>
         <select [(ngModel)]="filterStatus" (ngModelChange)="onFilterChange()" class="form-control">
-          <option value="">All Statuses</option>
+          <option [ngValue]="null">All Statuses</option>
           <option *ngFor="let s of statuses" [value]="s">{{ s }}</option>
         </select>
       </div>
@@ -123,6 +127,11 @@
               <!-- View -->
               <button class="btn-icon" (click)="viewDetails(p.id)" title="View Details">
                 <i class="bi bi-eye"></i>
+              </button>
+              <!-- Download payslip PDF -->
+              <button class="btn-icon btn-download" (click)="downloadPayslip(p)" [disabled]="downloadingId === p.id"
+                      [title]="'Download payslip (PDF)' + (p.status === 'Draft' ? ' — draft, not yet approved' : '')">
+                <i class="bi" [class.bi-file-earmark-arrow-down]="downloadingId !== p.id" [class.bi-hourglass-split]="downloadingId === p.id"></i>
               </button>
               <!-- Approve -->
               <button *ngIf="p.status === 'Draft'" class="btn-icon btn-approve" (click)="openApproveModal(p.id)" title="Approve">
