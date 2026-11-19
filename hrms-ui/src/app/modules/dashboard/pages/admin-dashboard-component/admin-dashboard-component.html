@@ -20,10 +20,14 @@
     <!-- Header Section -->
     <div class="dashboard-header">
       <div class="header-text">
-        <h1>Admin Dashboard</h1>
-        <p class="subtitle">{{ currentMonth }} • System Overview</p>
+        <h1>Dashboard</h1>
+        <p class="subtitle">{{ currentMonth }} • What needs your attention</p>
       </div>
       <div class="quick-actions">
+        <button class="action-btn" (click)="navigateTo('/employees/add')">
+          <i class="bi bi-person-plus"></i>
+          <span>Add Employee</span>
+        </button>
         <button class="action-btn primary" (click)="navigateTo('/leave/requests?status=Pending')">
           <i class="bi bi-calendar-check"></i>
           <span>Approve Leaves</span>
@@ -92,7 +96,141 @@
       </div>
     </div>
 
-    <!-- Main Dashboard Grid -->
+    <!-- ── Insights ─────────────────────────────────────────── -->
+    <h2 class="section-title"><i class="bi bi-graph-up-arrow"></i> Insights</h2>
+    <div class="insights-grid">
+
+      <!-- Payroll trend: net pay per month, last 6 months -->
+      <div class="dashboard-card insight-card">
+        <div class="card-header">
+          <h2><i class="bi bi-bar-chart-fill"></i> Payroll Trend</h2>
+          <button class="btn-link" (click)="navigateTo('/analytics')">Analytics →</button>
+        </div>
+        <div class="card-body">
+          <div class="trend-chart" *ngIf="payrollTrend.length > 0" role="img"
+               [attr.aria-label]="'Net payroll for the last ' + payrollTrend.length + ' months'">
+            <div class="trend-col" *ngFor="let p of payrollTrend" [title]="p.monthName + ': RM ' + (p.totalNet | number:'1.0-0') + ' net, ' + p.employeeCount + ' payslips'">
+              <span class="trend-value">{{ p.totalNet / 1000 | number:'1.0-0' }}k</span>
+              <div class="trend-bar" [style.height.%]="trendHeight(p)"></div>
+              <span class="trend-label">{{ shortMonth(p) }}</span>
+            </div>
+          </div>
+          <div class="empty-state small" *ngIf="extrasLoaded && payrollTrend.length === 0">
+            <p>No payroll generated in the last 6 months</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Attendance rate this month -->
+      <div class="dashboard-card insight-card">
+        <div class="card-header">
+          <h2><i class="bi bi-calendar-check"></i> Attendance This Month</h2>
+          <button class="btn-link" (click)="navigateTo('/reports/attendance')">Report →</button>
+        </div>
+        <div class="card-body">
+          <ng-container *ngIf="attendanceRate !== null; else noAttendance">
+            <div class="big-number">{{ attendanceRate }}<span>%</span></div>
+            <div class="rate-bar"><div class="rate-fill" [style.width.%]="attendanceRate"></div></div>
+            <p class="muted">Full working days out of {{ attendanceRecords }} recorded days</p>
+          </ng-container>
+          <ng-template #noAttendance>
+            <div class="empty-state small" *ngIf="extrasLoaded"><p>No timesheet days recorded yet this month</p></div>
+          </ng-template>
+        </div>
+      </div>
+
+      <!-- Latest changes from the audit log -->
+      <div class="dashboard-card insight-card">
+        <div class="card-header">
+          <h2><i class="bi bi-shield-check"></i> Latest Changes</h2>
+          <button class="btn-link" (click)="navigateTo('/audit')">Audit Log →</button>
+        </div>
+        <div class="card-body">
+          <ul class="change-list" *ngIf="latestChanges.length > 0">
+            <li *ngFor="let c of latestChanges">
+              <span class="change-text">{{ c.description }}</span>
+              <span class="change-meta">{{ c.username }} · {{ formatDateTime(c.createdAt) }}</span>
+            </li>
+          </ul>
+          <div class="empty-state small" *ngIf="extrasLoaded && latestChanges.length === 0"><p>No changes recorded yet</p></div>
+        </div>
+      </div>
+
+      <!-- Quick downloads -->
+      <div class="dashboard-card insight-card">
+        <div class="card-header">
+          <h2><i class="bi bi-download"></i> Quick Downloads</h2>
+          <button class="btn-link" (click)="navigateTo('/reports')">Reports →</button>
+        </div>
+        <div class="card-body download-list">
+          <button class="download-btn" (click)="download('payroll')" [disabled]="downloading !== null">
+            <i class="bi bi-file-earmark-spreadsheet"></i>
+            <span>{{ downloading === 'payroll' ? 'Preparing…' : 'Payroll — ' + currentMonth }}</span>
+          </button>
+          <button class="download-btn" (click)="download('employees')" [disabled]="downloading !== null">
+            <i class="bi bi-people"></i>
+            <span>{{ downloading === 'employees' ? 'Preparing…' : 'Employee list' }}</span>
+          </button>
+          <button class="download-btn" (click)="navigateTo('/reports/payroll')">
+            <i class="bi bi-receipt"></i><span>Payroll report by department</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── People ───────────────────────────────────────────── -->
+    <h2 class="section-title"><i class="bi bi-people-fill"></i> People</h2>
+    <div class="people-grid">
+      <div class="dashboard-card">
+        <div class="card-header">
+          <h2><i class="bi bi-gift"></i> Upcoming Birthdays</h2>
+        </div>
+        <div class="card-body">
+          <ul class="people-list" *ngIf="upcomingBirthdays.length > 0">
+            <li *ngFor="let b of upcomingBirthdays" [class.today]="b.daysUntil === 0">
+              @if (b.profilePicture) {
+                <img class="avatar" [src]="photoUrl(b.profilePicture)" [alt]="b.name" />
+              } @else {
+                <span class="avatar initial" aria-hidden="true">{{ initial(b.name) }}</span>
+              }
+              <div class="who">
+                <strong>{{ b.name }}</strong>
+                <span>{{ b.birthday }}{{ b.department ? ' · ' + b.department : '' }}</span>
+              </div>
+              <span class="when">{{ birthdayLabel(b) }}</span>
+            </li>
+          </ul>
+          <div class="empty-state small" *ngIf="extrasLoaded && upcomingBirthdays.length === 0">
+            <p>No birthdays in the next 30 days</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashboard-card">
+        <div class="card-header">
+          <h2><i class="bi bi-calendar2-check"></i> Upcoming Public Holidays</h2>
+          <button class="btn-link" (click)="navigateTo('/master/public-holidays')">Manage →</button>
+        </div>
+        <div class="card-body">
+          <ul class="people-list" *ngIf="upcomingHolidays.length > 0">
+            <li *ngFor="let h of upcomingHolidays">
+              <span class="avatar holiday" aria-hidden="true"><i class="bi bi-flag-fill"></i></span>
+              <div class="who">
+                <strong>{{ h.name }}</strong>
+                <span>{{ formatDate(h.date) }} · {{ h.isNational ? 'National' : (h.state || 'State') }}</span>
+              </div>
+              <span class="when">{{ daysUntil(h.date) }}</span>
+            </li>
+          </ul>
+          <div class="empty-state small" *ngIf="extrasLoaded && upcomingHolidays.length === 0">
+            <p>No upcoming holidays — add them under Master › Public Holidays</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Details ──────────────────────────────────────────── -->
+    <h2 class="section-title"><i class="bi bi-list-task"></i> Details</h2>
     <div class="dashboard-grid">
       <!-- Pending Approvals Card -->
       <div class="dashboard-card highlight" *ngIf="dashboardData.pendingCounts.total > 0">

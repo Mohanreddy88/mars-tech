@@ -631,3 +631,191 @@
   transition: transform .15s, box-shadow .15s;
   &:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0, 0, 0, .08); }
 }
+
+// ── Sections: Insights, People, Details ──────────────────────
+.section-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #334155;
+  margin: 28px 0 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+
+  i { color: #6366f1; margin-right: 6px; }
+}
+
+.insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.people-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.insight-card .card-body { min-height: 150px; }
+
+.empty-state.small {
+  padding: 24px 8px;
+  p { margin: 0; font-size: 13px; }
+}
+
+// Payroll trend: simple bar chart
+.trend-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  height: 150px;
+  padding-top: 6px;
+}
+
+.trend-col {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 0;
+
+  .trend-value { font-size: 11px; color: #64748b; }
+  .trend-bar {
+    width: 100%;
+    max-width: 34px;
+    background: #6366f1;
+    border-radius: 6px 6px 2px 2px;
+  }
+  .trend-label { font-size: 12px; color: #334155; font-weight: 600; }
+}
+
+// Attendance rate
+.big-number {
+  font-size: 40px;
+  font-weight: 700;
+  color: #0f766e;
+  line-height: 1;
+
+  span { font-size: 20px; margin-left: 2px; }
+}
+
+.rate-bar {
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  margin: 14px 0 8px;
+  overflow: hidden;
+
+  .rate-fill { height: 100%; background: #14b8a6; border-radius: 999px; }
+}
+
+.muted { font-size: 12px; color: #64748b; margin: 0; }
+
+// Latest changes
+.change-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  li {
+    display: flex;
+    flex-direction: column;
+    padding: 7px 0;
+    border-bottom: 1px solid #f1f5f9;
+    &:last-child { border-bottom: none; }
+  }
+
+  .change-text {
+    font-size: 13px;
+    color: #1e293b;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .change-meta { font-size: 11px; color: #64748b; }
+}
+
+// Quick downloads
+.download-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.download-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #1e293b;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+
+  i { color: #6366f1; font-size: 16px; }
+  &:hover:not(:disabled) { background: #f8fafc; border-color: #c7d2fe; }
+  &:disabled { opacity: 0.6; cursor: progress; }
+}
+
+// Birthdays and holidays
+.people-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid #f1f5f9;
+    &:last-child { border-bottom: none; }
+    &.today .when { background: #fef3c7; color: #92400e; }
+  }
+
+  .avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex: none;
+
+    &.initial, &.holiday {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+    }
+    &.initial { background: #2563eb; color: #fff; }
+    &.holiday { background: #fee2e2; color: #dc2626; }
+  }
+
+  .who {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+
+    strong { font-size: 14px; color: #1e293b; }
+    span { font-size: 12px; color: #64748b; }
+  }
+
+  .when {
+    font-size: 12px;
+    font-weight: 600;
+    color: #4338ca;
+    background: #eef2ff;
+    padding: 3px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+}

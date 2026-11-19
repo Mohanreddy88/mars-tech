@@ -1,4 +1,9 @@
 import { Routes } from '@angular/router';
+import { inject } from '@angular/core';
+import { AuthService } from './core/services/auth.service';
+
+/** Landing page after login: admins → Dashboard, employees → their own dashboard. */
+const landingPage = () => inject(AuthService).isAdmin() ? '/dashboard' : '/self-service/dashboard';
 import { authGuard } from './core/guards/auth.guard';
 import { adminGuard } from './core/guards/admin.guard';
 import { AdminLayoutComponent } from './layouts/admin-layout-component/admin-layout-component';
@@ -6,7 +11,6 @@ import { LoginComponent } from './modules/auth/pages/login/login.component';
 import { ForgotPasswordComponent } from './modules/auth/pages/forgot-password/forgot-password.component';
 import { ResetPasswordComponent } from './modules/auth/pages/reset-password/reset-password.component';
 import { DashboardComponent } from './modules/dashboard/pages/dashboard-component/dashboard-component';
-import { HomeComponent } from './modules/dashboard/pages/home-component/home-component';
 import { EmployeeListComponent } from './modules/employees/pages/employee-list-component/employee-list-component';
 import { EmployeeFormComponent } from './modules/employees/pages/employee-form-component/employee-form-component';
 import { AttendanceListComponent } from './modules/attendance/pages/attendance-list-component/attendance-list-component';
@@ -74,9 +78,10 @@ const companyRoutes: Routes = [
     component: AdminLayoutComponent,
     canActivate: [authGuard],
     children: [
-      { path: '',                   component: HomeComponent },
+      { path: '',                   pathMatch: 'full', redirectTo: landingPage },
       { path: 'dashboard',          component: AdminDashboardComponent, canActivate: [adminGuard] },
-      { path: 'home',               component: HomeComponent, canActivate: [adminGuard] },
+      // Home was merged into the Dashboard; old links and the pages' Home buttons land there
+      { path: 'home',               pathMatch: 'full', redirectTo: landingPage },
       { path: 'analytics',          component: AnalyticsComponent, canActivate: [adminGuard] },
       { path: 'employees',          component: EmployeeListComponent },
       { path: 'employees/add',      component: EmployeeFormComponent },
