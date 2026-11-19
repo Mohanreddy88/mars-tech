@@ -10,7 +10,7 @@ public record AttendanceDayRecord(
     int      EmployeeId,
     string   EmployeeName,
     string   DepartmentName,
-    string   Status,        // Present, HalfDay, Absent, Leave
+    string   Status,        // Present, HalfDay, Absent, Leave (+ Weekend, Holiday when asked for)
     decimal  WorkHours,
     string?  LeaveCode,     // AL, ML, … on leave days
     string?  Remarks);
@@ -19,14 +19,19 @@ public record AttendanceDayRecord(
 /// Attendance for reports, read from approved timesheets (AttendancePeriods / AttendancePeriodDays) —
 /// the attendance employees submit and HR approves. (The older Attendances table is no longer filled.)
 /// Each day: a leave code → Leave; 8+ hours → Present; some hours → HalfDay; no hours on a working
-/// day → Absent. Weekends and public holidays without hours are not working days and are left out.
+/// day → Absent. Weekends and public holidays without hours are not working days: they are left out,
+/// or — with <c>includeNonWorkingDays</c> (the Attendance Report) — listed as "Weekend" / "Holiday".
 /// </summary>
 public static class AttendanceDays
 {
     public const decimal FullDayHours = 8m;
 
+    /// <summary>Statuses that are not working days (never counted as present/absent).</summary>
+    public static bool IsNonWorking(string status) => status is "Weekend" or "Holiday";
+
     public static async Task<List<AttendanceDayRecord>> ApprovedAsync(
-        HrmsDbContext db, DateTime startDate, DateTime endDate, int? employeeId = null)
+        HrmsDbContext db, DateTime startDate, DateTime endDate, int? employeeId = null,
+        bool includeNonWorkingDays = false)
     {
         var start = startDate.Date;
         var end   = endDate.Date;
@@ -55,7 +60,11 @@ public static class AttendanceDays
             if (leave != null)                      status = "Leave";
             else if (d.Hours >= FullDayHours)       status = "Present";
             else if (d.Hours > 0)                   status = "HalfDay";
-            else if (weekend || d.IsPublicHoliday)  continue;            // not a working day
+            else if (weekend || d.IsPublicHoliday)                       // not a working day
+            {
+                if (!includeNonWorkingDays) continue;
+                status = d.IsPublicHoliday ? "Holiday" : "Weekend";
+            }
             else                                    status = "Absent";
 
             result.Add(new AttendanceDayRecord(d.Id, d.Date.Date, d.EmployeeId, d.EmployeeName, d.DepartmentName,

@@ -86,7 +86,8 @@ public class ReportsController : ControllerBase
         [FromQuery] DateTime endDate)
     {
         // From approved timesheets (see AttendanceDays for how each day is classified)
-        var days = await AttendanceDays.ApprovedAsync(_db, startDate, endDate);
+        // Weekends and public holidays are listed too (as "Weekend" / "Holiday") so the report shows every day
+        var days = await AttendanceDays.ApprovedAsync(_db, startDate, endDate, includeNonWorkingDays: true);
         var records = days.Select(d => new
         {
             id             = d.Id,
@@ -104,18 +105,21 @@ public class ReportsController : ControllerBase
         {
             startDate,
             endDate,
-            totalRecords = records.Count,
+            // Totals count working days only; weekends / holidays are counted separately
+            totalRecords = records.Count(r => !AttendanceDays.IsNonWorking(r.Status)),
             presentCount = records.Count(r => r.Status == "Present"),
             absentCount = records.Count(r => r.Status == "Absent"),
             leaveCount = records.Count(r => r.Status == "Leave"),
             halfDayCount = records.Count(r => r.Status == "HalfDay"),
-            
+            weekendCount = records.Count(r => r.Status == "Weekend"),
+            holidayCount = records.Count(r => r.Status == "Holiday"),
+
             byDepartment = records
                 .GroupBy(r => r.departmentName)
                 .Select(g => new
                 {
                     department = g.Key,
-                    totalRecords = g.Count(),
+                    totalRecords = g.Count(r => !AttendanceDays.IsNonWorking(r.Status)),
                     presentCount = g.Count(r => r.Status == "Present"),
                     absentCount = g.Count(r => r.Status == "Absent"),
                     leaveCount = g.Count(r => r.Status == "Leave"),

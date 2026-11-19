@@ -40,6 +40,8 @@ export interface AttendanceReport {
   absentCount: number;
   leaveCount: number;
   halfDayCount: number;
+  weekendCount?: number;
+  holidayCount?: number;
   byDepartment: {
     department: string;
     totalRecords: number;

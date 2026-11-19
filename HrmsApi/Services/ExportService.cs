@@ -175,22 +175,24 @@ public class ExportService : IExportService
     public async Task<byte[]> ExportAttendanceToExcelAsync(DateTime startDate, DateTime endDate)
     {
         // From approved timesheets (see AttendanceDays)
-        var records = await AttendanceDays.ApprovedAsync(_db, startDate, endDate);
+        // Weekends and public holidays are included (as "Weekend" / "Holiday"), same as the on-screen report
+        var records = await AttendanceDays.ApprovedAsync(_db, startDate, endDate, includeNonWorkingDays: true);
 
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Attendance");
 
         // Headers
         worksheet.Cell(1, 1).Value = "Date";
-        worksheet.Cell(1, 2).Value = "Employee Name";
-        worksheet.Cell(1, 3).Value = "Department";
-        worksheet.Cell(1, 4).Value = "Status";
-        worksheet.Cell(1, 5).Value = "Work Hours";
-        worksheet.Cell(1, 6).Value = "Leave Code";
-        worksheet.Cell(1, 7).Value = "Remarks";
+        worksheet.Cell(1, 2).Value = "Day";
+        worksheet.Cell(1, 3).Value = "Employee Name";
+        worksheet.Cell(1, 4).Value = "Department";
+        worksheet.Cell(1, 5).Value = "Status";
+        worksheet.Cell(1, 6).Value = "Work Hours";
+        worksheet.Cell(1, 7).Value = "Leave Code";
+        worksheet.Cell(1, 8).Value = "Remarks";
 
         // Style headers
-        var headerRow = worksheet.Range("A1:G1");
+        var headerRow = worksheet.Range("A1:H1");
         headerRow.Style.Font.Bold = true;
         headerRow.Style.Fill.BackgroundColor = XLColor.LightBlue;
         headerRow.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
@@ -200,17 +202,23 @@ public class ExportService : IExportService
         foreach (var a in records)
         {
             worksheet.Cell(row, 1).Value = a.Date.ToString("yyyy-MM-dd");
-            worksheet.Cell(row, 2).Value = a.EmployeeName;
-            worksheet.Cell(row, 3).Value = a.DepartmentName;
-            worksheet.Cell(row, 4).Value = a.Status;
-            worksheet.Cell(row, 5).Value = a.WorkHours;
-            worksheet.Cell(row, 6).Value = a.LeaveCode ?? "";
-            worksheet.Cell(row, 7).Value = a.Remarks ?? "";
+            worksheet.Cell(row, 2).Value = a.Date.ToString("ddd");
+            worksheet.Cell(row, 3).Value = a.EmployeeName;
+            worksheet.Cell(row, 4).Value = a.DepartmentName;
+            worksheet.Cell(row, 5).Value = a.Status;
+            worksheet.Cell(row, 6).Value = a.WorkHours;
+            worksheet.Cell(row, 7).Value = a.LeaveCode ?? "";
+            worksheet.Cell(row, 8).Value = a.Remarks ?? "";
 
             // Color code by status
-            var statusCell = worksheet.Cell(row, 4);
+            var statusCell = worksheet.Cell(row, 5);
             switch (a.Status)
             {
+                case "Weekend":
+                case "Holiday":
+                    worksheet.Range(row, 1, row, 8).Style.Fill.BackgroundColor = XLColor.FromHtml("#F1F5F9");
+                    worksheet.Range(row, 1, row, 8).Style.Font.FontColor = XLColor.FromHtml("#64748B");
+                    break;
                 case "Present":
                     statusCell.Style.Fill.BackgroundColor = XLColor.LightGreen;
                     break;

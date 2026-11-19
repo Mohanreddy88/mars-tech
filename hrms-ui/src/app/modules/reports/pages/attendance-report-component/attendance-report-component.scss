@@ -277,7 +277,30 @@
                   background: #dbeafe;
                   color: #1e40af;
                 }
+
+                &.status-weekend {
+                  background: #e2e8f0;
+                  color: #475569;
+                }
+
+                &.status-holiday {
+                  background: #ede9fe;
+                  color: #5b21b6;
+                }
               }
+
+              &.day-name {
+                color: #64748b;
+                font-size: 13px;
+              }
+            }
+
+            // Weekends and public holidays: greyed so working days stand out
+            &.non-working {
+              background: #f8fafc;
+
+              td { color: #94a3b8; }
+              td.employee-name { color: #94a3b8; font-weight: 400; }
             }
           }
         }
