@@ -29,6 +29,7 @@ public class HrmsDbContext : DbContext
     public DbSet<CompanySettings>       CompanySettings       => Set<CompanySettings>();
     public DbSet<StatutoryRateSet>      StatutoryRateSets     => Set<StatutoryRateSet>();
     public DbSet<LeaveAttachment>       LeaveAttachments      => Set<LeaveAttachment>();
+    public DbSet<DeviceToken>           DeviceTokens          => Set<DeviceToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -340,5 +341,15 @@ public class HrmsDbContext : DbContext
 
         // ── User: current login session (one login at a time) ──
         modelBuilder.Entity<User>().Property(x => x.CurrentSessionId).HasMaxLength(64);
+        modelBuilder.Entity<User>().Property(x => x.RefreshTokenHash).HasMaxLength(64);
+
+        // ── Push notification devices ──
+        modelBuilder.Entity<DeviceToken>(e =>
+        {
+            e.Property(x => x.Token).HasMaxLength(512).IsRequired();
+            e.Property(x => x.Platform).HasMaxLength(20);
+            e.HasIndex(x => x.Token).IsUnique();
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
     }
 }

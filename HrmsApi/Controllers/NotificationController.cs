@@ -164,6 +164,35 @@ public class NotificationController : ControllerBase
     }
 
     /// <summary>
+    /// POST /api/notification/devices — register this phone for push notifications (mobile app,
+    /// after sign-in). A token moves to the signed-in user if another login used the phone before.
+    /// </summary>
+    [HttpPost("devices")]
+    public async Task<IActionResult> RegisterDevice([FromBody] RegisterDeviceRequest request)
+    {
+        if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+            return Unauthorized(new { message = "User not authenticated" });
+        var token = (request.Token ?? "").Trim();
+        if (token.Length is 0 or > 512)
+            return BadRequest(new { message = "Invalid device token." });
+        var platform = request.Platform?.ToLowerInvariant() == "ios" ? "ios" : "android";
+
+        var device = await _db.DeviceTokens.FirstOrDefaultAsync(d => d.Token == token);
+        if (device == null)
+        {
+            _db.DeviceTokens.Add(new DeviceToken { UserId = userId, Token = token, Platform = platform });
+        }
+        else
+        {
+            device.UserId     = userId;
+            device.Platform   = platform;
+            device.LastSeenAt = DateTime.UtcNow;
+        }
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    /// <summary>
     /// DELETE /api/notification/{id} - Delete a notification
     /// </summary>
     [HttpDelete("{id}")]
@@ -197,4 +226,11 @@ public class CreateNotificationRequest
     public string Message { get; set; } = string.Empty;
     public string Type { get; set; } = string.Empty;
     public string? Link { get; set; }
+}
+
+public class RegisterDeviceRequest
+{
+    public string? Token { get; set; }
+    /// <summary>"android" or "ios".</summary>
+    public string? Platform { get; set; }
 }

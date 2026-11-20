@@ -13,11 +13,13 @@ public class NotificationService : INotificationService
 {
     private readonly HrmsDbContext _db;
     private readonly ILogger<NotificationService> _logger;
+    private readonly IPushService _push;
 
-    public NotificationService(HrmsDbContext db, ILogger<NotificationService> logger)
+    public NotificationService(HrmsDbContext db, ILogger<NotificationService> logger, IPushService push)
     {
         _db     = db;
         _logger = logger;
+        _push   = push;
     }
 
     /// <summary>Send an in-app notification to a specific user by their User.Id</summary>
@@ -36,6 +38,7 @@ public class NotificationService : INotificationService
                 CreatedAt = DateTime.UtcNow
             });
             await _db.SaveChangesAsync();
+            await _push.SendToUsersAsync(_db, new[] { userId }, title, message, type);
         }
         catch (Exception ex)
         {
@@ -67,6 +70,7 @@ public class NotificationService : INotificationService
                 });
             }
             await _db.SaveChangesAsync();
+            await _push.SendToUsersAsync(_db, adminIds, title, message, type);
         }
         catch (Exception ex)
         {
