@@ -49,6 +49,11 @@ class AdminHomeShell extends ConsumerWidget {
             label: 'Employees',
           ),
           const NavigationDestination(
+            icon: Icon(Icons.payments_outlined),
+            selectedIcon: Icon(Icons.payments),
+            label: 'Payroll',
+          ),
+          const NavigationDestination(
             icon: Icon(Icons.person_outline),
             selectedIcon: Icon(Icons.person),
             label: 'Profile',

@@ -3,6 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/admin/data/admin_models.dart';
+import '../../features/admin/payroll/presentation/generate_payroll_screen.dart';
+import '../../features/admin/payroll/presentation/payroll_record_screen.dart';
+import '../../features/admin/payroll/presentation/payroll_screen.dart';
+import '../../features/admin/payroll/presentation/salary_release_screen.dart';
+import '../../features/admin/payroll/presentation/year_end_screen.dart';
 import '../../features/admin/presentation/admin_dashboard_screen.dart';
 import '../../features/admin/presentation/admin_home_shell.dart';
 import '../../features/admin/presentation/approvals_screen.dart';
@@ -52,13 +57,19 @@ class Routes {
   static const adminHome = '/admin';
   static const adminApprovals = '/admin/approvals'; // ?tab=attendance
   static const adminEmployees = '/admin/employees';
+  static const adminPayroll = '/admin/payroll';
   static const adminProfile = '/admin/profile';
   static const attendanceReview = '/attendance-review'; // /{periodId}
   static const employeeDetail = '/employee-detail'; // extra: EmployeeSummary
+  static const payrollRecord = '/payroll-record'; // /{payrollId}
+  static const generatePayroll = '/generate-payroll';
+  static const salaryRelease = '/salary-release';
+  static const yearEnd = '/year-end';
 
   static const _employeeOnly = [dashboard, payslips, leave, attendance, profile,
       applyLeave, attendancePeriod, editProfile];
-  static const _adminOnly = [adminHome, attendanceReview, employeeDetail];
+  static const _adminOnly = [adminHome, attendanceReview, employeeDetail,
+      payrollRecord, generatePayroll, salaryRelease, yearEnd];
 
   /// Home screen for the signed-in role.
   static String homeFor(Session s) => s.isAdmin ? adminHome : dashboard;
@@ -145,6 +156,23 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) =>
             EmployeeDetailScreen(employee: state.extra! as EmployeeSummary),
       ),
+      GoRoute(
+        path: '${Routes.payrollRecord}/:id',
+        builder: (context, state) =>
+            PayrollRecordScreen(payrollId: int.parse(state.pathParameters['id']!)),
+      ),
+      GoRoute(
+        path: Routes.generatePayroll,
+        builder: (context, state) => const GeneratePayrollScreen(),
+      ),
+      GoRoute(
+        path: Routes.salaryRelease,
+        builder: (context, state) => const SalaryReleaseScreen(),
+      ),
+      GoRoute(
+        path: Routes.yearEnd,
+        builder: (context, state) => const YearEndScreen(),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => AdminHomeShell(navigationShell: shell),
         branches: [
@@ -167,6 +195,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             GoRoute(
               path: Routes.adminEmployees,
               builder: (context, state) => const EmployeesScreen(),
+            ),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: Routes.adminPayroll,
+              builder: (context, state) => const PayrollScreen(),
             ),
           ]),
           StatefulShellBranch(routes: [
