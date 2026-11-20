@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hrms_mobile/app.dart';
 import 'package:hrms_mobile/core/storage/session_storage.dart';
+import 'package:hrms_mobile/core/storage/company_store.dart';
 import 'package:hrms_mobile/features/auth/data/session.dart';
 
 void main() {
@@ -40,7 +41,10 @@ void main() {
   testWidgets('signed-out user lands on the login screen', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [sessionStorageProvider.overrideWithValue(SessionStorage())],
+        overrides: [
+          sessionStorageProvider.overrideWithValue(SessionStorage()),
+          companyStoreProvider.overrideWithValue(CompanyStore()),
+        ],
         child: const HrmsApp(),
       ),
     );

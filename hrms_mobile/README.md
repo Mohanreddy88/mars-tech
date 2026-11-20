@@ -1,80 +1,108 @@
-# HRMS Mobile
+# Mars HRMS (mobile)
 
-Employee self-service app for HRMS, built with Flutter. It uses the same
-HrmsApi backend as the Angular web app (`../hrms-ui`).
+Flutter app for HRMS (Android / iOS), app id **`com.marstech.hrms`**. Same HrmsApi backend as the
+Angular web app (`../hrms-ui`). Employees get self-service; **Admin** logins get the admin app
+(dashboard, approvals, employees, payroll, reports, master data, audit log).
 
 ## First-time setup
 
-The Android and iOS folders are already in the repo, and debug builds already
-allow plain `http://` to the local API (`android/app/src/debug/AndroidManifest.xml`).
-Release builds must use HTTPS.
-
-1. Install the Flutter SDK (stable), add its `bin` folder to PATH, and run
-   `flutter doctor` until Android (and Xcode on macOS, for iOS) show as ready.
+1. Install the Flutter SDK (stable), add its `bin` folder to PATH, and run `flutter doctor` until
+   Android (and Xcode on macOS, for iOS) show as ready.
 2. `cd hrms_mobile && flutter pub get`
 
-## Running
+Debug builds allow plain `http://` to the local API (`android/app/src/debug/AndroidManifest.xml`);
+release builds use HTTPS.
 
-Start HrmsApi locally (`http://localhost:64559`, see the main README). The app
-is employee self-service, so sign in with a login that is linked to an employee
-(the default `admin` has none). Then:
+## Which server the app talks to (`lib/core/config/env.dart`)
+
+| Build | Server |
+|---|---|
+| `flutter run` (debug) | local API from the Android emulator: `http://10.0.2.2:64559/api` |
+| `--dart-define=API_BASE_URL=<url>` | that server only (any build) |
+| release, no `API_BASE_URL` | **asks for the company code** on the login screen → `https://<code>.marshrms.com/api` (empty = `marshrms.com`), remembered on the phone |
+| release + `--dart-define=API_DOMAIN=uat.marshrms.com` | same, against UAT (`<code>.uat.marshrms.com`) |
 
 ```bash
-# Android emulator: 10.0.2.2 is the host machine (this is the default)
-flutter run
-
-# iOS simulator
-flutter run --dart-define=API_BASE_URL=http://localhost:64559/api
-
-# Physical phone on the same Wi-Fi: use your PC's LAN IP, and start the API
-# listening on all interfaces, e.g. dotnet run --urls http://0.0.0.0:64559
-flutter run --dart-define=API_BASE_URL=http://192.168.x.x:64559/api
-
-# Against UAT / a company (the company comes from the host name, as on the web)
-flutter run --dart-define=API_BASE_URL=https://uat.marshrms.com/api
-flutter run --dart-define=API_BASE_URL=https://<code>.marshrms.com/api
+flutter run                                                        # local API (emulator)
+flutter run --dart-define=API_BASE_URL=http://192.168.x.x:64559/api # phone on Wi-Fi; API: dotnet run --urls http://0.0.0.0:64559
+flutter run --dart-define=API_BASE_URL=https://uat.marshrms.com/api # UAT
 ```
+
+## Sign-in, refresh tokens
+
+Login returns a short access token (`Jwt:ExpiryMinutes`, 8 h) and a **refresh token** (30 days,
+`Jwt:RefreshDays`). The API client renews the access token before it expires and after a 401
+(`/api/auth/refresh`, rotating), so users stay signed in for weeks. The session ends — and the
+login screen explains why — when the refresh token expires, the user signs in on another device
+(one login at a time), their password is reset / set by an admin, or the login is disabled.
+Sign out calls `/api/auth/logout` (revokes the refresh token and this phone's push registration).
+
+## Release build (Google Play)
+
+Signing uses the **upload key** in `%USERPROFILE%\.android-keys\mars-hrms-upload.jks`, referenced by
+`android/key.properties` (git-ignored; contains the password). **Back up both** (e.g. in a password
+manager): without them the published app can never be updated. Without `key.properties` a release
+build is signed with the debug key (fine for testing, rejected by Google Play).
+
+```bash
+# 1. bump version in pubspec.yaml (version: 1.0.1+2 — the +number must increase every upload)
+# 2. build the bundle for Google Play (asks users for their company code)
+flutter build appbundle --release
+#    -> build/app/outputs/bundle/release/app-release.aab   (upload in Play Console)
+# test build against UAT instead:
+flutter build apk --release --dart-define=API_DOMAIN=uat.marshrms.com
+```
+
+Use **Play App Signing** in the Play Console (Google keeps the app signing key; this file is only
+the upload key, which Google can reset if it is lost).
+
+iOS: open `ios/Runner.xcworkspace` in Xcode on a Mac, set the team for bundle id
+`com.marstech.hrms`, then `flutter build ipa`.
+
+## Push notifications (Firebase Cloud Messaging)
+
+The **server side is done**: the API stores each phone's token (`POST /api/notification/devices`,
+table `DeviceTokens`) and pushes every in-app notification (leave/attendance/payroll decisions,
+submissions for admins) to that user's phones. It stays **off** until the server has Firebase
+credentials. To switch it on:
+
+1. Create a project at https://console.firebase.google.com (one project for all companies).
+2. Add an **Android app** with package `com.marstech.hrms` → download `google-services.json` and
+   put it at `hrms_mobile/android/app/google-services.json` (git-ignored). For iOS add an Apple app
+   (`com.marstech.hrms`), download `GoogleService-Info.plist` and upload an APNs key in Firebase.
+3. Project settings → Service accounts → **Generate new private key** (JSON). On the VPS, add it on
+   one line to `/opt/hrms/deploy/.env` and `/opt/hrms-uat/deploy/.env.uat`:
+   `FIREBASE_CREDENTIALS_JSON='{"type":"service_account",...}'` (single quotes; `jq -c . key.json`
+   makes one line), then recreate the app container. The API log says
+   `Push notifications are on (Firebase project ...)`.
+4. App side (needs step 2's file to build): add `firebase_core` + `firebase_messaging`, call
+   `POST notification/devices` with the FCM token after sign-in, and pass it to `logout`.
 
 ## Structure
 
 ```
 lib/
-  main.dart                 restores saved session, starts the app
+  main.dart                 restores company + session, starts the app
   app.dart                  MaterialApp.router + theme
   core/
-    config/env.dart         API_BASE_URL (--dart-define)
-    network/                Dio client (JWT header, 401 -> sign out), ApiException
-    storage/                session in secure storage (Keystore / Keychain)
-    router/app_router.dart  routes + auth redirects
+    config/env.dart         server choice (API_BASE_URL / company code)
+    network/                Dio client (token, refresh-and-retry), ApiException
+    storage/                session + company in secure storage (Keystore / Keychain)
+    router/app_router.dart  routes, admin vs employee areas, auth redirects
     theme/, utils/, widgets/
   features/
-    auth/                   login, forgot password, change password
-    dashboard/              GET /api/selfservice/dashboard
-    profile/                account info, change password, sign out
-    home/                   bottom-nav shell, placeholder tabs
+    auth/ dashboard/ payslips/ leave/ attendance/ notifications/ profile/   employee app
+    admin/                  admin app: dashboard, approvals, employees, payroll/, reports/,
+                            master/, audit/
 ```
 
-Each feature has `data/` (models + repository calling the API),
-`application/` (Riverpod state) when needed, and `presentation/` (screens).
+Each feature has `data/` (models + repository calling the API), `application/` (Riverpod state)
+when needed, and `presentation/` (screens). Tests: `flutter test` (models, rules, routing).
 
-## Status
+## Notes
 
-| Feature | Status | API |
-|---|---|---|
-| Login / forced password change / sign out | Done | `auth/login`, `selfservice/change-password` |
-| Forgot password | Done | `auth/forgot-password` |
-| Dashboard | Done | `selfservice/dashboard` |
-| Payslips | Placeholder | `selfservice/my-payslips`, `/{id}/download` |
-| Leave | Placeholder | `selfservice/my-leave-balance`, `my-leave-requests` |
-| Attendance | Placeholder | `selfservice/attendance-periods` |
-| Timesheets | Not started | `selfservice/my-timesheets` |
-| Notifications | Not started | `notification`, `notification/unread-count` |
-
-## Known gaps (backend)
-
-- **No refresh token yet.** The app signs the user out when the JWT
-  expires. Once the API has `/auth/refresh`, add refresh-and-retry in
-  `core/network/api_client.dart` (the `onError` handler).
-- **Admin accounts** without a linked employee record get "Employee profile
-  not found" on the dashboard, because the app is employee-only.
-- **Push notifications** need FCM device-token storage on the API.
+- Android build settings: Gradle/Kotlin daemon memory is limited in `android/gradle.properties`
+  (16 GB PC + emulator). `android.builtInKotlin=false` is required by plugins such as
+  `share_plus`; `file_picker` does not build with it, so leave documents use `image_picker` photos.
+- Website-only on purpose: permanent employee delete, company logo upload, statutory rate tables,
+  PDF leave documents.

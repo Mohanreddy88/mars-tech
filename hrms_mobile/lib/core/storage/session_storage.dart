@@ -21,14 +21,15 @@ class SessionStorage {
 
   Session? get current => _current;
 
-  /// Loads the saved session. Expired or unreadable sessions are discarded.
+  /// Loads the saved session. Unreadable sessions, and ones that can no
+  /// longer be used or renewed, are discarded.
   Future<void> load() async {
     try {
       final raw = await _storage.read(key: _key);
       if (raw == null) return;
       final session =
           Session.fromJson(jsonDecode(raw) as Map<String, dynamic>);
-      if (session.isExpired) {
+      if (!session.isUsable) {
         await clear();
       } else {
         _current = session;
