@@ -64,6 +64,26 @@ class AdminRepository {
       'POST', 'attendancemanagement/$id/reject',
       data: {'rejectionReason': reason});
 
+  /// GET /api/attendancemanagement/all (newest first), optionally by status.
+  Future<List<AttendanceHistoryItem>> attendanceHistory({String? status}) => _get(
+      'attendancemanagement/all',
+      (d) => _list(d, AttendanceHistoryItem.fromJson),
+      query: {if (status != null) 'status': status});
+
+  // ── Leave balances (all employees) ──────────────────────────────
+  Future<List<LeaveBalanceRow>> allLeaveBalances(int year) => _get(
+      'leavemanagement/balances/all', (d) => _list(d, LeaveBalanceRow.fromJson),
+      query: {'year': year});
+
+  Future<void> updateLeaveBalance(int id, double totalDays, double carryForwardDays) => _send(
+      'PUT', 'leavemanagement/balances/$id',
+      data: {'totalDays': totalDays, 'carryForwardDays': carryForwardDays});
+
+  /// Creates the employee's balances for the year from the leave types' defaults.
+  Future<void> initializeLeaveBalances(int employeeId, int year) => _send(
+      'POST', 'leavemanagement/balances/initialize',
+      data: {'employeeId': employeeId, 'year': year, 'leaveTypeId': 0, 'totalDays': 0});
+
   Future<List<int>> attendancePdf(int id) async {
     try {
       final res = await _dio.get<List<int>>('attendancemanagement/$id/pdf',
@@ -77,6 +97,35 @@ class AdminRepository {
   // ── Employees ───────────────────────────────────────────────────
   Future<List<EmployeeSummary>> employees() =>
       _get('employees', (d) => _list(d, EmployeeSummary.fromJson));
+
+  Future<List<Department>> departments() =>
+      _get('departments', (d) => _list(d, Department.fromJson));
+
+  /// POST /api/employees. The API also creates the employee's login and
+  /// emails a "set your password" link. Returns the server's message.
+  Future<String> createEmployee(EmployeeDraft draft) async {
+    try {
+      final res = await _dio.post<dynamic>('employees', data: draft.toJson());
+      final data = res.data is Map ? res.data as Map : const {};
+      final username = data['username'] as String?;
+      return username == null
+          ? 'Employee created'
+          : 'Employee created. Login "$username" — a set-password email has been sent.';
+    } catch (e) {
+      throw ApiException.from(e);
+    }
+  }
+
+  /// PUT /api/employees/{id}
+  Future<void> updateEmployee(int id, EmployeeDraft draft) =>
+      _send('PUT', 'employees/$id', data: draft.toJson());
+
+  /// Deactivate / reactivate: the same update with only the active flag changed.
+  Future<void> setEmployeeActive(EmployeeSummary e, bool active) =>
+      updateEmployee(e.id, EmployeeDraft.from(e)..isActive = active);
+
+  /// POST /api/employees/{id}/send-welcome: resend the set-password email.
+  Future<void> sendWelcome(int id) => _send('POST', 'employees/$id/send-welcome');
 
   Future<List<LeaveBalanceItem>> employeeLeaveBalances(int employeeId, int year) => _get(
       'leavemanagement/balances/employee/$employeeId',
@@ -112,3 +161,13 @@ final employeeLeaveBalancesProvider =
 final employeePayrollsProvider =
     FutureProvider.autoDispose.family<List<EmployeePayrollRow>, int>(
         (ref, employeeId) => ref.watch(adminRepositoryProvider).employeePayrolls(employeeId));
+
+final departmentsProvider = FutureProvider.autoDispose<List<Department>>(
+    (ref) => ref.watch(adminRepositoryProvider).departments());
+
+final attendanceHistoryProvider =
+    FutureProvider.autoDispose.family<List<AttendanceHistoryItem>, String?>(
+        (ref, status) => ref.watch(adminRepositoryProvider).attendanceHistory(status: status));
+
+final allLeaveBalancesProvider = FutureProvider.autoDispose.family<List<LeaveBalanceRow>, int>(
+    (ref, year) => ref.watch(adminRepositoryProvider).allLeaveBalances(year));
