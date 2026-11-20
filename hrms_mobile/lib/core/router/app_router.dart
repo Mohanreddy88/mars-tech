@@ -8,6 +8,7 @@ import '../../features/admin/payroll/presentation/payroll_record_screen.dart';
 import '../../features/admin/payroll/presentation/payroll_screen.dart';
 import '../../features/admin/payroll/presentation/salary_release_screen.dart';
 import '../../features/admin/payroll/presentation/year_end_screen.dart';
+import '../../features/admin/audit/presentation/audit_log_screen.dart';
 import '../../features/admin/master/data/master_repository.dart' show MasterKind;
 import '../../features/admin/master/presentation/company_rates_screens.dart';
 import '../../features/admin/master/presentation/master_lists_screen.dart';
@@ -82,6 +83,7 @@ class Routes {
   static const usersMaster = '/master-users';
   static const companySettings = '/master-company';
   static const statutoryRates = '/master-rates';
+  static const auditLog = '/audit-log';
   static const attendanceReview = '/attendance-review'; // /{periodId}
   static const employeeDetail = '/employee-detail'; // extra: EmployeeSummary
   static const employeeForm = '/employee-form'; // extra: EmployeeSummary to edit, none = new
@@ -95,7 +97,7 @@ class Routes {
   static const _adminOnly = [adminHome, attendanceReview, employeeDetail, employeeForm,
       attendanceHistory, leaveBalances, payrollReport, attendanceReport, directoryReport,
       monthlySummary, analytics, departmentsMaster, banksMaster, holidaysMaster, usersMaster,
-      companySettings, statutoryRates,
+      companySettings, statutoryRates, auditLog,
       payrollRecord, generatePayroll, salaryRelease, yearEnd];
 
   /// Home screen for the signed-in role.
@@ -204,6 +206,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.usersMaster, builder: (context, state) => const UsersScreen()),
       GoRoute(path: Routes.companySettings, builder: (context, state) => const CompanySettingsScreen()),
       GoRoute(path: Routes.statutoryRates, builder: (context, state) => const StatutoryRatesScreen()),
+      GoRoute(path: Routes.auditLog, builder: (context, state) => const AuditLogScreen()),
       GoRoute(
         path: Routes.employeeForm,
         builder: (context, state) =>

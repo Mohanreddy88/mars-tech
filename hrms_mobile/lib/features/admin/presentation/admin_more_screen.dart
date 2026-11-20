@@ -109,6 +109,8 @@ class AdminMoreScreen extends ConsumerWidget {
               const Divider(height: 1),
               item(Icons.contacts_outlined, 'Employee directory', 'By department · Excel export',
                   Routes.directoryReport),
+              const Divider(height: 1),
+              item(Icons.manage_search, 'Audit log', 'Who changed what, and when', Routes.auditLog),
             ]),
           ),
           const _Heading('Master data'),
