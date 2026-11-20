@@ -52,7 +52,8 @@ public class NotificationController : ControllerBase
                 n.Type,
                 n.Link,
                 n.IsRead,
-                n.ReadAt
+                n.ReadAt,
+                n.CreatedAt
             })
             .ToListAsync();
 

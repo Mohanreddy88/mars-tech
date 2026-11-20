@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/error_view.dart';
+import '../../notifications/data/notification_repository.dart';
+import '../../notifications/presentation/notifications_screen.dart';
 import '../data/dashboard_models.dart';
 import '../data/dashboard_repository.dart';
 
@@ -16,7 +18,10 @@ class DashboardScreen extends ConsumerWidget {
     final dashboard = ref.watch(dashboardProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Home')),
+      appBar: AppBar(
+        title: const Text('Home'),
+        actions: const [NotificationBell()],
+      ),
       body: dashboard.when(
         skipLoadingOnRefresh: true,
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -25,7 +30,10 @@ class DashboardScreen extends ConsumerWidget {
           onRetry: () => ref.invalidate(dashboardProvider),
         ),
         data: (data) => RefreshIndicator(
-          onRefresh: () => ref.refresh(dashboardProvider.future),
+          onRefresh: () {
+            ref.invalidate(unreadCountProvider);
+            return ref.refresh(dashboardProvider.future);
+          },
           child: _DashboardBody(data: data),
         ),
       ),
@@ -93,6 +101,7 @@ class _DashboardBody extends StatelessWidget {
                     leading: const Icon(Icons.receipt_long_outlined),
                     title: Text(p.monthYear),
                     subtitle: Text(p.status),
+                    onTap: () => context.go('${Routes.payslips}/${p.id}'),
                     trailing: Text(
                       Fmt.money(p.netSalary),
                       style: Theme.of(context)

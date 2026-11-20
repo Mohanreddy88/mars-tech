@@ -35,3 +35,24 @@ DateTime? tryParseApiDate(Object? value) {
 }
 
 double toDouble(Object? value) => (value as num?)?.toDouble() ?? 0;
+
+/// A calendar date (no time) as the API expects it: UTC midnight,
+/// e.g. 2026-11-05 -> "2026-11-05T00:00:00Z" (same as the web app).
+String apiDate(DateTime day) =>
+    '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}'
+    '-${day.day.toString().padLeft(2, '0')}T00:00:00Z';
+
+/// The calendar date of an API date-only value (stored as UTC midnight),
+/// as a local date with no time, so it never shifts a day by timezone.
+DateTime calendarDate(DateTime apiValue) {
+  final utc = apiValue.toUtc();
+  return DateTime(utc.year, utc.month, utc.day);
+}
+
+DateTime? tryCalendarDate(Object? value) {
+  final parsed = tryParseApiDate(value);
+  return parsed == null ? null : calendarDate(parsed);
+}
+
+bool isSameDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
