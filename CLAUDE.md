@@ -6,6 +6,12 @@ Guidance for Claude Code in this repo. Human-facing overview: [README.md](README
 HRMS payroll system: `hrms-ui/` (Angular, prod build `npm run build:prod`), `HrmsApi/` (.NET 8, EF Core;
 PostgreSQL in deployment, SQL Server locally). The test project `HrmsApi/HrmsApi.Tests` sits inside the API folder
 and is excluded from the API csproj.
+`hrms_mobile/` is the Flutter employee app (Riverpod, Dio, go_router) calling the same API; it is not part of the
+server deploy (excluded in `.dockerignore`). API base URL via `--dart-define=API_BASE_URL=...` (default
+`http://10.0.2.2:64559/api` = local API from the Android emulator; company picked by host name). Flutter SDK on this PC
+is not on PATH: `C:\Users\HP\Downloads\flutter_windows_3.50.0-stable\flutter\bin\flutter.bat`. When an API response
+changes, update the matching model in `hrms_mobile/lib/features/*/data/`. Never commit keystores, `key.properties`
+or `google-services.json`.
 
 ## Branches and releases (the user's chosen process — keep it)
 - **Never commit or push to `main`.** It's protected by GitHub ruleset `protect-main` (PR required, no force push).

@@ -11,3 +11,4 @@ HrmsApi/HrmsApi.Tests
 HrmsApi/appsettings.Development.json
 HrmsApi/api_log.txt
 **/*.log
+hrms_mobile
