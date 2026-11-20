@@ -92,6 +92,25 @@ class AdminMoreScreen extends ConsumerWidget {
                   Routes.leaveBalances),
             ]),
           ),
+          const _Heading('Reports & insights'),
+          Card(
+            child: Column(children: [
+              item(Icons.insights_outlined, 'Analytics', 'Payroll trend, headcount, salary bands',
+                  Routes.analytics),
+              const Divider(height: 1),
+              item(Icons.calendar_view_month_outlined, 'Monthly summary', 'Payroll and attendance for a month',
+                  Routes.monthlySummary),
+              const Divider(height: 1),
+              item(Icons.request_quote_outlined, 'Payroll report', 'By department · Excel export',
+                  Routes.payrollReport),
+              const Divider(height: 1),
+              item(Icons.fact_check_outlined, 'Attendance report', 'Date range, by employee · Excel export',
+                  Routes.attendanceReport),
+              const Divider(height: 1),
+              item(Icons.contacts_outlined, 'Employee directory', 'By department · Excel export',
+                  Routes.directoryReport),
+            ]),
+          ),
           const _Heading('Account'),
           Card(
             child: Column(children: [

@@ -8,6 +8,8 @@ import '../../features/admin/payroll/presentation/payroll_record_screen.dart';
 import '../../features/admin/payroll/presentation/payroll_screen.dart';
 import '../../features/admin/payroll/presentation/salary_release_screen.dart';
 import '../../features/admin/payroll/presentation/year_end_screen.dart';
+import '../../features/admin/reports/presentation/analytics_screen.dart';
+import '../../features/admin/reports/presentation/report_screens.dart';
 import '../../features/admin/presentation/admin_dashboard_screen.dart';
 import '../../features/admin/presentation/admin_more_screen.dart';
 import '../../features/admin/presentation/attendance_history_screen.dart';
@@ -65,6 +67,11 @@ class Routes {
   static const adminMore = '/admin/more';
   static const attendanceHistory = '/attendance-history';
   static const leaveBalances = '/leave-balances';
+  static const payrollReport = '/report-payroll';
+  static const attendanceReport = '/report-attendance';
+  static const directoryReport = '/report-directory';
+  static const monthlySummary = '/report-monthly';
+  static const analytics = '/analytics';
   static const attendanceReview = '/attendance-review'; // /{periodId}
   static const employeeDetail = '/employee-detail'; // extra: EmployeeSummary
   static const employeeForm = '/employee-form'; // extra: EmployeeSummary to edit, none = new
@@ -76,7 +83,8 @@ class Routes {
   static const _employeeOnly = [dashboard, payslips, leave, attendance, profile,
       applyLeave, attendancePeriod, editProfile];
   static const _adminOnly = [adminHome, attendanceReview, employeeDetail, employeeForm,
-      attendanceHistory, leaveBalances,
+      attendanceHistory, leaveBalances, payrollReport, attendanceReport, directoryReport,
+      monthlySummary, analytics,
       payrollRecord, generatePayroll, salaryRelease, yearEnd];
 
   /// Home screen for the signed-in role.
@@ -172,6 +180,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: Routes.leaveBalances,
         builder: (context, state) => const LeaveBalancesScreen(),
       ),
+      GoRoute(path: Routes.payrollReport, builder: (context, state) => const PayrollReportScreen()),
+      GoRoute(path: Routes.attendanceReport, builder: (context, state) => const AttendanceReportScreen()),
+      GoRoute(path: Routes.directoryReport, builder: (context, state) => const DirectoryReportScreen()),
+      GoRoute(path: Routes.monthlySummary, builder: (context, state) => const MonthlySummaryScreen()),
+      GoRoute(path: Routes.analytics, builder: (context, state) => const AnalyticsScreen()),
       GoRoute(
         path: Routes.employeeForm,
         builder: (context, state) =>
