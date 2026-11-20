@@ -39,6 +39,12 @@ or `google-services.json`.
   Email links use `FrontendUrl` (env `FRONTEND_URL`, defaults https://marshrms.com / https://uat.marshrms.com).
 - Server git clones use `core.fileMode=false` (scripts are chmod +x'd on the server).
 
+## API access rules
+Logins are `Admin` or `Employee` (also legacy `User`). Every endpoint that manages company data must carry
+`[Authorize(Roles = "Admin")]` (approvals may use `UserAccess.Approvers`); `[Authorize]` alone lets any employee in.
+Employee self-service goes through `/api/selfservice/*`; elsewhere check ownership with `UserAccess`
+(`CurrentEmployeeIdAsync`, `CanAccessEmployeeAsync`) and never trust an `employeeId` sent by a non-admin client.
+
 ## Secrets — the repo is PUBLIC
 Never commit `deploy/.env`, `deploy/.env.uat`, `HrmsApi/appsettings.Development.json` or any password/API key.
 Secrets live only on the server. Don't print secret values in output; mask them.

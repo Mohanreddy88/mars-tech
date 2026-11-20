@@ -70,6 +70,7 @@ public class LeaveManagementController : ControllerBase
     /// POST /api/leavemanagement/leave-types - Create new leave type
     /// </summary>
     [HttpPost("leave-types")]
+    [Authorize(Roles = UserAccess.Admin)]
     public async Task<IActionResult> CreateLeaveType([FromBody] LeaveTypeRequest request)
     {
         var leaveType = new LeaveType
@@ -100,6 +101,8 @@ public class LeaveManagementController : ControllerBase
     [HttpGet("balances/employee/{employeeId:int}")]
     public async Task<IActionResult> GetEmployeeLeaveBalances(int employeeId, [FromQuery] int? year)
     {
+        if (!await _db.CanAccessEmployeeAsync(User, employeeId)) return Forbid();
+
         var currentYear = year ?? DateTime.Now.Year;
         
         var employee = await _db.Employees.FindAsync(employeeId);
@@ -145,6 +148,7 @@ public class LeaveManagementController : ControllerBase
     /// Initialize leave balances for an employee for a year
     /// </summary>
     [HttpPost("balances/initialize")]
+    [Authorize(Roles = UserAccess.Admin)]
     public async Task<IActionResult> InitializeLeaveBalances([FromBody] LeaveBalanceInit request)
     {
         await _leaveService.InitializeLeaveBalancesAsync(request.EmployeeId, request.Year);
@@ -261,6 +265,7 @@ public class LeaveManagementController : ControllerBase
     /// GET /api/leavemanagement/requests - Get all leave requests
     /// </summary>
     [HttpGet("requests")]
+    [Authorize(Roles = UserAccess.Approvers)]
     public async Task<IActionResult> GetAllLeaveRequests(
         [FromQuery] string? status,
         [FromQuery] int? employeeId)
@@ -309,6 +314,8 @@ public class LeaveManagementController : ControllerBase
     [HttpGet("requests/employee/{employeeId:int}")]
     public async Task<IActionResult> GetEmployeeLeaveRequests(int employeeId, [FromQuery] int? year)
     {
+        if (!await _db.CanAccessEmployeeAsync(User, employeeId)) return Forbid();
+
         var query = _db.LeaveRequests
             .Include(lr => lr.LeaveType)
             .Where(lr => lr.EmployeeId == employeeId);
@@ -327,6 +334,7 @@ public class LeaveManagementController : ControllerBase
     /// GET /api/leavemanagement/requests/pending - Get pending leave requests
     /// </summary>
     [HttpGet("requests/pending")]
+    [Authorize(Roles = UserAccess.Approvers)]
     public async Task<IActionResult> GetPendingLeaveRequests()
     {
         var requests = await _db.LeaveRequests
@@ -358,6 +366,16 @@ public class LeaveManagementController : ControllerBase
     [HttpPost("requests")]
     public async Task<IActionResult> CreateLeaveRequest([FromBody] LeaveRequestCreate request)
     {
+        // Employees can only apply for themselves, whatever employeeId the client sends.
+        // (Approvers may still apply on behalf of an employee.)
+        if (!User.IsApprover())
+        {
+            var ownId = await _db.CurrentEmployeeIdAsync(User);
+            if (ownId == null)
+                return BadRequest(new { message = "Your login is not linked to an employee profile." });
+            request.EmployeeId = ownId.Value;
+        }
+
         try
         {
             var leaveRequest = await _leaveService.CreateLeaveRequestAsync(request);
@@ -404,6 +422,7 @@ public class LeaveManagementController : ControllerBase
     /// PUT /api/leavemanagement/requests/{id}/approve - Approve leave request
     /// </summary>
     [HttpPut("requests/{id:int}/approve")]
+    [Authorize(Roles = UserAccess.Approvers)]
     public async Task<IActionResult> ApproveLeaveRequest(int id, [FromBody] LeaveRequestApproval approval)
     {
         try
@@ -482,6 +501,7 @@ public class LeaveManagementController : ControllerBase
     /// PUT /api/leavemanagement/requests/{id}/reject - Reject leave request
     /// </summary>
     [HttpPut("requests/{id:int}/reject")]
+    [Authorize(Roles = UserAccess.Approvers)]
     public async Task<IActionResult> RejectLeaveRequest(int id, [FromBody] LeaveRequestApproval approval)
     {
         try
@@ -572,6 +592,15 @@ public class LeaveManagementController : ControllerBase
     [HttpPut("requests/{id:int}/cancel")]
     public async Task<IActionResult> CancelLeaveRequest(int id, [FromBody] CancelRequest cancel)
     {
+        var owner = await _db.LeaveRequests.Where(lr => lr.Id == id).Select(lr => (int?)lr.EmployeeId).FirstOrDefaultAsync();
+        if (owner == null) return NotFound(new { message = "Leave request not found" });
+        if (!await _db.CanAccessEmployeeAsync(User, owner.Value)) return Forbid();
+        // Employees may only cancel requests that have not been decided yet (as in the web app);
+        // undoing an approved leave is an HR action.
+        if (!User.IsApprover() &&
+            await _db.LeaveRequests.AnyAsync(lr => lr.Id == id && lr.Status != "Pending"))
+            return BadRequest(new { message = "Only pending leave requests can be cancelled. Contact HR to change an approved leave." });
+
         try
         {
             var leaveRequest = await _leaveService.CancelLeaveRequestAsync(id, cancel.Reason ?? "");
@@ -604,6 +633,9 @@ public class LeaveManagementController : ControllerBase
 
         var request = await _db.LeaveRequests.FindAsync(id)
             ?? throw new KeyNotFoundException($"Leave request {id} not found");
+
+        if (!isAdmin && request.EmployeeId != await _db.CurrentEmployeeIdAsync(User))
+            return Forbid();
 
         // Non-admin cannot delete approved requests
         if (request.Status == "Approved" && !isAdmin)

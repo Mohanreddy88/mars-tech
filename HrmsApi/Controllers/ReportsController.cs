@@ -8,7 +8,7 @@ namespace HrmsApi.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Roles = "Admin")]   // company data and admin actions: not for employee logins
 public class ReportsController : ControllerBase
 {
     private readonly HrmsDbContext _db;

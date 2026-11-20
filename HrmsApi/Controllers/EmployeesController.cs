@@ -54,6 +54,7 @@ public class EmployeesController : ControllerBase
     /// Returns all employees with their department name and bank name for display in list/dropdown.
     /// </summary>
     [HttpGet]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> GetAll()
     {
         var employees = await _db.Employees
@@ -89,6 +90,7 @@ public class EmployeesController : ControllerBase
     /// Returns only active employees (IsActive = true) for dropdowns and filters.
     /// </summary>
     [HttpGet("active")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> GetActive()
     {
         var employees = await _db.Employees
@@ -127,6 +129,10 @@ public class EmployeesController : ControllerBase
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id)
     {
+        // Admins: any employee. Others: only their own record (the web navbar loads it for the photo).
+        if (!User.IsInRole("Admin") && await _db.CurrentEmployeeIdAsync(User) != id)
+            return Forbid();
+
         var emp = await _db.Employees
             .Include(e => e.Department)
             .Include(e => e.Bank)
@@ -155,6 +161,7 @@ public class EmployeesController : ControllerBase
     /// Creates a new employee record.
     /// </summary>
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Create([FromBody] EmployeeRequest req)
     {
         var (id, idField, idError) = EmployeeIdentity.Check(req);
@@ -361,6 +368,7 @@ public class EmployeesController : ControllerBase
     /// Updates an existing employee record.
     /// </summary>
     [HttpPut("{id:int}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Update(int id, [FromBody] EmployeeRequest req)
     {
         var (ident, idField, idError) = EmployeeIdentity.Check(req);
@@ -449,6 +457,7 @@ public class EmployeesController : ControllerBase
     /// Deletes an employee and all related records (cascades).
     /// </summary>
     [HttpDelete("{id:int}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Delete(int id)
     {
         var emp = await _db.Employees.FindAsync(id)
