@@ -40,8 +40,61 @@ public class AuthController : ControllerBase
         // One login at a time: this login becomes the user's only valid session; a session open
         // elsewhere is signed out on its next request.
         user.CurrentSessionId = Guid.NewGuid().ToString("N");
+        // The refresh token belongs to this session: issuing it replaces any older device's token.
+        var (refreshToken, refreshExpiresAt) = _tokenService.IssueRefreshToken(user);
         await _db.SaveChangesAsync();
 
+        return Ok(await SessionResponseAsync(user, refreshToken, refreshExpiresAt));
+    }
+
+    /// <summary>
+    /// POST /api/auth/refresh — swap a valid refresh token for a new access token and a new refresh
+    /// token (the old one stops working). Same session: a login elsewhere makes this fail with 401.
+    /// </summary>
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh([FromBody] RefreshRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.RefreshToken))
+            throw new UnauthorizedAccessException("Your session has expired. Please sign in again.");
+
+        var hash = TokenService.HashRefreshToken(request.RefreshToken);
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.RefreshTokenHash == hash);
+        if (user is null || !user.IsActive || user.RefreshTokenExpiresAt is null
+            || user.RefreshTokenExpiresAt <= DateTime.UtcNow)
+            throw new UnauthorizedAccessException("Your session has expired. Please sign in again.");
+
+        var (refreshToken, refreshExpiresAt) = _tokenService.IssueRefreshToken(user);
+        await _db.SaveChangesAsync();
+
+        return Ok(await SessionResponseAsync(user, refreshToken, refreshExpiresAt));
+    }
+
+    /// <summary>
+    /// POST /api/auth/logout — revoke the refresh token and stop push notifications to this device.
+    /// </summary>
+    [HttpPost("logout")]
+    [Authorize]
+    public async Task<IActionResult> Logout([FromBody] LogoutRequest? request)
+    {
+        if (int.TryParse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var userId))
+        {
+            var user = await _db.Users.FindAsync(userId);
+            if (user != null)
+            {
+                user.RefreshTokenHash      = null;
+                user.RefreshTokenExpiresAt = null;
+            }
+            if (!string.IsNullOrWhiteSpace(request?.DeviceToken))
+                await _db.DeviceTokens.Where(d => d.UserId == userId && d.Token == request.DeviceToken)
+                    .ExecuteDeleteAsync();
+            await _db.SaveChangesAsync();
+        }
+        return NoContent();
+    }
+
+    /// <summary>Access token for the user's current session plus the login details the apps need.</summary>
+    private async Task<LoginResponse> SessionResponseAsync(User user, string refreshToken, DateTime refreshExpiresAt)
+    {
         var (token, expiresAt) = _tokenService.GenerateToken(user);
 
         // Find associated employee record (for non-admin users)
@@ -53,7 +106,8 @@ public class AuthController : ControllerBase
             employeeId = employee?.Id;
         }
 
-        return Ok(new LoginResponse(token, user.Username, user.Role, expiresAt, employeeId, user.MustChangePassword));
+        return new LoginResponse(token, user.Username, user.Role, expiresAt, employeeId, user.MustChangePassword,
+            refreshToken, refreshExpiresAt);
     }
 
     /// <summary>POST /api/auth/forgot-password — send reset token to user's email</summary>
@@ -124,6 +178,9 @@ public class AuthController : ControllerBase
 
         user.PasswordHash             = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
         user.PasswordResetToken       = null;
+        // A reset password ends every saved login: phones must sign in with the new password.
+        user.RefreshTokenHash         = null;
+        user.RefreshTokenExpiresAt    = null;
         user.PasswordResetTokenExpiry = null;
         user.MustChangePassword       = false;
         await _db.SaveChangesAsync();

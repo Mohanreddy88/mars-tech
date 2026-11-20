@@ -2,7 +2,7 @@
     <!-- Needed in release builds to call HrmsApi. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="HRMS"
+        android:label="Mars HRMS"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

@@ -242,6 +242,12 @@ class EmployeeSummary {
     this.icPassport,
     this.taxNumber,
     this.dateOfBirth,
+    this.departmentId,
+    this.bankId,
+    this.idCountry,
+    this.profilePicture,
+    this.epfEmployeeRateOverride,
+    this.epfEmployerRateOverride,
   });
 
   final int id;
@@ -262,6 +268,14 @@ class EmployeeSummary {
   final String? icPassport;
   final String? taxNumber;
   final DateTime? dateOfBirth;
+  final int? departmentId;
+  final int? bankId;
+  final String? idCountry;
+  final String? profilePicture;
+
+  /// EPF % overriding the company rate (null = company rate).
+  final double? epfEmployeeRateOverride;
+  final double? epfEmployerRateOverride;
 
   String get phoneDisplay {
     if (phone == null || phone!.isEmpty) return '';
@@ -296,6 +310,12 @@ class EmployeeSummary {
         icPassport: json['icPassport'] as String?,
         taxNumber: json['taxNumber'] as String?,
         dateOfBirth: tryCalendarDate(json['dateOfBirth']),
+        departmentId: json['departmentId'] as int?,
+        bankId: json['bankId'] as int?,
+        idCountry: json['idCountry'] as String?,
+        profilePicture: json['profilePicture'] as String?,
+        epfEmployeeRateOverride: (json['epfEmployeeRateOverride'] as num?)?.toDouble(),
+        epfEmployerRateOverride: (json['epfEmployerRateOverride'] as num?)?.toDouble(),
       );
 }
 
@@ -321,5 +341,228 @@ class EmployeePayrollRow {
         grossIncome: toDouble(json['grossIncome']),
         netSalary: toDouble(json['netSalary']),
         status: json['status'] as String? ?? '',
+      );
+}
+
+/// GET /api/departments
+class Department {
+  const Department({required this.id, required this.name});
+
+  final int id;
+  final String name;
+
+  factory Department.fromJson(Map<String, dynamic> j) =>
+      Department(id: j['id'] as int, name: j['name'] as String? ?? '');
+}
+
+/// The employee form: body of POST /api/employees and PUT /api/employees/{id}.
+/// [validate] applies the same rules as the API (EmployeeIdentity) so most
+/// mistakes are caught before sending.
+class EmployeeDraft {
+  EmployeeDraft();
+
+  /// Pre-filled from an existing employee for editing.
+  factory EmployeeDraft.from(EmployeeSummary e) => EmployeeDraft()
+    ..name = e.name
+    ..email = e.email
+    ..phoneCountryCode = (e.phoneCountryCode?.isNotEmpty ?? false) ? e.phoneCountryCode! : '+60'
+    ..phone = e.phone ?? ''
+    ..gender = e.gender
+    ..dateOfBirth = e.dateOfBirth
+    ..idType = e.idType == idPassport ? idPassport : idNric
+    ..idNumber = e.icPassport ?? ''
+    ..idCountry = e.idCountry ?? ''
+    ..departmentId = e.departmentId
+    ..designation = e.designation ?? ''
+    ..joinDate = e.joinDate
+    ..salary = e.salary
+    ..isActive = e.isActive
+    ..bankId = e.bankId
+    ..accountNumber = e.accountNumber ?? ''
+    ..taxNumber = e.taxNumber ?? ''
+    ..profilePicture = e.profilePicture ?? ''
+    ..epfEmployeeRateOverride = e.epfEmployeeRateOverride
+    ..epfEmployerRateOverride = e.epfEmployerRateOverride;
+
+  static const idNric = 'NRIC';
+  static const idPassport = 'Passport';
+  static const genders = ['Male', 'Female', 'Other'];
+  static const minimumAge = 15;
+
+  String name = '';
+  String email = '';
+  String phoneCountryCode = '+60';
+  String phone = '';
+  String? gender;
+  DateTime? dateOfBirth;
+  String idType = idNric;
+  String idNumber = '';
+  String idCountry = '';
+  int? departmentId;
+  String designation = '';
+  DateTime? joinDate;
+  double? salary;
+  bool isActive = true;
+  int? bankId;
+  String accountNumber = '';
+  String taxNumber = '';
+  String profilePicture = '';
+  double? epfEmployeeRateOverride;
+  double? epfEmployerRateOverride;
+
+  String get _idClean => idType == idNric
+      ? idNumber.replaceAll(RegExp(r'[\s-]'), '')
+      : idNumber.trim().toUpperCase();
+
+  String get _phoneClean => phone.replaceAll(RegExp(r'[\s\-()]'), '');
+
+  /// The first problem, or null when the form can be sent. [today] for tests.
+  String? validate({DateTime? today}) {
+    final now = today ?? DateTime.now();
+    if (name.trim().isEmpty) return 'Enter the employee\'s name.';
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email.trim())) {
+      return 'Enter a valid email address (it is also the employee\'s login).';
+    }
+    if (!RegExp(r'^\+\d{1,4}$').hasMatch(phoneCountryCode)) return 'Select a valid country code.';
+    if (!RegExp(r'^\d{7,12}$').hasMatch(_phoneClean)) {
+      return 'Mobile number must be 7–12 digits (numbers only).';
+    }
+    if (idType == idNric) {
+      if (!RegExp(r'^\d{12}$').hasMatch(_idClean)) return 'NRIC must be exactly 12 digits.';
+    } else {
+      if (!RegExp(r'^[A-Z0-9]{8,10}$').hasMatch(_idClean)) {
+        return 'Passport number must be 8–10 letters or numbers.';
+      }
+      if (idCountry.trim().isEmpty) return 'Enter the passport\'s country.';
+    }
+    final dob = dateOfBirth;
+    if (dob == null) return 'Select the date of birth.';
+    final day = DateTime(now.year, now.month, now.day);
+    if (dob.isAfter(day)) return 'Date of birth can\'t be in the future.';
+    if (dob.isAfter(DateTime(day.year - minimumAge, day.month, day.day))) {
+      return 'Employee must be at least $minimumAge years old.';
+    }
+    if (joinDate == null) return 'Select the join date.';
+    if ((salary ?? 0) <= 0) return 'Enter the basic salary.';
+    for (final r in [epfEmployeeRateOverride, epfEmployerRateOverride]) {
+      if (r != null && (r < 0 || r > 100)) return 'EPF rates must be between 0 and 100%.';
+    }
+    return null;
+  }
+
+  static String _date(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}T00:00:00Z';
+
+  Map<String, dynamic> toJson() => {
+        'name': name.trim(),
+        'email': email.trim(),
+        'phone': _phoneClean,
+        'phoneCountryCode': phoneCountryCode,
+        'departmentId': departmentId,
+        'designation': designation.trim(),
+        'joinDate': _date(joinDate!),
+        'salary': salary,
+        'isActive': isActive,
+        'icPassport': _idClean,
+        'idType': idType,
+        'idCountry': idType == idNric ? 'Malaysia' : idCountry.trim(),
+        'taxNumber': taxNumber.trim(),
+        'bankId': bankId,
+        'accountNumber': accountNumber.trim(),
+        'profilePicture': profilePicture,
+        'gender': gender,
+        'dateOfBirth': _date(dateOfBirth!),
+        'epfEmployeeRateOverride': epfEmployeeRateOverride,
+        'epfEmployerRateOverride': epfEmployerRateOverride,
+      };
+}
+
+/// One row of GET /api/attendancemanagement/all (attendance history).
+class AttendanceHistoryItem {
+  const AttendanceHistoryItem({
+    required this.id,
+    required this.employeeId,
+    required this.employeeName,
+    required this.start,
+    required this.end,
+    required this.status,
+    required this.totalHours,
+    required this.leaveCount,
+    this.submittedAt,
+    this.approvedAt,
+    this.rejectionReason,
+  });
+
+  final int id;
+  final int employeeId;
+  final String employeeName;
+  final DateTime start;
+  final DateTime end;
+  final String status;
+  final double totalHours;
+  final int leaveCount;
+  final DateTime? submittedAt;
+  final DateTime? approvedAt;
+  final String? rejectionReason;
+
+  String get label => start.month == end.month
+      ? '${Fmt.shortDate(start)} – ${Fmt.date(end)}'
+      : '${Fmt.date(start)} – ${Fmt.date(end)}';
+
+  factory AttendanceHistoryItem.fromJson(Map<String, dynamic> j) => AttendanceHistoryItem(
+        id: j['id'] as int,
+        employeeId: j['employeeId'] as int? ?? 0,
+        employeeName: j['employeeName'] as String? ?? '',
+        start: tryCalendarDate(j['startDate']) ?? DateTime.now(),
+        end: tryCalendarDate(j['endDate']) ?? DateTime.now(),
+        status: j['status'] as String? ?? '',
+        totalHours: toDouble(j['totalHours']),
+        leaveCount: (j['leaveCount'] as num?)?.toInt() ?? 0,
+        submittedAt: tryParseApiDate(j['submittedAt']),
+        approvedAt: tryParseApiDate(j['approvedAt']),
+        rejectionReason: j['rejectionReason'] as String?,
+      );
+}
+
+/// One row of GET /api/leavemanagement/balances/all (every employee, one year).
+class LeaveBalanceRow {
+  const LeaveBalanceRow({
+    required this.id,
+    required this.employeeId,
+    required this.employeeName,
+    required this.leaveTypeName,
+    required this.leaveTypeCode,
+    required this.totalDays,
+    required this.usedDays,
+    required this.balanceDays,
+    required this.carryForwardDays,
+    this.employeeCode,
+  });
+
+  final int id;
+  final int employeeId;
+  final String employeeName;
+  final String? employeeCode;
+  final String leaveTypeName;
+  final String leaveTypeCode;
+  final double totalDays;
+  final double usedDays;
+  final double balanceDays;
+  final double carryForwardDays;
+
+  /// What the server will store for new totals (balance = total + carry forward - used).
+  double balanceFor(double total, double carryForward) => total + carryForward - usedDays;
+
+  factory LeaveBalanceRow.fromJson(Map<String, dynamic> j) => LeaveBalanceRow(
+        id: j['id'] as int,
+        employeeId: j['employeeId'] as int? ?? 0,
+        employeeName: j['employeeName'] as String? ?? '',
+        employeeCode: j['employeeCode'] as String?,
+        leaveTypeName: j['leaveTypeName'] as String? ?? '',
+        leaveTypeCode: j['leaveTypeCode'] as String? ?? '',
+        totalDays: toDouble(j['totalDays']),
+        usedDays: toDouble(j['usedDays']),
+        balanceDays: toDouble(j['balanceDays']),
+        carryForwardDays: toDouble(j['carryForwardDays']),
       );
 }

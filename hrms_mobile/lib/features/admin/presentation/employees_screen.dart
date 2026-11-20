@@ -27,6 +27,11 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Employees')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => context.push(Routes.employeeForm),
+        icon: const Icon(Icons.person_add_alt),
+        label: const Text('Add employee'),
+      ),
       body: Column(
         children: [
           Padding(
@@ -85,7 +90,7 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
                         )
                       : ListView.separated(
                           physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
                           itemCount: shown.length + 1,
                           separatorBuilder: (_, __) => const SizedBox(height: 8),
                           itemBuilder: (_, i) => i == 0

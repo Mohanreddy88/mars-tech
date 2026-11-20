@@ -155,6 +155,8 @@ public class UsersController : ControllerBase
             if (req.Password.Length < 8) return BadRequest(new { message = "Password must be at least 8 characters.", field = "password" });
             user.PasswordHash       = BCrypt.Net.BCrypt.HashPassword(req.Password);
             user.MustChangePassword = true;   // a password set by someone else is changed at next login
+            user.RefreshTokenHash      = null;  // and saved logins (phones) must sign in again
+            user.RefreshTokenExpiresAt = null;
         }
         await _db.SaveChangesAsync();
 

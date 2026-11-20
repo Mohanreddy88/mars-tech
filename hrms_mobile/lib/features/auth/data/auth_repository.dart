@@ -27,6 +27,32 @@ class AuthRepository {
     }
   }
 
+  /// POST /api/auth/refresh: a new session from the refresh token (the old
+  /// refresh token stops working). Throws ApiException 401 when the session
+  /// ended (expired, signed in elsewhere, password reset, login disabled).
+  Future<Session> refresh(String refreshToken) async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        'auth/refresh',
+        data: {'refreshToken': refreshToken},
+      );
+      return Session.fromJson(res.data!);
+    } catch (e) {
+      throw ApiException.from(e);
+    }
+  }
+
+  /// POST /api/auth/logout: revoke the refresh token and this phone's push
+  /// registration. Best effort; signing out locally never waits on it.
+  Future<void> logout({String? deviceToken}) async {
+    try {
+      await _dio.post<void>('auth/logout', data: {'deviceToken': deviceToken},
+          options: Options(sendTimeout: const Duration(seconds: 5), receiveTimeout: const Duration(seconds: 5)));
+    } catch (_) {
+      // Offline or already signed out: the refresh token simply expires.
+    }
+  }
+
   /// POST /api/auth/forgot-password. Returns the server's message.
   Future<String> forgotPassword(String email) async {
     try {

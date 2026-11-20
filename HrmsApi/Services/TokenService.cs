@@ -3,6 +3,7 @@ using HrmsApi.Platform;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace HrmsApi.Services;
@@ -23,6 +24,23 @@ public class TokenService
         _config = config;
         _tenant = tenant;
     }
+
+    /// <summary>
+    /// New refresh token for the user's current session (Jwt:RefreshDays, default 30). Only its
+    /// SHA-256 is stored on the user, replacing any previous one; the caller saves the change.
+    /// </summary>
+    public (string token, DateTime expiresAt) IssueRefreshToken(User user)
+    {
+        var days      = int.TryParse(_config["Jwt:RefreshDays"], out var d) && d > 0 ? d : 30;
+        var token     = Base64UrlEncoder.Encode(RandomNumberGenerator.GetBytes(32));
+        var expiresAt = DateTime.UtcNow.AddDays(days);
+        user.RefreshTokenHash      = HashRefreshToken(token);
+        user.RefreshTokenExpiresAt = expiresAt;
+        return (token, expiresAt);
+    }
+
+    public static string HashRefreshToken(string token) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 
     public (string token, DateTime expiresAt) GenerateToken(User user) =>
         GenerateToken(user.Id, user.Username, user.Role, user.CurrentSessionId);

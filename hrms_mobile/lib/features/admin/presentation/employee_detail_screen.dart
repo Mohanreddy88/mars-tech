@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_exception.dart';
+import '../../../core/router/app_router.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../data/admin_models.dart';
 import '../data/admin_repository.dart';
 
 /// Admin view of one employee: details, this year's leave balances and
-/// payroll history. (Editing employees stays on the website.)
+/// payroll history, with edit, deactivate / reactivate and "resend welcome
+/// email". (Permanent delete stays on the website.)
 class EmployeeDetailScreen extends ConsumerWidget {
   const EmployeeDetailScreen({super.key, required this.employee});
 
@@ -16,14 +19,86 @@ class EmployeeDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final e = employee;
+    // Latest data after an edit (falls back to what the list passed in).
+    final e = ref.watch(employeesProvider).valueOrNull
+            ?.where((x) => x.id == employee.id)
+            .firstOrNull ??
+        employee;
     final balances = ref.watch(employeeLeaveBalancesProvider(e.id));
     final payrolls = ref.watch(employeePayrollsProvider(e.id));
     final theme = Theme.of(context);
     final muted = theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant);
 
+    Future<void> run(Future<void> Function() action, String done) async {
+      final messenger = ScaffoldMessenger.of(context);
+      try {
+        await action();
+        ref.invalidate(employeesProvider);
+        ref.invalidate(adminDashboardProvider);
+        messenger.showSnackBar(SnackBar(content: Text(done)));
+      } catch (err) {
+        messenger.showSnackBar(SnackBar(content: Text(ApiException.from(err).message)));
+      }
+    }
+
+    Future<void> toggleActive() async {
+      final deactivate = e.isActive;
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(deactivate ? 'Deactivate ${e.name}?' : 'Reactivate ${e.name}?'),
+          content: Text(deactivate
+              ? 'They will no longer be able to log in and will not be included in new payroll. '
+                  'Their history is kept and you can reactivate them later.'
+              : 'They will be able to log in again and be included in payroll.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Back')),
+            FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(deactivate ? 'Deactivate' : 'Reactivate')),
+          ],
+        ),
+      );
+      if (ok != true) return;
+      await run(() => ref.read(adminRepositoryProvider).setEmployeeActive(e, !deactivate),
+          deactivate ? 'Employee deactivated' : 'Employee reactivated');
+    }
+
     return Scaffold(
-      appBar: AppBar(title: Text(e.name)),
+      appBar: AppBar(
+        title: Text(e.name),
+        actions: [
+          IconButton(
+            tooltip: 'Edit',
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: () => context.push(Routes.employeeForm, extra: e),
+          ),
+          PopupMenuButton<String>(
+            onSelected: (v) => switch (v) {
+              'active' => toggleActive(),
+              'welcome' => run(() => ref.read(adminRepositoryProvider).sendWelcome(e.id),
+                  'Set-password email sent to ${e.email}'),
+              _ => null,
+            },
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'active',
+                child: ListTile(
+                  leading: Icon(e.isActive ? Icons.person_off_outlined : Icons.person_add_alt),
+                  title: Text(e.isActive ? 'Deactivate' : 'Reactivate'),
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'welcome',
+                child: ListTile(
+                  leading: Icon(Icons.forward_to_inbox_outlined),
+                  title: Text('Resend welcome email'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
         children: [
@@ -105,9 +180,6 @@ class EmployeeDetailScreen extends ConsumerWidget {
                     ),
             ),
           ),
-          const SizedBox(height: 12),
-          Text('To edit this employee, use the website.',
-              textAlign: TextAlign.center, style: theme.textTheme.bodySmall),
         ],
       ),
     );

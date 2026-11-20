@@ -3,11 +3,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/admin/data/admin_models.dart';
+import '../../features/admin/payroll/presentation/generate_payroll_screen.dart';
+import '../../features/admin/payroll/presentation/payroll_record_screen.dart';
+import '../../features/admin/payroll/presentation/payroll_screen.dart';
+import '../../features/admin/payroll/presentation/salary_release_screen.dart';
+import '../../features/admin/payroll/presentation/year_end_screen.dart';
+import '../../features/admin/audit/presentation/audit_log_screen.dart';
+import '../../features/admin/master/data/master_repository.dart' show MasterKind;
+import '../../features/admin/master/presentation/company_rates_screens.dart';
+import '../../features/admin/master/presentation/master_lists_screen.dart';
+import '../../features/admin/master/presentation/users_screen.dart';
+import '../../features/admin/reports/presentation/analytics_screen.dart';
+import '../../features/admin/reports/presentation/report_screens.dart';
 import '../../features/admin/presentation/admin_dashboard_screen.dart';
+import '../../features/admin/presentation/admin_more_screen.dart';
+import '../../features/admin/presentation/attendance_history_screen.dart';
+import '../../features/admin/presentation/leave_balances_screen.dart';
 import '../../features/admin/presentation/admin_home_shell.dart';
 import '../../features/admin/presentation/approvals_screen.dart';
 import '../../features/admin/presentation/attendance_review_screen.dart';
 import '../../features/admin/presentation/employee_detail_screen.dart';
+import '../../features/admin/presentation/employee_form_screen.dart';
 import '../../features/admin/presentation/employees_screen.dart';
 import '../../features/attendance/data/attendance_models.dart';
 import '../../features/attendance/presentation/attendance_period_screen.dart';
@@ -52,13 +68,37 @@ class Routes {
   static const adminHome = '/admin';
   static const adminApprovals = '/admin/approvals'; // ?tab=attendance
   static const adminEmployees = '/admin/employees';
-  static const adminProfile = '/admin/profile';
+  static const adminPayroll = '/admin/payroll';
+  static const adminMore = '/admin/more';
+  static const attendanceHistory = '/attendance-history';
+  static const leaveBalances = '/leave-balances';
+  static const payrollReport = '/report-payroll';
+  static const attendanceReport = '/report-attendance';
+  static const directoryReport = '/report-directory';
+  static const monthlySummary = '/report-monthly';
+  static const analytics = '/analytics';
+  static const departmentsMaster = '/master-departments';
+  static const banksMaster = '/master-banks';
+  static const holidaysMaster = '/master-holidays';
+  static const usersMaster = '/master-users';
+  static const companySettings = '/master-company';
+  static const statutoryRates = '/master-rates';
+  static const auditLog = '/audit-log';
   static const attendanceReview = '/attendance-review'; // /{periodId}
   static const employeeDetail = '/employee-detail'; // extra: EmployeeSummary
+  static const employeeForm = '/employee-form'; // extra: EmployeeSummary to edit, none = new
+  static const payrollRecord = '/payroll-record'; // /{payrollId}
+  static const generatePayroll = '/generate-payroll';
+  static const salaryRelease = '/salary-release';
+  static const yearEnd = '/year-end';
 
   static const _employeeOnly = [dashboard, payslips, leave, attendance, profile,
       applyLeave, attendancePeriod, editProfile];
-  static const _adminOnly = [adminHome, attendanceReview, employeeDetail];
+  static const _adminOnly = [adminHome, attendanceReview, employeeDetail, employeeForm,
+      attendanceHistory, leaveBalances, payrollReport, attendanceReport, directoryReport,
+      monthlySummary, analytics, departmentsMaster, banksMaster, holidaysMaster, usersMaster,
+      companySettings, statutoryRates, auditLog,
+      payrollRecord, generatePayroll, salaryRelease, yearEnd];
 
   /// Home screen for the signed-in role.
   static String homeFor(Session s) => s.isAdmin ? adminHome : dashboard;
@@ -145,6 +185,50 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) =>
             EmployeeDetailScreen(employee: state.extra! as EmployeeSummary),
       ),
+      GoRoute(
+        path: Routes.attendanceHistory,
+        builder: (context, state) => const AttendanceHistoryScreen(),
+      ),
+      GoRoute(
+        path: Routes.leaveBalances,
+        builder: (context, state) => const LeaveBalancesScreen(),
+      ),
+      GoRoute(path: Routes.payrollReport, builder: (context, state) => const PayrollReportScreen()),
+      GoRoute(path: Routes.attendanceReport, builder: (context, state) => const AttendanceReportScreen()),
+      GoRoute(path: Routes.directoryReport, builder: (context, state) => const DirectoryReportScreen()),
+      GoRoute(path: Routes.monthlySummary, builder: (context, state) => const MonthlySummaryScreen()),
+      GoRoute(path: Routes.analytics, builder: (context, state) => const AnalyticsScreen()),
+      GoRoute(
+          path: Routes.departmentsMaster,
+          builder: (context, state) => const MasterListScreen(kind: MasterKind.departments)),
+      GoRoute(path: Routes.banksMaster, builder: (context, state) => const MasterListScreen(kind: MasterKind.banks)),
+      GoRoute(path: Routes.holidaysMaster, builder: (context, state) => const HolidaysScreen()),
+      GoRoute(path: Routes.usersMaster, builder: (context, state) => const UsersScreen()),
+      GoRoute(path: Routes.companySettings, builder: (context, state) => const CompanySettingsScreen()),
+      GoRoute(path: Routes.statutoryRates, builder: (context, state) => const StatutoryRatesScreen()),
+      GoRoute(path: Routes.auditLog, builder: (context, state) => const AuditLogScreen()),
+      GoRoute(
+        path: Routes.employeeForm,
+        builder: (context, state) =>
+            EmployeeFormScreen(employee: state.extra as EmployeeSummary?),
+      ),
+      GoRoute(
+        path: '${Routes.payrollRecord}/:id',
+        builder: (context, state) =>
+            PayrollRecordScreen(payrollId: int.parse(state.pathParameters['id']!)),
+      ),
+      GoRoute(
+        path: Routes.generatePayroll,
+        builder: (context, state) => const GeneratePayrollScreen(),
+      ),
+      GoRoute(
+        path: Routes.salaryRelease,
+        builder: (context, state) => const SalaryReleaseScreen(),
+      ),
+      GoRoute(
+        path: Routes.yearEnd,
+        builder: (context, state) => const YearEndScreen(),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => AdminHomeShell(navigationShell: shell),
         branches: [
@@ -171,8 +255,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           ]),
           StatefulShellBranch(routes: [
             GoRoute(
-              path: Routes.adminProfile,
-              builder: (context, state) => const ProfileScreen(),
+              path: Routes.adminPayroll,
+              builder: (context, state) => const PayrollScreen(),
+            ),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: Routes.adminMore,
+              builder: (context, state) => const AdminMoreScreen(),
             ),
           ]),
         ],

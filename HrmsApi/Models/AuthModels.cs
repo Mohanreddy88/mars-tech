@@ -4,7 +4,14 @@ namespace HrmsApi.Models;
 
 public record LoginRequest(string Username, string Password);
 
-public record LoginResponse(string Token, string Username, string Role, DateTime ExpiresAt, int? EmployeeId = null, bool MustChangePassword = false);
+public record LoginResponse(string Token, string Username, string Role, DateTime ExpiresAt, int? EmployeeId = null, bool MustChangePassword = false,
+    string? RefreshToken = null, DateTime? RefreshExpiresAt = null);
+
+/// <summary>POST /api/auth/refresh</summary>
+public record RefreshRequest(string RefreshToken);
+
+/// <summary>POST /api/auth/logout — the device's push token (if any) is removed too.</summary>
+public record LogoutRequest(string? DeviceToken);
 
 // ── Employee ──────────────────────────────────────────────────────────────────
 

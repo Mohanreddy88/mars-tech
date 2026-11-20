@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/env.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/router/app_router.dart';
+import '../../../core/storage/company_store.dart';
 import '../application/auth_controller.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -17,14 +19,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _username = TextEditingController();
   final _password = TextEditingController();
+  late final TextEditingController _company;
   bool _obscure = true;
   bool _loading = false;
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    _company = TextEditingController(text: ref.read(companyCodeProvider) ?? '');
+  }
+
+  @override
   void dispose() {
     _username.dispose();
     _password.dispose();
+    _company.dispose();
     super.dispose();
   }
 
@@ -36,6 +46,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _error = null;
     });
     try {
+      // Release builds: sign in to the company's own address (remembered).
+      if (Env.asksForCompany) {
+        final code = _company.text.trim().toLowerCase();
+        await ref.read(companyStoreProvider).save(code);
+        ref.read(companyCodeProvider.notifier).state = code;
+      }
       await ref
           .read(authControllerProvider.notifier)
           .login(_username.text.trim(), _password.text);
@@ -89,6 +105,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         color: theme.colorScheme.errorContainer,
                         textColor: theme.colorScheme.onErrorContainer,
                       ),
+                    if (Env.asksForCompany) ...[
+                      TextFormField(
+                        controller: _company,
+                        decoration: const InputDecoration(
+                          labelText: 'Company code',
+                          prefixIcon: Icon(Icons.business_outlined),
+                          suffixText: '.${Env.domain}',
+                          helperText: 'From your company\'s web address. Leave empty for ${Env.domain}.',
+                        ),
+                        autocorrect: false,
+                        textInputAction: TextInputAction.next,
+                        validator: (v) => Env.companyCodeError(v ?? ''),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                     TextFormField(
                       controller: _username,
                       decoration: const InputDecoration(

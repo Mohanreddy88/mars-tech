@@ -26,4 +26,26 @@ public class User
     /// ("sid" claim). A token whose sid no longer matches was replaced by a newer login elsewhere.
     /// </summary>
     public string? CurrentSessionId { get; set; }
+
+    // ── Refresh token (mobile app stays signed in) ─────────
+    /// <summary>SHA-256 (hex) of the current refresh token; the token itself is never stored.
+    /// Belongs to the current session: a new login replaces it, so an older device can no longer refresh.</summary>
+    public string?   RefreshTokenHash      { get; set; }
+    public DateTime? RefreshTokenExpiresAt { get; set; }
+}
+
+/// <summary>
+/// A phone that receives push notifications for a login (Firebase Cloud Messaging token).
+/// </summary>
+public class DeviceToken
+{
+    public int      Id         { get; set; }
+    public int      UserId     { get; set; }
+    public string   Token      { get; set; } = string.Empty;
+    /// <summary>"android" or "ios".</summary>
+    public string   Platform   { get; set; } = "android";
+    public DateTime CreatedAt  { get; set; } = DateTime.UtcNow;
+    public DateTime LastSeenAt { get; set; } = DateTime.UtcNow;
+
+    public User User { get; set; } = null!;
 }

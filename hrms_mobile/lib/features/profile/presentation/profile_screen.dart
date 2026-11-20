@@ -43,8 +43,45 @@ class ProfileScreen extends ConsumerWidget {
     final isAdmin = session?.isAdmin ?? false;
     final theme = Theme.of(context);
 
+    // Username, change password, sign out: shown right under the name, so it
+    // never needs scrolling to find.
+    final account = Card(
+      child: Column(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.badge_outlined),
+            title: const Text('Username'),
+            trailing: Text(session?.username ?? ''),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.lock_reset_outlined),
+            title: const Text('Change password'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push(Routes.changePassword),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: Icon(Icons.logout, color: theme.colorScheme.error),
+            title: Text('Sign out', style: TextStyle(color: theme.colorScheme.error)),
+            onTap: () => _confirmLogout(context, ref),
+          ),
+        ],
+      ),
+    );
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(
+        title: const Text('Profile'),
+        actions: [
+          TextButton.icon(
+            onPressed: () => _confirmLogout(context, ref),
+            icon: const Icon(Icons.logout),
+            label: const Text('Sign out'),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: () async {
           if (isAdmin) return;
@@ -56,49 +93,27 @@ class ProfileScreen extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
           children: [
             // Admin logins have no employee record: just the account.
-            if (isAdmin)
-              _AccountHeader(title: session?.username ?? '', subtitle: 'Administrator')
-            else
+            if (isAdmin) ...[
+              _AccountHeader(title: session?.username ?? '', subtitle: 'Administrator'),
+              const SizedBox(height: 16),
+              account,
+            ] else
               ref.watch(profileProvider).when(
-              skipLoadingOnRefresh: true,
-              loading: () => const Padding(
-                padding: EdgeInsets.all(32),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-              // Accounts without an employee record (e.g. admin) still get
-              // the account section below.
-              error: (e, _) => _AccountHeader(
-                title: session?.username ?? '',
-                subtitle: ApiException.from(e).message,
-              ),
-              data: (p) => _ProfileDetails(profile: p),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.badge_outlined),
-                    title: const Text('Username'),
-                    trailing: Text(session?.username ?? ''),
+                    skipLoadingOnRefresh: true,
+                    loading: () => const Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                    error: (e, _) => Column(children: [
+                      _AccountHeader(
+                        title: session?.username ?? '',
+                        subtitle: ApiException.from(e).message,
+                      ),
+                      const SizedBox(height: 16),
+                      account,
+                    ]),
+                    data: (p) => _ProfileDetails(profile: p, account: account),
                   ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.lock_reset_outlined),
-                    title: const Text('Change password'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => context.push(Routes.changePassword),
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: Icon(Icons.logout, color: theme.colorScheme.error),
-                    title: Text('Sign out',
-                        style: TextStyle(color: theme.colorScheme.error)),
-                    onTap: () => _confirmLogout(context, ref),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),
@@ -107,9 +122,12 @@ class ProfileScreen extends ConsumerWidget {
 }
 
 class _ProfileDetails extends ConsumerWidget {
-  const _ProfileDetails({required this.profile});
+  const _ProfileDetails({required this.profile, required this.account});
 
   final EmployeeProfile profile;
+
+  /// Username / change password / sign out card, shown under the header.
+  final Widget account;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -122,6 +140,8 @@ class _ProfileDetails extends ConsumerWidget {
       children: [
         _AccountHeader(title: p.name, subtitle: job),
         const SizedBox(height: 16),
+        account,
+        const SizedBox(height: 12),
         _InfoCard(
           title: 'Contact',
           rows: [
