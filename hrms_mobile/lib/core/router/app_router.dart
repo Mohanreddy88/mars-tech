@@ -1,0 +1,230 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../features/admin/data/admin_models.dart';
+import '../../features/admin/presentation/admin_dashboard_screen.dart';
+import '../../features/admin/presentation/admin_home_shell.dart';
+import '../../features/admin/presentation/approvals_screen.dart';
+import '../../features/admin/presentation/attendance_review_screen.dart';
+import '../../features/admin/presentation/employee_detail_screen.dart';
+import '../../features/admin/presentation/employees_screen.dart';
+import '../../features/attendance/data/attendance_models.dart';
+import '../../features/attendance/presentation/attendance_period_screen.dart';
+import '../../features/attendance/presentation/attendance_screen.dart';
+import '../../features/auth/application/auth_controller.dart';
+import '../../features/auth/data/session.dart';
+import '../../features/auth/presentation/change_password_screen.dart';
+import '../../features/auth/presentation/forgot_password_screen.dart';
+import '../../features/auth/presentation/login_screen.dart';
+import '../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../features/home/home_shell.dart';
+import '../../features/leave/presentation/apply_leave_screen.dart';
+import '../../features/leave/presentation/leave_screen.dart';
+import '../../features/notifications/presentation/notifications_screen.dart';
+import '../../features/payslips/presentation/payslip_detail_screen.dart';
+import '../../features/payslips/presentation/payslips_screen.dart';
+import '../../features/profile/data/profile_models.dart';
+import '../../features/profile/presentation/edit_profile_screen.dart';
+import '../../features/profile/presentation/profile_screen.dart';
+
+class Routes {
+  Routes._();
+
+  static const login = '/login';
+  static const forgotPassword = '/forgot-password';
+  static const changePassword = '/change-password';
+
+  // Bottom-navigation tabs
+  static const dashboard = '/dashboard';
+  static const payslips = '/payslips';
+  static const leave = '/leave';
+  static const attendance = '/attendance';
+  static const profile = '/profile';
+
+  // Full-screen pages opened from the tabs (no bottom navigation)
+  static const applyLeave = '/apply-leave';
+  static const attendancePeriod = '/attendance-period'; // extra: AttendancePeriod
+  static const notifications = '/notifications';
+  static const editProfile = '/edit-profile'; // extra: EmployeeProfile
+
+  // Admin logins (separate bottom navigation)
+  static const adminHome = '/admin';
+  static const adminApprovals = '/admin/approvals'; // ?tab=attendance
+  static const adminEmployees = '/admin/employees';
+  static const adminProfile = '/admin/profile';
+  static const attendanceReview = '/attendance-review'; // /{periodId}
+  static const employeeDetail = '/employee-detail'; // extra: EmployeeSummary
+
+  static const _employeeOnly = [dashboard, payslips, leave, attendance, profile,
+      applyLeave, attendancePeriod, editProfile];
+  static const _adminOnly = [adminHome, attendanceReview, employeeDetail];
+
+  /// Home screen for the signed-in role.
+  static String homeFor(Session s) => s.isAdmin ? adminHome : dashboard;
+
+  /// Whether [location] belongs to the other role's part of the app.
+  static bool isWrongArea(Session s, String location) {
+    bool under(String root) => location == root || location.startsWith('$root/');
+    return s.isAdmin
+        ? _employeeOnly.any(under)
+        : _adminOnly.any(under);
+  }
+}
+
+final routerProvider = Provider<GoRouter>((ref) {
+  // Bridge Riverpod auth state to GoRouter's refreshListenable.
+  final auth = ValueNotifier<Session?>(ref.read(authControllerProvider));
+  ref.listen<Session?>(authControllerProvider, (_, next) => auth.value = next);
+  ref.onDispose(auth.dispose);
+
+  return GoRouter(
+    initialLocation: Routes.dashboard,
+    refreshListenable: auth,
+    redirect: (context, state) {
+      final session = auth.value;
+      final location = state.matchedLocation;
+      final isPublic =
+          location == Routes.login || location == Routes.forgotPassword;
+
+      if (session == null) return isPublic ? null : Routes.login;
+      if (session.mustChangePassword) {
+        return location == Routes.changePassword ? null : Routes.changePassword;
+      }
+      if (isPublic) return Routes.homeFor(session);
+      // Admins get the admin screens, employees the self-service screens.
+      // (The API enforces this too; this just avoids dead-end pages.)
+      if (Routes.isWrongArea(session, location)) return Routes.homeFor(session);
+
+      // Pages that need an object passed in `extra` (lost if the app is
+      // restored from the background): fall back to their list.
+      if (location == Routes.attendancePeriod && state.extra is! AttendancePeriod) {
+        return Routes.attendance;
+      }
+      if (location == Routes.editProfile && state.extra is! EmployeeProfile) {
+        return Routes.profile;
+      }
+      if (location == Routes.employeeDetail && state.extra is! EmployeeSummary) {
+        return Routes.adminEmployees;
+      }
+      return null;
+    },
+    routes: [
+      GoRoute(
+        path: Routes.login,
+        builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: Routes.forgotPassword,
+        builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: Routes.changePassword,
+        builder: (context, state) => const ChangePasswordScreen(),
+      ),
+      GoRoute(
+        path: Routes.applyLeave,
+        builder: (context, state) => const ApplyLeaveScreen(),
+      ),
+      GoRoute(
+        path: Routes.attendancePeriod,
+        builder: (context, state) =>
+            AttendancePeriodScreen(period: state.extra! as AttendancePeriod),
+      ),
+      GoRoute(
+        path: Routes.notifications,
+        builder: (context, state) => const NotificationsScreen(),
+      ),
+      GoRoute(
+        path: '${Routes.attendanceReview}/:id',
+        builder: (context, state) =>
+            AttendanceReviewScreen(periodId: int.parse(state.pathParameters['id']!)),
+      ),
+      GoRoute(
+        path: Routes.employeeDetail,
+        builder: (context, state) =>
+            EmployeeDetailScreen(employee: state.extra! as EmployeeSummary),
+      ),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, shell) => AdminHomeShell(navigationShell: shell),
+        branches: [
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: Routes.adminHome,
+              builder: (context, state) => const AdminDashboardScreen(),
+            ),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: Routes.adminApprovals,
+              builder: (context, state) {
+                final tab = state.uri.queryParameters['tab'] == 'attendance' ? 1 : 0;
+                return ApprovalsScreen(key: ValueKey(tab), initialTab: tab);
+              },
+            ),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: Routes.adminEmployees,
+              builder: (context, state) => const EmployeesScreen(),
+            ),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: Routes.adminProfile,
+              builder: (context, state) => const ProfileScreen(),
+            ),
+          ]),
+        ],
+      ),
+      GoRoute(
+        path: Routes.editProfile,
+        builder: (context, state) =>
+            EditProfileScreen(profile: state.extra! as EmployeeProfile),
+      ),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, shell) => HomeShell(navigationShell: shell),
+        branches: [
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: Routes.dashboard,
+              builder: (context, state) => const DashboardScreen(),
+            ),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: Routes.payslips,
+              builder: (context, state) => const PayslipsScreen(),
+              routes: [
+                GoRoute(
+                  path: ':id',
+                  builder: (context, state) => PayslipDetailScreen(
+                    payslipId: int.parse(state.pathParameters['id']!),
+                  ),
+                ),
+              ],
+            ),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: Routes.leave,
+              builder: (context, state) => const LeaveScreen(),
+            ),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: Routes.attendance,
+              builder: (context, state) => const AttendanceScreen(),
+            ),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: Routes.profile,
+              builder: (context, state) => const ProfileScreen(),
+            ),
+          ]),
+        ],
+      ),
+    ],
+  );
+});

@@ -36,6 +36,7 @@ public class BanksController : ControllerBase
     /// Returns ALL banks including inactive (Admin management view).
     /// </summary>
     [HttpGet("all")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> GetAllIncludingInactive()
     {
         var banks = await _db.BankMasters
@@ -51,6 +52,7 @@ public class BanksController : ControllerBase
     /// Creates a new bank entry (Admin only).
     /// </summary>
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Create([FromBody] BankMasterRequest req)
     {
         var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
@@ -78,6 +80,7 @@ public class BanksController : ControllerBase
     /// Updates a bank entry (Admin only).
     /// </summary>
     [HttpPut("{id:int}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Update(int id, [FromBody] BankMasterRequest req)
     {
         var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
@@ -101,6 +104,7 @@ public class BanksController : ControllerBase
     /// Hard delete is blocked if employees use this bank.
     /// </summary>
     [HttpDelete("{id:int}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Delete(int id)
     {
         var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;

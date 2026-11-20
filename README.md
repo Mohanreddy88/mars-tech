@@ -7,6 +7,7 @@ automatic UAT and production deployments.
 |--------|------|
 | [`hrms-ui/`](hrms-ui/) | Angular frontend |
 | [`HrmsApi/`](HrmsApi/) | .NET 8 Web API (+ `HrmsApi.Tests`) |
+| [`hrms_mobile/`](hrms_mobile/) | Flutter employee self-service app (Android/iOS) — setup in [`hrms_mobile/README.md`](hrms_mobile/README.md). Not deployed by the server scripts |
 | [`deploy/`](deploy/) | Docker / Caddy / scripts for the VPS — full ops guide in [`deploy/README.md`](deploy/README.md) |
 
 ## Environments
