@@ -8,6 +8,10 @@ import '../../features/admin/payroll/presentation/payroll_record_screen.dart';
 import '../../features/admin/payroll/presentation/payroll_screen.dart';
 import '../../features/admin/payroll/presentation/salary_release_screen.dart';
 import '../../features/admin/payroll/presentation/year_end_screen.dart';
+import '../../features/admin/master/data/master_repository.dart' show MasterKind;
+import '../../features/admin/master/presentation/company_rates_screens.dart';
+import '../../features/admin/master/presentation/master_lists_screen.dart';
+import '../../features/admin/master/presentation/users_screen.dart';
 import '../../features/admin/reports/presentation/analytics_screen.dart';
 import '../../features/admin/reports/presentation/report_screens.dart';
 import '../../features/admin/presentation/admin_dashboard_screen.dart';
@@ -72,6 +76,12 @@ class Routes {
   static const directoryReport = '/report-directory';
   static const monthlySummary = '/report-monthly';
   static const analytics = '/analytics';
+  static const departmentsMaster = '/master-departments';
+  static const banksMaster = '/master-banks';
+  static const holidaysMaster = '/master-holidays';
+  static const usersMaster = '/master-users';
+  static const companySettings = '/master-company';
+  static const statutoryRates = '/master-rates';
   static const attendanceReview = '/attendance-review'; // /{periodId}
   static const employeeDetail = '/employee-detail'; // extra: EmployeeSummary
   static const employeeForm = '/employee-form'; // extra: EmployeeSummary to edit, none = new
@@ -84,7 +94,8 @@ class Routes {
       applyLeave, attendancePeriod, editProfile];
   static const _adminOnly = [adminHome, attendanceReview, employeeDetail, employeeForm,
       attendanceHistory, leaveBalances, payrollReport, attendanceReport, directoryReport,
-      monthlySummary, analytics,
+      monthlySummary, analytics, departmentsMaster, banksMaster, holidaysMaster, usersMaster,
+      companySettings, statutoryRates,
       payrollRecord, generatePayroll, salaryRelease, yearEnd];
 
   /// Home screen for the signed-in role.
@@ -185,6 +196,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.directoryReport, builder: (context, state) => const DirectoryReportScreen()),
       GoRoute(path: Routes.monthlySummary, builder: (context, state) => const MonthlySummaryScreen()),
       GoRoute(path: Routes.analytics, builder: (context, state) => const AnalyticsScreen()),
+      GoRoute(
+          path: Routes.departmentsMaster,
+          builder: (context, state) => const MasterListScreen(kind: MasterKind.departments)),
+      GoRoute(path: Routes.banksMaster, builder: (context, state) => const MasterListScreen(kind: MasterKind.banks)),
+      GoRoute(path: Routes.holidaysMaster, builder: (context, state) => const HolidaysScreen()),
+      GoRoute(path: Routes.usersMaster, builder: (context, state) => const UsersScreen()),
+      GoRoute(path: Routes.companySettings, builder: (context, state) => const CompanySettingsScreen()),
+      GoRoute(path: Routes.statutoryRates, builder: (context, state) => const StatutoryRatesScreen()),
       GoRoute(
         path: Routes.employeeForm,
         builder: (context, state) =>

@@ -111,6 +111,23 @@ class AdminMoreScreen extends ConsumerWidget {
                   Routes.directoryReport),
             ]),
           ),
+          const _Heading('Master data'),
+          Card(
+            child: Column(children: [
+              item(Icons.apartment_outlined, 'Departments', 'Add, rename, deactivate', Routes.departmentsMaster),
+              const Divider(height: 1),
+              item(Icons.account_balance_outlined, 'Banks', 'Banks for salary payment', Routes.banksMaster),
+              const Divider(height: 1),
+              item(Icons.celebration_outlined, 'Public holidays', 'Per year, national or state', Routes.holidaysMaster),
+              const Divider(height: 1),
+              item(Icons.manage_accounts_outlined, 'Users', 'Logins, roles, passwords', Routes.usersMaster),
+              const Divider(height: 1),
+              item(Icons.business_outlined, 'Company settings', 'Details on payslips and EA forms',
+                  Routes.companySettings),
+              const Divider(height: 1),
+              item(Icons.percent, 'Statutory rates', 'EPF, SOCSO, EIS, PCB (view)', Routes.statutoryRates),
+            ]),
+          ),
           const _Heading('Account'),
           Card(
             child: Column(children: [
