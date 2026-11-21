@@ -19,7 +19,8 @@ public interface IPushService
     bool Enabled { get; }
 
     /// <summary>Send to every registered device of these users (current company). Never throws.</summary>
-    Task SendToUsersAsync(HrmsDbContext db, IReadOnlyCollection<int> userIds, string title, string body, string type);
+    /// <param name="link">The page it is about (web path, e.g. "/parent/fees"); the app opens the matching screen.</param>
+    Task SendToUsersAsync(HrmsDbContext db, IReadOnlyCollection<int> userIds, string title, string body, string type, string? link = null);
 }
 
 public class PushService : IPushService
@@ -55,7 +56,7 @@ public class PushService : IPushService
 
     public bool Enabled => _messaging != null;
 
-    public async Task SendToUsersAsync(HrmsDbContext db, IReadOnlyCollection<int> userIds, string title, string body, string type)
+    public async Task SendToUsersAsync(HrmsDbContext db, IReadOnlyCollection<int> userIds, string title, string body, string type, string? link = null)
     {
         if (_messaging == null || userIds.Count == 0) return;
         try
@@ -74,7 +75,9 @@ public class PushService : IPushService
                     Tokens       = batch.Select(d => d.Token).ToList(),
                     Notification = new FirebaseAdmin.Messaging.Notification { Title = title, Body = body },
                     // The app reads "type" to open the right screen (leave_*, attendance_*, payroll_*).
-                    Data         = new Dictionary<string, string> { ["type"] = type },
+                    Data         = link == null
+                        ? new Dictionary<string, string> { ["type"] = type }
+                        : new Dictionary<string, string> { ["type"] = type, ["link"] = link },
                     Android      = new AndroidConfig { Priority = Priority.High },
                 };
                 var result = await _messaging.SendEachForMulticastAsync(message);

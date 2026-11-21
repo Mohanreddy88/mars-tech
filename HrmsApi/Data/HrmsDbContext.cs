@@ -31,6 +31,28 @@ public class HrmsDbContext : DbContext
     public DbSet<LeaveAttachment>       LeaveAttachments      => Set<LeaveAttachment>();
     public DbSet<DeviceToken>           DeviceTokens          => Set<DeviceToken>();
 
+    // ── School features ──
+    public DbSet<SchoolClass>           SchoolClasses         => Set<SchoolClass>();
+    public DbSet<Student>               Students              => Set<Student>();
+    public DbSet<Parent>                Parents               => Set<Parent>();
+    public DbSet<StudentParent>         StudentParents        => Set<StudentParent>();
+    public DbSet<Announcement>          Announcements         => Set<Announcement>();
+    public DbSet<AnnouncementRead>      AnnouncementReads     => Set<AnnouncementRead>();
+    public DbSet<Conversation>          Conversations         => Set<Conversation>();
+    public DbSet<ChatMessage>           ChatMessages          => Set<ChatMessage>();
+    public DbSet<ChatAttachment>        ChatAttachments       => Set<ChatAttachment>();
+    public DbSet<ConversationRead>      ConversationReads     => Set<ConversationRead>();
+    public DbSet<StudentAttendance>     StudentAttendance     => Set<StudentAttendance>();
+    public DbSet<ParentNote>            ParentNotes           => Set<ParentNote>();
+    public DbSet<DailyReport>           DailyReports          => Set<DailyReport>();
+    public DbSet<DailyReportPhoto>      DailyReportPhotos     => Set<DailyReportPhoto>();
+    public DbSet<FeeItem>               FeeItems              => Set<FeeItem>();
+    public DbSet<StudentFeeAddOn>       StudentFeeAddOns      => Set<StudentFeeAddOn>();
+    public DbSet<FeeInvoice>            FeeInvoices           => Set<FeeInvoice>();
+    public DbSet<FeeInvoiceLine>        FeeInvoiceLines       => Set<FeeInvoiceLine>();
+    public DbSet<FeePayment>            FeePayments           => Set<FeePayment>();
+    public DbSet<FeePaymentClaim>       FeePaymentClaims      => Set<FeePaymentClaim>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -350,6 +372,250 @@ public class HrmsDbContext : DbContext
             e.Property(x => x.Platform).HasMaxLength(20);
             e.HasIndex(x => x.Token).IsUnique();
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        ConfigureSchool(modelBuilder);
+    }
+
+    /// <summary>School features: classes, children, parents, announcements, messages.</summary>
+    private static void ConfigureSchool(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<SchoolClass>(e =>
+        {
+            e.Property(x => x.Name).IsRequired().HasMaxLength(50);
+            e.Property(x => x.Description).HasMaxLength(200);
+            e.HasIndex(x => x.Name).IsUnique();
+            // Deleting a teacher's employee record leaves the class without a teacher
+            e.HasOne(x => x.ClassTeacher).WithMany().HasForeignKey(x => x.ClassTeacherId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<Student>(e =>
+        {
+            e.Property(x => x.FullName).IsRequired().HasMaxLength(150);
+            e.Property(x => x.AdmissionNo).HasMaxLength(30);
+            e.Property(x => x.Gender).HasMaxLength(10);
+            e.Property(x => x.SessionType).IsRequired().HasMaxLength(20);
+            e.Property(x => x.MedicalNotes).HasMaxLength(1000);
+            e.Property(x => x.EmergencyContactName).HasMaxLength(150);
+            e.Property(x => x.EmergencyContactPhone).HasMaxLength(30);
+            e.Property(x => x.Notes).HasMaxLength(1000);
+            e.HasIndex(x => x.ClassId);
+            e.HasOne(x => x.Class).WithMany(c => c.Students).HasForeignKey(x => x.ClassId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Parent>(e =>
+        {
+            e.Property(x => x.FullName).IsRequired().HasMaxLength(150);
+            e.Property(x => x.Email).HasMaxLength(150);
+            e.Property(x => x.Phone).HasMaxLength(30);
+            e.Property(x => x.Relationship).IsRequired().HasMaxLength(20);
+            e.HasIndex(x => x.UserId).IsUnique();
+            // The login is removed with the parent (ParentsController deletes both)
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<StudentParent>(e =>
+        {
+            e.HasKey(x => new { x.StudentId, x.ParentId });
+            e.HasIndex(x => x.ParentId);
+            e.HasOne(x => x.Student).WithMany(s => s.Parents).HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Parent).WithMany(p => p.Children).HasForeignKey(x => x.ParentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Announcement>(e =>
+        {
+            e.Property(x => x.Title).IsRequired().HasMaxLength(150);
+            e.Property(x => x.Body).IsRequired().HasMaxLength(4000);
+            e.Property(x => x.CreatedByName).IsRequired().HasMaxLength(150);
+            e.Property(x => x.AttachmentName).HasMaxLength(255);
+            e.Property(x => x.AttachmentContentType).HasMaxLength(100);
+            e.HasIndex(x => x.CreatedAt);
+            e.HasOne(x => x.Class).WithMany().HasForeignKey(x => x.ClassId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AnnouncementRead>(e =>
+        {
+            e.HasKey(x => new { x.AnnouncementId, x.UserId });
+            e.HasOne(x => x.Announcement).WithMany().HasForeignKey(x => x.AnnouncementId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Conversation>(e =>
+        {
+            e.Property(x => x.Kind).IsRequired().HasMaxLength(20);
+            e.HasIndex(x => new { x.StudentId, x.Kind }).IsUnique();
+            e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ChatMessage>(e =>
+        {
+            e.ToTable("ChatMessages");
+            e.Property(x => x.SenderName).IsRequired().HasMaxLength(150);
+            e.Property(x => x.SenderRole).IsRequired().HasMaxLength(20);
+            e.Property(x => x.Body).IsRequired().HasMaxLength(ChatMessage.MaxBodyLength);
+            e.HasIndex(x => new { x.ConversationId, x.Id });
+            e.HasOne(x => x.Conversation).WithMany(c => c.Messages).HasForeignKey(x => x.ConversationId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ChatAttachment>(e =>
+        {
+            e.ToTable("ChatAttachments");
+            e.Property(x => x.FileName).IsRequired().HasMaxLength(255);
+            e.Property(x => x.ContentType).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Data).IsRequired();
+            e.HasIndex(x => x.MessageId).IsUnique();
+            e.HasOne(x => x.Message).WithOne(m => m.Attachment).HasForeignKey<ChatAttachment>(x => x.MessageId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ConversationRead>(e =>
+        {
+            e.HasKey(x => new { x.ConversationId, x.UserId });
+            e.HasOne(x => x.Conversation).WithMany().HasForeignKey(x => x.ConversationId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        ConfigureSchoolDay(modelBuilder);
+        ConfigureSchoolFees(modelBuilder);
+    }
+
+    /// <summary>School phase 3: attendance, parents' notes, daily reports.</summary>
+    private static void ConfigureSchoolDay(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<StudentAttendance>(e =>
+        {
+            e.ToTable("StudentAttendance");
+            e.Property(x => x.Date).HasColumnType("date");
+            e.Property(x => x.Status).IsRequired().HasMaxLength(20);
+            e.Property(x => x.CheckInBy).HasMaxLength(150);
+            e.Property(x => x.CheckOutBy).HasMaxLength(150);
+            e.Property(x => x.PickedUpBy).HasMaxLength(150);
+            e.Property(x => x.AbsenceReason).HasMaxLength(300);
+            e.HasIndex(x => new { x.StudentId, x.Date }).IsUnique();
+            e.HasIndex(x => x.Date);
+            e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ParentNote>(e =>
+        {
+            e.Property(x => x.Kind).IsRequired().HasMaxLength(20);
+            e.Property(x => x.FromDate).HasColumnType("date");
+            e.Property(x => x.ToDate).HasColumnType("date");
+            e.Property(x => x.PickupName).HasMaxLength(150);
+            e.Property(x => x.PickupPhone).HasMaxLength(30);
+            e.Property(x => x.PickupTime).HasMaxLength(5);
+            e.Property(x => x.Message).HasMaxLength(1000);
+            e.Property(x => x.CreatedByName).IsRequired().HasMaxLength(150);
+            e.Property(x => x.SeenByName).HasMaxLength(150);
+            e.HasIndex(x => new { x.StudentId, x.FromDate });
+            e.HasIndex(x => x.ToDate);
+            e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<DailyReport>(e =>
+        {
+            e.Property(x => x.Date).HasColumnType("date");
+            e.Property(x => x.Breakfast).HasMaxLength(10);
+            e.Property(x => x.Lunch).HasMaxLength(10);
+            e.Property(x => x.Snack).HasMaxLength(10);
+            e.Property(x => x.NapFrom).HasMaxLength(5);
+            e.Property(x => x.NapTo).HasMaxLength(5);
+            e.Property(x => x.Toilet).HasMaxLength(200);
+            e.Property(x => x.Mood).HasMaxLength(20);
+            e.Property(x => x.Activities).HasMaxLength(1000);
+            e.Property(x => x.TeacherNote).HasMaxLength(1000);
+            e.Property(x => x.UpdatedByName).IsRequired().HasMaxLength(150);
+            e.HasIndex(x => new { x.StudentId, x.Date }).IsUnique();
+            e.HasIndex(x => x.Date);
+            e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<DailyReportPhoto>(e =>
+        {
+            e.Property(x => x.FileName).IsRequired().HasMaxLength(255);
+            e.Property(x => x.ContentType).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Data).IsRequired();
+            e.HasIndex(x => x.DailyReportId);
+            e.HasOne(x => x.Report).WithMany(r => r.Photos).HasForeignKey(x => x.DailyReportId).OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    /// <summary>School phase 4: fee items, add-ons, invoices, payments.</summary>
+    private static void ConfigureSchoolFees(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<CompanySettings>().Property(x => x.SiblingDiscountPercent).HasPrecision(5, 2);
+
+        modelBuilder.Entity<FeeItem>(e =>
+        {
+            e.Property(x => x.Name).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Kind).IsRequired().HasMaxLength(20);
+            e.Property(x => x.SessionType).HasMaxLength(20);
+            e.Property(x => x.Amount).HasPrecision(10, 2);
+        });
+
+        modelBuilder.Entity<StudentFeeAddOn>(e =>
+        {
+            e.HasKey(x => new { x.StudentId, x.FeeItemId });
+            e.HasIndex(x => x.FeeItemId);
+            e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.FeeItem).WithMany().HasForeignKey(x => x.FeeItemId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<FeeInvoice>(e =>
+        {
+            e.Property(x => x.InvoiceNo).IsRequired().HasMaxLength(30);
+            e.Property(x => x.IssueDate).HasColumnType("date");
+            e.Property(x => x.DueDate).HasColumnType("date");
+            e.Property(x => x.Subtotal).HasPrecision(10, 2);
+            e.Property(x => x.Discount).HasPrecision(10, 2);
+            e.Property(x => x.Total).HasPrecision(10, 2);
+            e.Property(x => x.AmountPaid).HasPrecision(10, 2);
+            e.Property(x => x.Status).IsRequired().HasMaxLength(20);
+            e.Property(x => x.Notes).HasMaxLength(500);
+            e.Property(x => x.VoidReason).HasMaxLength(300);
+            e.Property(x => x.CreatedByName).IsRequired().HasMaxLength(150);
+            e.Ignore(x => x.Balance);
+            e.HasIndex(x => x.InvoiceNo).IsUnique();
+            e.HasIndex(x => new { x.Year, x.Month });
+            e.HasIndex(x => new { x.StudentId, x.Year, x.Month });
+            // Invoices are financial records: a child with invoices can't be deleted (mark inactive instead)
+            e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<FeeInvoiceLine>(e =>
+        {
+            e.Property(x => x.Description).IsRequired().HasMaxLength(150);
+            e.Property(x => x.Amount).HasPrecision(10, 2);
+            e.HasIndex(x => x.InvoiceId);
+            e.HasOne(x => x.Invoice).WithMany(i => i.Lines).HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<FeePayment>(e =>
+        {
+            e.Property(x => x.ReceiptNo).IsRequired().HasMaxLength(30);
+            e.Property(x => x.Amount).HasPrecision(10, 2);
+            e.Property(x => x.PaidOn).HasColumnType("date");
+            e.Property(x => x.Method).IsRequired().HasMaxLength(30);
+            e.Property(x => x.Reference).HasMaxLength(100);
+            e.Property(x => x.RecordedByName).IsRequired().HasMaxLength(150);
+            e.HasIndex(x => x.ReceiptNo).IsUnique();
+            e.HasIndex(x => x.InvoiceId);
+            e.HasOne(x => x.Invoice).WithMany(i => i.Payments).HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<FeePaymentClaim>(e =>
+        {
+            e.Property(x => x.Amount).HasPrecision(10, 2);
+            e.Property(x => x.PaidOn).HasColumnType("date");
+            e.Property(x => x.Method).IsRequired().HasMaxLength(30);
+            e.Property(x => x.Reference).HasMaxLength(100);
+            e.Property(x => x.Note).HasMaxLength(500);
+            e.Property(x => x.SlipName).HasMaxLength(255);
+            e.Property(x => x.SlipContentType).HasMaxLength(100);
+            e.Property(x => x.Status).IsRequired().HasMaxLength(20);
+            e.Property(x => x.RejectReason).HasMaxLength(300);
+            e.Property(x => x.CreatedByName).IsRequired().HasMaxLength(150);
+            e.Property(x => x.ReviewedByName).HasMaxLength(150);
+            e.HasIndex(x => new { x.InvoiceId, x.Status });
+            e.HasIndex(x => x.Status);
+            e.HasOne(x => x.Invoice).WithMany(i => i.Claims).HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

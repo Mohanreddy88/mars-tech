@@ -44,6 +44,17 @@ public class CompanySettings
 
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
+    /// <summary>Classes, children, parents, announcements and parent messages (schools only).</summary>
+    public bool SchoolFeaturesEnabled { get; set; }
+
+    // School fees (School → Fees → Settings)
+    /// <summary>Taken off the 2nd and later child of a family (children who share a parent), e.g. 10.</summary>
+    public decimal SiblingDiscountPercent { get; set; }
+    /// <summary>Day of the month the fees are due (1–28).</summary>
+    public int FeeDueDay { get; set; } = 7;
+    /// <summary>How to pay, printed on invoices and shown to parents (bank account, DuitNow…).</summary>
+    [MaxLength(1000)] public string? FeePaymentInstructions { get; set; }
+
     /// <summary>True once an admin has entered at least the legal name.</summary>
     public bool IsConfigured => !string.IsNullOrWhiteSpace(LegalName);
 

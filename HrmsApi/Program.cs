@@ -155,6 +155,14 @@ builder.Services.AddAuthentication(options =>
     };
     options.Events = new JwtBearerEvents
     {
+        // Browsers can't set headers on a WebSocket: the live-updates hub gets the token in the query string.
+        OnMessageReceived = ctx =>
+        {
+            var accessToken = ctx.Request.Query["access_token"];
+            if (!string.IsNullOrEmpty(accessToken) && ctx.HttpContext.Request.Path.StartsWithSegments("/api/hubs"))
+                ctx.Token = accessToken;
+            return Task.CompletedTask;
+        },
         // Every company shares the signing key, so a token is only valid on the site that issued it.
         OnTokenValidated = async ctx =>
         {
@@ -254,6 +262,8 @@ builder.Services.AddScoped<ICompanySettingsService, CompanySettingsService>();
 builder.Services.AddSingleton<IPushService, PushService>();   // off until Firebase credentials are configured
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddSignalR();                                   // live school messages (/api/hubs/chat)
+builder.Services.AddScoped<HrmsApi.Hubs.IChatNotifier, HrmsApi.Hubs.ChatNotifier>();
 
 // Background email queue — singleton hosted service that survives request lifetime
 // Controllers inject IEmailQueue and call Enqueue() — returns instantly, no 504
@@ -364,6 +374,7 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<HrmsApi.Hubs.ChatHub>("/api/hubs/chat");
 
 app.Run();
 
