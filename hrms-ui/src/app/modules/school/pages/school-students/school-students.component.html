@@ -1,0 +1,253 @@
+<div class="school-page">
+
+  <div class="page-header">
+    <div>
+      <h3>{{ isAdmin ? 'Children' : 'My Class' }}</h3>
+      <p>{{ isAdmin ? 'Every child, their class, session and parents.' : 'Children in your class, with their parents\' contact details.' }}</p>
+    </div>
+    @if (isAdmin) {
+      <div class="header-actions">
+        <a class="btn btn-outline-primary" routerLink="/school/parents"><i class="bi bi-people"></i> Parents</a>
+        <button class="btn btn-primary" (click)="openCreate()">
+          <i class="bi bi-plus-lg"></i> Add Child
+        </button>
+      </div>
+    }
+  </div>
+
+  @if (isAdmin && !loading && classes.length === 0) {
+    <div class="alert alert-info py-2"><i class="bi bi-info-circle"></i> No classes yet. You can add children now and put them in a class later under <a routerLink="/school/classes">School → Classes</a>.</div>
+  }
+
+  <div class="filters-row">
+    <select [(ngModel)]="classId" (ngModelChange)="onClassChange()" aria-label="Class">
+      <option [ngValue]="null">{{ isAdmin ? 'All classes' : 'All my classes' }}</option>
+      @for (c of classes; track c.id) { <option [ngValue]="c.id">{{ c.name }}</option> }
+    </select>
+    <div class="list-search">
+      <i class="bi bi-search" aria-hidden="true"></i>
+      <input type="search" [(ngModel)]="search" placeholder="Search child, admission no., parent or phone" aria-label="Search" />
+    </div>
+    @if (isAdmin) {
+      <label class="check"><input type="checkbox" [(ngModel)]="includeInactive" (ngModelChange)="load()" /> Show inactive</label>
+    }
+    <span class="list-count ms-auto">{{ filtered.length }} of {{ students.length }}</span>
+  </div>
+
+  @if (loading) {
+    <div class="text-center py-5">
+      <div class="spinner-border text-primary" role="status"></div>
+      <p class="mt-2 text-muted">Loading children...</p>
+    </div>
+  } @else if (students.length === 0) {
+    <div class="table-card empty-state">
+      <i class="bi bi-emoji-smile"></i>
+      <h5>No children {{ classId ? 'in this class' : 'yet' }}</h5>
+      @if (isAdmin) {
+        <button class="btn btn-primary" (click)="openCreate()"><i class="bi bi-plus-lg"></i> Add Child</button>
+      }
+    </div>
+  } @else {
+    <div class="table-card">
+      <table class="table align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Child</th>
+            <th>Class</th>
+            <th>Session</th>
+            <th>Parents</th>
+            <th>Notes</th>
+            @if (isAdmin) { <th>Status</th> }
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (s of filtered; track s.id) {
+            <tr>
+              <td>
+                <div class="cell-main">
+                  <i class="bi bi-person-circle cell-icon"></i>
+                  <div>
+                    <strong>{{ s.fullName }}</strong>
+                    <div class="cell-sub">
+                      @if (s.admissionNo) { #{{ s.admissionNo }} · }
+                      @if (s.dateOfBirth) { {{ age(s.dateOfBirth) }} }
+                      @if (s.gender) { · {{ s.gender }} }
+                    </div>
+                  </div>
+                </div>
+              </td>
+              <td>{{ s.className ?? '—' }}</td>
+              <td><span class="tag info">{{ s.sessionType }}</span></td>
+              <td>
+                @for (p of s.parents; track p.id) {
+                  <div>
+                    {{ p.fullName }} <span class="cell-sub">({{ p.relationship }})</span>
+                    @if (p.phone) { <div class="cell-sub"><i class="bi bi-telephone"></i> <a [href]="'tel:' + p.phone">{{ phone(p.phone) }}</a></div> }
+                  </div>
+                } @empty {
+                  <span class="tag warn">No parent linked</span>
+                }
+              </td>
+              <td>
+                @if (s.medicalNotes) {
+                  <span class="medical-note" [title]="s.medicalNotes"><i class="bi bi-heart-pulse-fill"></i> {{ s.medicalNotes }}</span>
+                }
+                @if (s.emergencyContactName || s.emergencyContactPhone) {
+                  <div class="cell-sub">Emergency: {{ s.emergencyContactName }} {{ phone(s.emergencyContactPhone) }}</div>
+                }
+              </td>
+              @if (isAdmin) {
+                <td>
+                  <span class="status-pill" [class.active-pill]="s.isActive" [class.inactive-pill]="!s.isActive">
+                    {{ s.isActive ? 'Active' : 'Inactive' }}
+                  </span>
+                </td>
+              }
+              <td class="actions-cell">
+                <button class="btn btn-sm btn-outline-primary me-1" (click)="message(s, messageKind(s))"
+                        [disabled]="s.parents.length === 0" title="Message the parents">
+                  <i class="bi bi-chat-dots"></i>
+                </button>
+                @if (isAdmin) {
+                  <button class="btn btn-sm btn-warning me-1" (click)="openEdit(s)" title="Edit"><i class="bi bi-pencil"></i></button>
+                  <button class="btn btn-sm btn-danger" (click)="confirmDelete = s" title="Delete"><i class="bi bi-trash"></i></button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
+
+@if (showModal) {
+  <div class="modal-overlay" (click)="showModal = false">
+    <div class="modal-box wide" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <h5>{{ editing ? 'Edit Child' : 'Add Child' }}</h5>
+        <button class="btn-close-modal" (click)="showModal = false" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+
+      <div class="modal-form">
+        @if (modalError) { <div class="alert alert-danger py-2 mb-3">{{ modalError }}</div> }
+        @if (duplicateQuestion) {
+          <div class="alert alert-warning py-2 mb-3 duplicate-question">
+            <div><i class="bi bi-exclamation-triangle"></i> {{ duplicateQuestion }}</div>
+            <div class="mt-2">
+              <button class="btn btn-sm btn-warning me-2" (click)="saveAnyway()" [disabled]="saving">Yes, it's a different child — save</button>
+              <button class="btn btn-sm btn-outline-secondary" (click)="duplicateQuestion = ''">No, go back</button>
+            </div>
+          </div>
+        }
+
+        <div class="form-grid">
+          <div class="form-group span-2">
+            <label for="st-name">Full name</label>
+            <input id="st-name" type="text" [(ngModel)]="form.fullName" maxlength="150" />
+          </div>
+          <div class="form-group">
+            <label for="st-class">Class</label>
+            <select id="st-class" [(ngModel)]="form.classId">
+              <option [ngValue]="null">No class yet</option>
+              @for (c of classes; track c.id) { <option [ngValue]="c.id">{{ c.name }}</option> }
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="st-session">Session</label>
+            <select id="st-session" [(ngModel)]="form.sessionType">
+              @for (t of sessionTypes; track t) { <option [value]="t">{{ t }}</option> }
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="st-dob">Date of birth</label>
+            <input id="st-dob" type="date" [(ngModel)]="form.dateOfBirth" />
+          </div>
+          <div class="form-group">
+            <label for="st-gender">Gender</label>
+            <select id="st-gender" [(ngModel)]="form.gender">
+              <option [ngValue]="null">—</option>
+              <option value="Boy">Boy</option>
+              <option value="Girl">Girl</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="st-adm">Admission no. (optional)</label>
+            <input id="st-adm" type="text" [(ngModel)]="form.admissionNo" maxlength="30" />
+          </div>
+          <div class="form-group">
+            <label for="st-joined">Joined on</label>
+            <input id="st-joined" type="date" [(ngModel)]="form.joinedOn" />
+          </div>
+
+          <div class="section-title">Health and safety</div>
+          <div class="form-group span-2">
+            <label for="st-med">Allergies / medical notes</label>
+            <textarea id="st-med" [(ngModel)]="form.medicalNotes" maxlength="1000" rows="2" placeholder="e.g. Peanut allergy — EpiPen in office"></textarea>
+            <div class="hint">Shown to the class teacher on their class list.</div>
+          </div>
+          <div class="form-group">
+            <label for="st-ecn">Emergency contact name</label>
+            <input id="st-ecn" type="text" [(ngModel)]="form.emergencyContactName" maxlength="150" />
+          </div>
+          <div class="form-group">
+            <label for="st-ecp">Emergency contact phone</label>
+            <app-phone-input inputId="st-ecp" [(ngModel)]="form.emergencyContactPhone" />
+          </div>
+          <div class="form-group span-2">
+            <label for="st-notes">Other notes (optional)</label>
+            <textarea id="st-notes" [(ngModel)]="form.notes" maxlength="1000" rows="2"></textarea>
+          </div>
+
+          <div class="section-title">Parents</div>
+          <div class="form-group span-2">
+            @if (parents.length > 0) {
+              <input type="text" class="mb-2" [(ngModel)]="parentSearch" placeholder="Find a parent" aria-label="Find a parent" />
+              <div class="pick-list">
+                @for (p of pickableParents; track p.id) {
+                  <label>
+                    <input type="checkbox" [checked]="form.parentIds?.includes(p.id)" (change)="toggleParent(p.id, $any($event.target).checked)" />
+                    {{ p.fullName }} <small>{{ p.relationship }}{{ p.phone ? ' · ' + phone(p.phone) : '' }}{{ p.isActive ? '' : ' · inactive' }}</small>
+                  </label>
+                } @empty {
+                  <div class="text-muted p-2">No parent matches.</div>
+                }
+              </div>
+              <div class="hint">{{ form.parentIds?.length ?? 0 }} selected (one mother, one father, any guardians). Optional — new parents (and their logins) are added under <a routerLink="/school/parents" (click)="showModal = false">School → Parents</a>.</div>
+            } @else {
+              <div class="hint">No parents yet. Add them under <a routerLink="/school/parents" (click)="showModal = false">School → Parents</a> — before or after the children, either way works.</div>
+            }
+          </div>
+
+          <div class="form-group">
+            <label>Status</label>
+            <label class="toggle-wrap">
+              <input type="checkbox" [(ngModel)]="form.isActive" />
+              <span class="toggle-track" [class.on]="form.isActive"></span>
+              <span class="toggle-text">{{ form.isActive ? 'Active' : 'Inactive (left the school)' }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer-row">
+        <button class="btn btn-secondary" (click)="showModal = false">Cancel</button>
+        <button class="btn btn-primary" (click)="save()" [disabled]="saving || !form.fullName.trim()">
+          @if (saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+          {{ editing ? 'Save' : 'Add' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<app-confirm-modal
+  [show]="!!confirmDelete"
+  title="Delete Child"
+  [message]="'Delete ' + (confirmDelete?.fullName ?? '') + '? Their parent links are removed too. A child with message history can only be marked inactive.'"
+  variant="danger"
+  confirmText="Delete"
+  (confirmed)="remove()"
+  (cancelled)="confirmDelete = null">
+</app-confirm-modal>

@@ -1,0 +1,195 @@
+<div class="school-page parent-child">
+
+  <div class="page-header">
+    <div>
+      <a routerLink="/parent" class="back"><i class="bi bi-arrow-left"></i> Home</a>
+      <h3>{{ data?.child?.fullName ?? child?.fullName ?? 'My child' }}</h3>
+      <p>
+        @if (data?.child?.className) { Class {{ data?.child?.className }} }
+        @if (data?.child?.teacher) { · Teacher {{ data?.child?.teacher }} }
+      </p>
+    </div>
+    <div class="header-actions">
+      @if (children.length > 1) {
+        <select [ngModel]="childId" (ngModelChange)="switchChild($event)" aria-label="Child" class="child-select">
+          @for (c of children; track c.id) { <option [ngValue]="c.id">{{ c.fullName }}</option> }
+        </select>
+      }
+      <button class="btn btn-outline-danger" (click)="openNote('Absence')"><i class="bi bi-thermometer-half"></i> Report absence</button>
+      <button class="btn btn-outline-primary" (click)="openNote('Pickup')"><i class="bi bi-car-front"></i> Different pickup</button>
+    </div>
+  </div>
+
+  <div class="day-nav">
+    <button class="btn btn-sm btn-outline-secondary" (click)="shift(-1)" aria-label="Previous day"><i class="bi bi-chevron-left"></i></button>
+    <strong>{{ isToday ? 'Today, ' : '' }}{{ dayLabel(date) }}</strong>
+    <button class="btn btn-sm btn-outline-secondary" (click)="shift(1)" [disabled]="isToday" aria-label="Next day"><i class="bi bi-chevron-right"></i></button>
+    @if (!isToday) { <button class="btn btn-sm btn-link" (click)="go(today)">Today</button> }
+  </div>
+
+  @if (loading) {
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+  } @else if (data) {
+    <div class="day-grid">
+      <!-- Attendance -->
+      <div class="card-box">
+        <h5><i class="bi bi-calendar-check"></i> At school</h5>
+        @if (data.attendance?.status === 'Absent') {
+          <div class="status bad"><i class="bi bi-x-circle-fill"></i> Absent{{ data.attendance?.absenceReason ? ': ' + data.attendance?.absenceReason : '' }}</div>
+        } @else if (data.attendance?.checkIn) {
+          <div class="timeline">
+            <div class="step done">
+              <i class="bi bi-box-arrow-in-right"></i>
+              <div><strong>Arrived {{ data.attendance?.checkIn }}</strong><span>Checked in by {{ data.attendance?.checkInBy }}</span></div>
+            </div>
+            <div class="step" [class.done]="data.attendance?.checkOut">
+              <i class="bi bi-house-door"></i>
+              @if (data.attendance?.checkOut) {
+                <div><strong>Went home {{ data.attendance?.checkOut }}</strong><span>Picked up by {{ data.attendance?.pickedUpBy }}</span></div>
+              } @else {
+                <div><strong>Still at school</strong><span>You'll be told when your child is picked up.</span></div>
+              }
+            </div>
+          </div>
+        } @else {
+          <div class="status muted"><i class="bi bi-hourglass-split"></i> {{ isToday ? 'Not checked in yet' : 'No attendance recorded' }}</div>
+        }
+
+        @for (n of data.notes; track n.id) {
+          <div class="note" [class.absence]="n.kind === 'Absence'">
+            <i class="bi" [class.bi-thermometer-half]="n.kind === 'Absence'" [class.bi-car-front-fill]="n.kind === 'Pickup'"></i>
+            <span>
+              Your note: {{ n.kind === 'Absence' ? 'absent' : n.pickupName + ' picks up' + (n.pickupTime ? ' at ' + n.pickupTime : '') }}
+              @if (n.seenByName) { <small class="seen"><i class="bi bi-check2-all"></i> Seen by {{ n.seenByName }}</small> }
+            </span>
+          </div>
+        }
+      </div>
+
+      <!-- Daily report -->
+      <div class="card-box report">
+        <h5><i class="bi bi-journal-heart"></i> Daily report</h5>
+        @if (!data.report) {
+          <div class="status muted"><i class="bi bi-clock"></i> {{ isToday ? 'The teacher sends it at the end of the day.' : 'No report for this day.' }}</div>
+        } @else {
+          @if (data.report.mood) { <div class="mood">{{ moodIcon(data.report.mood) }} <strong>{{ data.report.mood }}</strong> today</div> }
+          <dl>
+            @if (data.report.breakfast || data.report.lunch || data.report.snack) {
+              <dt>Meals</dt>
+              <dd>
+                @if (data.report.breakfast) { <span class="meal">Breakfast: <b>{{ data.report.breakfast }}</b></span> }
+                @if (data.report.lunch) { <span class="meal">Lunch: <b>{{ data.report.lunch }}</b></span> }
+                @if (data.report.snack) { <span class="meal">Tea: <b>{{ data.report.snack }}</b></span> }
+              </dd>
+            }
+            <dt>Nap</dt><dd>{{ napText(data.report.napFrom, data.report.napTo) }}</dd>
+            @if (data.report.toilet) { <dt>Toilet</dt><dd>{{ data.report.toilet }}</dd> }
+            @if (data.report.activities) { <dt>Activities</dt><dd class="pre">{{ data.report.activities }}</dd> }
+          </dl>
+          @if (data.report.teacherNote) {
+            <div class="teacher-note"><i class="bi bi-chat-quote"></i> {{ data.report.teacherNote }} <small>— {{ data.report.updatedByName }}</small></div>
+          }
+          @if (data.report.photos.length) {
+            <div class="photos">
+              @for (p of data.report.photos; track p.id) {
+                @if (photoUrls.get(p.id); as url) {
+                  <img [src]="url" [alt]="p.fileName" (click)="openPhoto(p.id)" />
+                } @else { <div class="photo-loading"><span class="spinner-border spinner-border-sm"></span></div> }
+              }
+            </div>
+          }
+        }
+      </div>
+    </div>
+
+    @if (recent.length) {
+      <h4 class="section">Recent days</h4>
+      <div class="recent">
+        @for (d of recent; track d.date) {
+          <button class="recent-day" [class.current]="d.date === date" (click)="go(d.date)">
+            <span>{{ dayLabel(d.date) }}</span>
+            <small>
+              @if (d.status === 'Absent') { <i class="bi bi-x-circle text-danger"></i> }
+              @else if (d.status === 'Present') { <i class="bi bi-check-circle text-success"></i> }
+              @if (d.report) { <i class="bi bi-journal-check text-primary"></i> }
+            </small>
+          </button>
+        }
+      </div>
+    }
+
+    @if (upcomingNotes.length) {
+      <h4 class="section">Your notes to the school</h4>
+      <div class="table-card">
+        <table class="table align-middle mb-0">
+          <tbody>
+            @for (n of upcomingNotes; track n.id) {
+              <tr>
+                <td><span class="tag" [class.warn]="n.kind === 'Absence'" [class.info]="n.kind === 'Pickup'">{{ n.kind === 'Absence' ? 'Absence' : 'Pickup' }}</span></td>
+                <td>{{ noteWhen(n) }}</td>
+                <td>
+                  @if (n.kind === 'Pickup') { {{ n.pickupName }}{{ n.pickupTime ? ' at ' + n.pickupTime : '' }}{{ n.pickupPhone ? ' · ' + phone(n.pickupPhone) : '' }} }
+                  @if (n.message) { <div class="cell-sub">{{ n.message }}</div> }
+                </td>
+                <td>@if (n.seenByName) { <span class="tag ok">Seen by {{ n.seenByName }}</span> } @else { <span class="tag muted">Sent</span> }</td>
+                <td class="text-end"><button class="btn btn-sm btn-link text-danger" (click)="cancelNote(n)">Withdraw</button></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+</div>
+
+@if (noteKind) {
+  <div class="modal-overlay" (click)="noteKind = null">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <h5>{{ noteKind === 'Absence' ? 'Report an absence' : 'Someone else is picking up' }}</h5>
+        <button class="btn-close-modal" (click)="noteKind = null" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="modal-form">
+        @if (noteError) { <div class="alert alert-danger py-2">{{ noteError }}</div> }
+        <p class="cell-sub mb-3">For {{ data?.child?.fullName ?? child?.fullName }}. The class teacher and the office are told straight away.</p>
+        <div class="form-grid">
+          <div class="form-group" [class.span-2]="noteKind === 'Pickup'">
+            <label for="nt-from">{{ noteKind === 'Absence' ? 'First day' : 'Day' }}</label>
+            <input id="nt-from" type="date" [(ngModel)]="note.fromDate" [min]="today" />
+          </div>
+          @if (noteKind === 'Absence') {
+            <div class="form-group">
+              <label for="nt-to">Last day</label>
+              <input id="nt-to" type="date" [(ngModel)]="note.toDate" [min]="note.fromDate" />
+            </div>
+          } @else {
+            <div class="form-group">
+              <label for="nt-name">Who will pick up</label>
+              <input id="nt-name" type="text" [(ngModel)]="note.pickupName" maxlength="150" placeholder="e.g. Grandma Lim" />
+            </div>
+            <div class="form-group">
+              <label for="nt-time">Around what time (optional)</label>
+              <input id="nt-time" type="time" [(ngModel)]="note.pickupTime" />
+            </div>
+            <div class="form-group span-2">
+              <label for="nt-phone">Their phone (optional)</label>
+              <app-phone-input inputId="nt-phone" [(ngModel)]="note.pickupPhone" />
+            </div>
+          }
+          <div class="form-group span-2">
+            <label for="nt-msg">{{ noteKind === 'Absence' ? 'Reason (optional)' : 'Message (optional)' }}</label>
+            <textarea id="nt-msg" [(ngModel)]="note.message" maxlength="1000" rows="2"
+                      [placeholder]="noteKind === 'Absence' ? 'e.g. Fever, family holiday' : 'e.g. Please check her IC'"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer-row">
+        <button class="btn btn-secondary" (click)="noteKind = null">Cancel</button>
+        <button class="btn btn-primary" (click)="saveNote()" [disabled]="noteSaving">
+          @if (noteSaving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+          Send to the school
+        </button>
+      </div>
+    </div>
+  </div>
+}

@@ -3,7 +3,10 @@ import { inject } from '@angular/core';
 import { AuthService } from './core/services/auth.service';
 
 /** Landing page after login: admins → Dashboard, employees → their own dashboard. */
-const landingPage = () => inject(AuthService).isAdmin() ? '/dashboard' : '/self-service/dashboard';
+const landingPage = () => {
+  const auth = inject(AuthService);
+  return auth.isAdmin() ? '/dashboard' : auth.getRole() === 'Parent' ? '/parent' : '/self-service/dashboard';
+};
 import { authGuard } from './core/guards/auth.guard';
 import { adminGuard } from './core/guards/admin.guard';
 import { AdminLayoutComponent } from './layouts/admin-layout-component/admin-layout-component';
@@ -52,6 +55,18 @@ import { PlatformLoginComponent } from './modules/platform/platform-login/platfo
 import { PlatformPortalComponent } from './modules/platform/platform-portal/platform-portal.component';
 import { superAdminGuard } from './core/guards/super-admin.guard';
 import { isPlatformHost } from './core/services/platform.service';
+import { parentAreaGuard, parentOnlyGuard } from './core/guards/parent.guard';
+// School pages load on demand (only schools use them)
+const schoolClasses       = () => import('./modules/school/pages/school-classes/school-classes.component').then(m => m.SchoolClassesComponent);
+const schoolStudents      = () => import('./modules/school/pages/school-students/school-students.component').then(m => m.SchoolStudentsComponent);
+const schoolParents       = () => import('./modules/school/pages/school-parents/school-parents.component').then(m => m.SchoolParentsComponent);
+const schoolAnnouncements = () => import('./modules/school/pages/school-announcements/school-announcements.component').then(m => m.SchoolAnnouncementsComponent);
+const schoolMessages      = () => import('./modules/school/pages/school-messages/school-messages.component').then(m => m.SchoolMessagesComponent);
+const schoolAttendance    = () => import('./modules/school/pages/school-attendance/school-attendance.component').then(m => m.SchoolAttendanceComponent);
+const schoolFees          = () => import('./modules/school/pages/school-fees/school-fees.component').then(m => m.SchoolFeesComponent);
+const parentChild         = () => import('./modules/school/pages/parent-child/parent-child.component').then(m => m.ParentChildComponent);
+const parentFees          = () => import('./modules/school/pages/parent-fees/parent-fees.component').then(m => m.ParentFeesComponent);
+const parentHome          = () => import('./modules/school/pages/parent-home/parent-home.component').then(m => m.ParentHomeComponent);
 
 /** A company's own site (esync.marshrms.com …). */
 const companyRoutes: Routes = [
@@ -78,6 +93,7 @@ const companyRoutes: Routes = [
     path: '',
     component: AdminLayoutComponent,
     canActivate: [authGuard],
+    canActivateChild: [parentAreaGuard],   // parent logins stay in the parent portal
     children: [
       { path: '',                   pathMatch: 'full', redirectTo: landingPage },
       { path: 'dashboard',          component: AdminDashboardComponent, canActivate: [adminGuard] },
@@ -131,6 +147,23 @@ const companyRoutes: Routes = [
       { path: 'master/company-settings', component: CompanySettingsComponent,  canActivate: [adminGuard] },
       { path: 'master/statutory-rates',  component: StatutoryRatesComponent,   canActivate: [adminGuard] },
       
+      // School (only when the company has school features on; the API enforces access)
+      { path: 'school/classes',       loadComponent: schoolClasses,       canActivate: [adminGuard], title: 'Classes' },
+      { path: 'school/students',      loadComponent: schoolStudents,      title: 'Children' },
+      { path: 'school/my-class',      loadComponent: schoolStudents,      title: 'My Class' },
+      { path: 'school/parents',       loadComponent: schoolParents,       canActivate: [adminGuard], title: 'Parents' },
+      { path: 'school/announcements', loadComponent: schoolAnnouncements, title: 'Announcements' },
+      { path: 'school/messages',      loadComponent: schoolMessages,      title: 'Messages' },
+      { path: 'school/attendance',    loadComponent: schoolAttendance,    title: 'Attendance & Daily Reports' },
+      { path: 'school/fees',          loadComponent: schoolFees,          canActivate: [adminGuard], title: 'Fees' },
+
+      // Parent portal (parent logins)
+      { path: 'parent',               loadComponent: parentHome,          canActivate: [parentOnlyGuard], title: 'Parent Portal' },
+      { path: 'parent/announcements', loadComponent: schoolAnnouncements, canActivate: [parentOnlyGuard], title: 'Announcements' },
+      { path: 'parent/messages',      loadComponent: schoolMessages,      canActivate: [parentOnlyGuard], title: 'Messages' },
+      { path: 'parent/child/:id',     loadComponent: parentChild,         canActivate: [parentOnlyGuard], title: 'My Child' },
+      { path: 'parent/fees',          loadComponent: parentFees,          canActivate: [parentOnlyGuard], title: 'Fees' },
+
       // Notifications
       { path: 'notifications', component: NotificationsPageComponent },
 

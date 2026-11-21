@@ -1,0 +1,202 @@
+<div class="school-page">
+
+  <div class="page-header">
+    <div>
+      <h3>Parents</h3>
+      <p>Parents and guardians, their children, and their parent-portal logins.</p>
+    </div>
+    <div class="header-actions">
+      <a class="btn btn-outline-primary" routerLink="/school/students"><i class="bi bi-emoji-smile"></i> Children</a>
+      <button class="btn btn-primary" (click)="openCreate()"><i class="bi bi-plus-lg"></i> Add Parent</button>
+    </div>
+  </div>
+
+  @if (!loading && withoutLogin > 0) {
+    <div class="alert alert-info py-2">
+      <i class="bi bi-info-circle"></i>
+      {{ withoutLogin }} parent{{ withoutLogin === 1 ? ' has' : 's have' }} no login yet. Use <i class="bi bi-envelope-plus"></i> to email them a set-password link.
+    </div>
+  }
+
+  <div class="list-toolbar">
+    <div class="list-search">
+      <i class="bi bi-search" aria-hidden="true"></i>
+      <input type="search" [(ngModel)]="search" placeholder="Search parent, email, phone or child" aria-label="Search parents" />
+    </div>
+    <span class="list-count">{{ filtered.length }} of {{ parents.length }}</span>
+  </div>
+
+  @if (loading) {
+    <div class="text-center py-5">
+      <div class="spinner-border text-primary" role="status"></div>
+      <p class="mt-2 text-muted">Loading parents...</p>
+    </div>
+  } @else if (parents.length === 0) {
+    <div class="table-card empty-state">
+      <i class="bi bi-people"></i>
+      <h5>No parents yet</h5>
+      <p>Add each parent and tick their children — or add the parents first and link the children later.</p>
+      <button class="btn btn-primary" (click)="openCreate()"><i class="bi bi-plus-lg"></i> Add Parent</button>
+    </div>
+  } @else {
+    <div class="table-card">
+      <table class="table align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Parent</th>
+            <th>Contact</th>
+            <th>Children</th>
+            <th>Login</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (p of filtered; track p.id) {
+            <tr>
+              <td>
+                <div class="cell-main">
+                  <i class="bi bi-person-heart cell-icon"></i>
+                  <div><strong>{{ p.fullName }}</strong><div class="cell-sub">{{ p.relationship }}</div></div>
+                </div>
+              </td>
+              <td>
+                @if (p.email) { <div><i class="bi bi-envelope"></i> {{ p.email }}</div> }
+                @if (p.phone) { <div class="cell-sub"><i class="bi bi-telephone"></i> {{ phone(p.phone) }}</div> }
+                @if (!p.email && !p.phone) { <span class="text-muted">—</span> }
+              </td>
+              <td>
+                @for (c of p.children; track c.id) {
+                  <span class="tag" [class.muted]="!c.isActive">{{ c.fullName }}@if (c.className) { · {{ c.className }} }</span>
+                } @empty { <span class="tag warn">No child linked</span> }
+              </td>
+              <td>
+                @if (!p.hasLogin) { <span class="tag muted">No login</span> }
+                @else if (!p.loginActive) { <span class="tag muted">{{ p.username }} · off</span> }
+                @else if (p.loginPending) { <span class="tag warn" title="The parent hasn't set a password yet">{{ p.username }} · invited</span> }
+                @else { <span class="tag ok">{{ p.username }}</span> }
+              </td>
+              <td>
+                <span class="status-pill" [class.active-pill]="p.isActive" [class.inactive-pill]="!p.isActive">
+                  {{ p.isActive ? 'Active' : 'Inactive' }}
+                </span>
+              </td>
+              <td class="actions-cell">
+                <button class="btn btn-sm btn-outline-primary me-1" (click)="invite(p)"
+                        [disabled]="!p.email || !p.isActive || inviting === p.id"
+                        [title]="p.hasLogin ? 'Email a new set-password link' : 'Create login and email a set-password link'">
+                  @if (inviting === p.id) { <span class="spinner-border spinner-border-sm"></span> }
+                  @else { <i class="bi bi-envelope-plus"></i> }
+                </button>
+                <button class="btn btn-sm btn-warning me-1" (click)="openEdit(p)" title="Edit"><i class="bi bi-pencil"></i></button>
+                <button class="btn btn-sm btn-danger" (click)="confirmDelete = p" title="Delete"><i class="bi bi-trash"></i></button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
+
+@if (showModal) {
+  <div class="modal-overlay" (click)="showModal = false">
+    <div class="modal-box wide" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <h5>{{ editing ? 'Edit Parent' : 'Add Parent' }}</h5>
+        <button class="btn-close-modal" (click)="showModal = false" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+
+      <div class="modal-form">
+        @if (modalError) { <div class="alert alert-danger py-2 mb-3">{{ modalError }}</div> }
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="pa-name">Full name</label>
+            <input id="pa-name" type="text" [(ngModel)]="form.fullName" maxlength="150" />
+          </div>
+          <div class="form-group">
+            <label for="pa-rel">Relationship</label>
+            <select id="pa-rel" [(ngModel)]="form.relationship">
+              @for (r of relationships; track r) { <option [value]="r">{{ r }}</option> }
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="pa-email">Email</label>
+            <input id="pa-email" type="email" [(ngModel)]="form.email" maxlength="150" />
+            @if (editing?.hasLogin) { <div class="hint">The login ({{ editing?.username }}) uses this email.</div> }
+          </div>
+          <div class="form-group">
+            <label for="pa-phone">Phone</label>
+            <app-phone-input inputId="pa-phone" [(ngModel)]="form.phone" />
+          </div>
+
+          <div class="form-group span-2">
+            <label>Children</label>
+            <input type="text" class="mb-2" [(ngModel)]="childSearch" placeholder="Find a child or class" aria-label="Find a child" />
+            <div class="pick-list">
+              @for (s of pickableStudents; track s.id) {
+                <label>
+                  <input type="checkbox" [checked]="form.studentIds.includes(s.id)" (change)="toggleChild(s.id, $any($event.target).checked)" />
+                  <span>{{ s.fullName }}
+                    @if (linkedTo(s); as others) { <span class="linked">linked to {{ others }}</span> }
+                  </span>
+                  <small>{{ s.className ?? 'No class' }}{{ s.isActive ? '' : ' · inactive' }}</small>
+                </label>
+              } @empty {
+                <div class="text-muted p-2">No children yet. You can link them later, here or from School → Children.</div>
+              }
+            </div>
+            <div class="hint">{{ form.studentIds.length }} selected. Brothers and sisters: tick each child. A child can have one mother and one father; others are guardians.</div>
+          </div>
+
+          @if (editing?.hasLogin) {
+            <div class="form-group span-2">
+              <label for="pa-pw">Set a new password (optional)</label>
+              <input id="pa-pw" type="text" [(ngModel)]="form.password" maxlength="100" autocomplete="off"
+                     placeholder="Leave empty to keep the current password" />
+              <div class="hint">For parents who can't receive the email. Tell them the password; they choose their own when they sign in.</div>
+            </div>
+          }
+
+          @if (!editing?.hasLogin) {
+            <div class="form-group span-2">
+              <label class="toggle-wrap">
+                <input type="checkbox" [(ngModel)]="form.createLogin" />
+                <span class="toggle-track" [class.on]="form.createLogin"></span>
+                <span class="toggle-text">Create a parent-portal login and email a set-password link</span>
+              </label>
+            </div>
+          }
+
+          <div class="form-group">
+            <label>Status</label>
+            <label class="toggle-wrap">
+              <input type="checkbox" [(ngModel)]="form.isActive" />
+              <span class="toggle-track" [class.on]="form.isActive"></span>
+              <span class="toggle-text">{{ form.isActive ? 'Active' : 'Inactive (login switched off)' }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer-row">
+        <button class="btn btn-secondary" (click)="showModal = false">Cancel</button>
+        <button class="btn btn-primary" (click)="save()" [disabled]="saving || !form.fullName.trim()">
+          @if (saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+          {{ editing ? 'Save' : 'Add' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<app-confirm-modal
+  [show]="!!confirmDelete"
+  title="Delete Parent"
+  [message]="'Delete ' + (confirmDelete?.fullName ?? '') + (confirmDelete?.hasLogin ? ' and their login' : '') + '? Their past messages stay in the threads.'"
+  variant="danger"
+  confirmText="Delete"
+  (confirmed)="remove()"
+  (cancelled)="confirmDelete = null">
+</app-confirm-modal>

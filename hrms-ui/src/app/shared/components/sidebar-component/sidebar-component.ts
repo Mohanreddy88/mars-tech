@@ -6,6 +6,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { filter } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
 import { CompanySettingsService, CompanyBranding } from '../../../core/services/company-settings.service';
+import { SchoolService, SchoolMe } from '../../../core/services/school.service';
 
 @Component({
   selector: 'app-sidebar-component',
@@ -22,6 +23,14 @@ export class SidebarComponent implements OnInit {
   leaveMenuOpen = false;
   reportsMenuOpen = false;
   selfServiceMenuOpen = false;
+  schoolMenuOpen = false;
+
+  /** Parent login (school features): gets the parent portal menu only. */
+  isParent = false;
+  /** School features for this login (null until loaded, or when they don't apply). */
+  school: SchoolMe | null = null;
+  unreadMessages = 0;
+  unreadAnnouncements = 0;
 
   @Input() isMobileMenuOpen = false;
   pendingLeaveCount = 0;
@@ -32,6 +41,7 @@ export class SidebarComponent implements OnInit {
     private router: Router,
     private http: HttpClient,
     private companySettings: CompanySettingsService,
+    private schoolService: SchoolService,
     private cdr: ChangeDetectorRef,
     private host: ElementRef<HTMLElement>
   ) {}
@@ -39,6 +49,13 @@ export class SidebarComponent implements OnInit {
   ngOnInit(): void {
     const user = this.authService.getUser();
     this.isAdmin = user?.role === 'Admin';
+    this.isParent = user?.role === 'Parent';
+
+    // School menu items (classes, children, parents, messages) when the company uses them
+    this.schoolService.me$.subscribe(me => { this.school = me?.enabled ? me : null; this.cdr.markForCheck(); });
+    this.schoolService.unreadMessages$.subscribe(n => { this.unreadMessages = n; this.cdr.markForCheck(); });
+    this.schoolService.unreadAnnouncements$.subscribe(n => { this.unreadAnnouncements = n; this.cdr.markForCheck(); });
+    this.schoolService.loadMe().subscribe();
 
     // Company name/logo for the sidebar header
     this.companySettings.branding$.subscribe(b => { this.branding = b; this.cdr.markForCheck(); });
@@ -112,6 +129,9 @@ export class SidebarComponent implements OnInit {
     if (url.includes('/reports') || url.includes('/analytics') || url.includes('/audit')) {   // Insights group
       this.reportsMenuOpen = true;
     }
+    if (url.includes('/school/')) {
+      this.schoolMenuOpen = true;
+    }
     // Keep Self-Service menu open if on any self-service route
     if (url.includes('/self-service')) {
       this.selfServiceMenuOpen = true;
@@ -141,6 +161,11 @@ export class SidebarComponent implements OnInit {
   toggleReportsMenu(event?: Event): void {
     this.reportsMenuOpen = !this.reportsMenuOpen;
     this.revealSubmenu(event, this.reportsMenuOpen);
+  }
+
+  toggleSchoolMenu(event?: Event): void {
+    this.schoolMenuOpen = !this.schoolMenuOpen;
+    this.revealSubmenu(event, this.schoolMenuOpen);
   }
 
   toggleSelfServiceMenu(): void {

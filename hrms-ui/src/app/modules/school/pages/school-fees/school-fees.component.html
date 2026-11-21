@@ -1,0 +1,601 @@
+<div class="school-page">
+
+  <div class="page-header">
+    <div>
+      <h3>Fees</h3>
+      <p>Monthly invoices for each child, payments and receipts.</p>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button [class.active]="tab === 'invoices'" (click)="setTab('invoices')"><i class="bi bi-receipt"></i> Invoices</button>
+    <button [class.active]="tab === 'claims'" (click)="setTab('claims')">
+      <i class="bi bi-patch-check"></i> To confirm
+      @if ((summary?.claimsPending ?? 0) > 0) { <span class="count-dot">{{ summary?.claimsPending }}</span> }
+    </button>
+    <button [class.active]="tab === 'items'" (click)="setTab('items')"><i class="bi bi-tags"></i> Fee items</button>
+    <button [class.active]="tab === 'addons'" (click)="setTab('addons')"><i class="bi bi-puzzle"></i> Add-ons per child</button>
+    <button [class.active]="tab === 'settings'" (click)="setTab('settings')"><i class="bi bi-gear"></i> Settings</button>
+  </div>
+
+  <!-- ═════════════ Invoices ═════════════ -->
+  @if (tab === 'invoices') {
+    @if (sessionItems.length === 0) {
+      <div class="alert alert-info py-2">
+        <i class="bi bi-info-circle"></i> First set the monthly fee for each session under
+        <a href="javascript:void(0)" (click)="setTab('items')">Fee items</a>, then create the month's invoices here.
+      </div>
+    }
+
+    <div class="filters-row">
+      <div class="month-nav">
+        <button class="btn btn-sm btn-outline-secondary" (click)="shiftMonth(-1)" aria-label="Previous month"><i class="bi bi-chevron-left"></i></button>
+        <strong>{{ monthLabel }}</strong>
+        <button class="btn btn-sm btn-outline-secondary" (click)="shiftMonth(1)" aria-label="Next month"><i class="bi bi-chevron-right"></i></button>
+      </div>
+      <select [(ngModel)]="status" (ngModelChange)="loadInvoices()" aria-label="Status">
+        <option value="">All</option>
+        <option value="Unpaid">Unpaid</option>
+        <option value="Partial">Part paid</option>
+        <option value="Paid">Paid</option>
+        <option value="Overdue">Overdue</option>
+        <option value="ToConfirm">Payment to confirm</option>
+        <option value="Void">Void</option>
+      </select>
+      <select [(ngModel)]="classId" (ngModelChange)="loadInvoices()" aria-label="Class">
+        <option [ngValue]="null">All classes</option>
+        @for (c of classes; track c.id) { <option [ngValue]="c.id">{{ c.name }}</option> }
+      </select>
+      <div class="list-search">
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <input type="search" [(ngModel)]="search" placeholder="Child, parent or invoice no." aria-label="Search invoices" />
+      </div>
+      <div class="ms-auto header-actions">
+        <button class="btn btn-primary" (click)="confirmGenerate = true" [disabled]="working || sessionItems.length === 0">
+          <i class="bi bi-plus-lg"></i> Create invoices
+        </button>
+        @if (selected.size > 0) {
+          <button class="btn btn-success" (click)="sendSelected()" [disabled]="working"
+                  title="Unsent ones are sent; ones already sent are sent again">
+            <i class="bi bi-send-check"></i> Send selected ({{ selected.size }})
+          </button>
+        } @else if ((summary?.notSent ?? 0) > 0) {
+          <button class="btn btn-success" (click)="sendAll()" [disabled]="working">
+            <i class="bi bi-send"></i> Send {{ summary?.notSent }} unsent{{ classId ? ' (' + className + ')' : '' }}
+          </button>
+        }
+        @if ((summary?.overdue ?? 0) > 0) {
+          <button class="btn btn-outline-danger" (click)="remindAll()" [disabled]="working"><i class="bi bi-bell"></i> Remind {{ summary?.overdue }} overdue</button>
+        }
+      </div>
+    </div>
+
+    @if (summary) {
+      <div class="stat-row">
+        <div class="stat"><span>Billed</span><strong>{{ rm(summary.billed) }}</strong><small>{{ summary.count }} invoices</small></div>
+        <div class="stat ok"><span>Collected</span><strong>{{ rm(summary.collected) }}</strong><small>{{ summary.paid }} fully paid</small></div>
+        <div class="stat warn"><span>Outstanding</span><strong>{{ rm(summary.outstanding) }}</strong><small>{{ summary.overdue }} overdue</small></div>
+        @if (summary.childrenWithoutInvoice > 0) {
+          <div class="stat muted"><span>No invoice yet</span><strong>{{ summary.childrenWithoutInvoice }}</strong><small>active children</small></div>
+        }
+      </div>
+    }
+
+    @if (loading) {
+      <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+    } @else if (invoices.length === 0) {
+      <div class="table-card empty-state">
+        <i class="bi bi-receipt"></i>
+        <h5>No invoices for {{ monthLabel }}{{ status ? ' with this status' : '' }}</h5>
+        @if (!status && sessionItems.length > 0) {
+          <p>Create them in one go: each active child gets their session fee and add-ons, with the sibling discount.</p>
+          <button class="btn btn-primary" (click)="confirmGenerate = true" [disabled]="working"><i class="bi bi-plus-lg"></i> Create invoices for {{ monthLabel }}</button>
+        }
+      </div>
+    } @else {
+      <div class="table-card">
+        <table class="table align-middle mb-0">
+          <thead>
+            <tr>
+              <th class="pick"><input type="checkbox" class="form-check-input" [checked]="allSelected"
+                     (change)="toggleAll($any($event.target).checked)" aria-label="Select all" /></th>
+              <th>Invoice</th>
+              <th>Child</th>
+              <th class="text-end">Total</th>
+              <th class="text-end">Paid</th>
+              <th class="text-end">Balance</th>
+              <th>Due</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (i of shownInvoices; track i.id) {
+              <tr class="clickable" (click)="open(i.id)" [class.void]="i.status === 'Void'" [class.picked]="selected.has(i.id)">
+                <td class="pick" (click)="$event.stopPropagation()">
+                  @if (i.status !== 'Void') {
+                    <input type="checkbox" class="form-check-input" [checked]="selected.has(i.id)"
+                           (change)="toggleSelect(i.id, $any($event.target).checked)" [attr.aria-label]="'Select ' + i.invoiceNo" />
+                  }
+                </td>
+                <td>
+                  <strong>{{ i.invoiceNo }}</strong>
+                  <div>
+                    @if (!i.sentAt && i.status !== 'Void') { <span class="tag muted">Not sent</span> }
+                    @else if (i.sendCount > 1) { <span class="tag muted" [title]="'Last sent ' + (i.lastSentAt | date: 'd MMM, h:mm a')">Sent {{ i.sendCount }}×</span> }
+                    @if (i.pendingClaim) { <span class="tag warn" title="A parent reported paying; check and confirm">Paid? confirm</span> }
+                  </div>
+                </td>
+                <td>{{ i.studentName }}<div class="cell-sub">{{ i.className ?? 'No class' }}@if (i.parents.length) { · {{ i.parents.join(', ') }} }</div></td>
+                <td class="text-end">{{ rm(i.total) }}@if (i.discount > 0) { <div class="cell-sub">−{{ rm(i.discount) }} disc.</div> }</td>
+                <td class="text-end">{{ rm(i.amountPaid) }}</td>
+                <td class="text-end"><strong>{{ rm(i.balance) }}</strong></td>
+                <td>{{ i.dueDate | date: 'd MMM' }}</td>
+                <td>
+                  <span class="pay-pill" [ngClass]="i.overdue ? 'overdue' : i.status.toLowerCase()">
+                    {{ i.overdue ? 'Overdue' : i.status === 'Partial' ? 'Part paid' : i.status }}
+                  </span>
+                </td>
+                <td class="actions-cell" (click)="$event.stopPropagation()">
+                  <button class="btn btn-sm btn-outline-secondary" (click)="pdf(i.id)" title="Invoice PDF"><i class="bi bi-file-earmark-pdf"></i></button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+
+  <!-- ═════════════ Payments parents reported ═════════════ -->
+  @if (tab === 'claims') {
+    <div class="filters-row">
+      <select [(ngModel)]="claimsStatus" (ngModelChange)="loadClaims()" aria-label="Status">
+        <option value="Pending">To confirm</option>
+        <option value="Confirmed">Confirmed</option>
+        <option value="Rejected">Not confirmed</option>
+        <option value="">All</option>
+      </select>
+      <span class="hint">Parents tell you here when they've paid by transfer. Check your bank, then confirm (records the payment and sends the receipt) or say why not.</span>
+    </div>
+
+    @if (claimsLoading) {
+      <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+    } @else if (claims.length === 0) {
+      <div class="table-card empty-state">
+        <i class="bi bi-patch-check"></i>
+        <h5>{{ claimsStatus === 'Pending' ? 'Nothing to confirm' : 'None' }}</h5>
+        <p>When a parent uses "I've paid" in the parent portal, it appears here.</p>
+      </div>
+    } @else {
+      <div class="table-card">
+        <table class="table align-middle mb-0">
+          <thead>
+            <tr><th>Child</th><th>Invoice</th><th class="text-end">Amount</th><th>Paid</th><th>Slip</th><th>Status</th><th></th></tr>
+          </thead>
+          <tbody>
+            @for (c of claims; track c.id) {
+              <tr>
+                <td>{{ c.studentName }}<div class="cell-sub">{{ c.className ?? 'No class' }} · from {{ c.createdByName }}</div></td>
+                <td>
+                  <a href="javascript:void(0)" (click)="open(c.invoiceId)">{{ c.invoiceNo }}</a>
+                  <div class="cell-sub">{{ claimMonth(c) }} · balance {{ rm(c.invoiceBalance) }}</div>
+                </td>
+                <td class="text-end"><strong>{{ rm(c.amount) }}</strong></td>
+                <td>
+                  {{ c.paidOn | date: 'd MMM yyyy' }} · {{ c.method }}
+                  @if (c.reference) { <div class="cell-sub">Ref {{ c.reference }}</div> }
+                  @if (c.note) { <div class="cell-sub">"{{ c.note }}"</div> }
+                </td>
+                <td>
+                  @if (c.hasSlip) {
+                    <button class="btn btn-sm btn-outline-secondary" (click)="slip(c)">
+                      <i class="bi" [class.bi-file-earmark-pdf]="c.slipIsPdf" [class.bi-image]="!c.slipIsPdf"></i> View
+                    </button>
+                  } @else { <span class="text-muted">—</span> }
+                </td>
+                <td>
+                  @switch (c.status) {
+                    @case ('Pending') { <span class="pay-pill partial">To confirm</span> }
+                    @case ('Confirmed') { <span class="pay-pill paid">Confirmed</span><div class="cell-sub">{{ c.reviewedByName }}</div> }
+                    @default { <span class="pay-pill overdue">Not confirmed</span><div class="cell-sub">{{ c.rejectReason }}</div> }
+                  }
+                </td>
+                <td class="actions-cell text-end">
+                  @if (c.status === 'Pending') {
+                    <button class="btn btn-sm btn-success me-1" (click)="confirmClaim(c)" [disabled]="confirming === c.id">
+                      @if (confirming === c.id) { <span class="spinner-border spinner-border-sm"></span> } @else { <i class="bi bi-check-lg"></i> }
+                      Confirm
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" (click)="rejecting = c">Not received</button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+
+  <!-- ═════════════ Fee items ═════════════ -->
+  @if (tab === 'items') {
+    <div class="split">
+      <div>
+        <div class="section-head">
+          <div>
+            <h5>Monthly fee per session</h5>
+            <p>Every child pays the fee for their session (set on the child's record).</p>
+          </div>
+          <button class="btn btn-primary btn-sm" (click)="openItem(null, 'Session')"><i class="bi bi-plus-lg"></i> Add</button>
+        </div>
+        <div class="table-card">
+          <table class="table align-middle mb-0">
+            <thead><tr><th>Name</th><th>Session</th><th class="text-end">Per month</th><th>Children</th><th></th></tr></thead>
+            <tbody>
+              @for (i of sessionItems; track i.id) {
+                <tr [class.void]="!i.isActive">
+                  <td><strong>{{ i.name }}</strong>@if (!i.isActive) { <span class="tag muted ms-1">Off</span> }</td>
+                  <td><span class="tag info">{{ i.sessionType }}</span></td>
+                  <td class="text-end">{{ rm(i.amount) }}</td>
+                  <td>{{ i.children }}</td>
+                  <td class="actions-cell text-end">
+                    <button class="btn btn-sm btn-warning me-1" (click)="openItem(i)" title="Edit"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-danger" (click)="confirmItemDelete = i" title="Delete"><i class="bi bi-trash"></i></button>
+                  </td>
+                </tr>
+              } @empty {
+                <tr><td colspan="5" class="text-muted text-center py-3">e.g. "Full day tuition" RM 850 for Full day</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-head">
+          <div>
+            <h5>Add-ons</h5>
+            <p>Optional extras, e.g. Mandarin or Speech &amp; Drama. Tick the children under "Add-ons per child".</p>
+          </div>
+          <button class="btn btn-primary btn-sm" (click)="openItem(null, 'AddOn')"><i class="bi bi-plus-lg"></i> Add</button>
+        </div>
+        <div class="table-card">
+          <table class="table align-middle mb-0">
+            <thead><tr><th>Name</th><th class="text-end">Per month</th><th>Children</th><th></th></tr></thead>
+            <tbody>
+              @for (i of addOnFeeItems; track i.id) {
+                <tr [class.void]="!i.isActive">
+                  <td><strong>{{ i.name }}</strong>@if (!i.isActive) { <span class="tag muted ms-1">Off</span> }</td>
+                  <td class="text-end">{{ rm(i.amount) }}</td>
+                  <td>{{ i.children }}</td>
+                  <td class="actions-cell text-end">
+                    <button class="btn btn-sm btn-warning me-1" (click)="openItem(i)" title="Edit"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-danger" (click)="confirmItemDelete = i" title="Delete"><i class="bi bi-trash"></i></button>
+                  </td>
+                </tr>
+              } @empty {
+                <tr><td colspan="4" class="text-muted text-center py-3">No add-ons yet</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <p class="hint mt-3">Changing a price applies to invoices created from now on; invoices already created keep their amounts (you can edit an invoice).</p>
+  }
+
+  <!-- ═════════════ Add-ons per child ═════════════ -->
+  @if (tab === 'addons') {
+    @if (addOnItems.length === 0) {
+      <div class="table-card empty-state">
+        <i class="bi bi-puzzle"></i>
+        <h5>No add-ons yet</h5>
+        <p>Add them under Fee items (e.g. Mandarin, Speech &amp; Drama), then tick the children here.</p>
+        <button class="btn btn-primary" (click)="setTab('items')">Go to fee items</button>
+      </div>
+    } @else {
+      <div class="table-card">
+        <table class="table align-middle mb-0 addon-table">
+          <thead>
+            <tr>
+              <th>Child</th>
+              @for (a of addOnItems; track a.id) {
+                <th class="text-center">{{ a.name }}<div class="cell-sub">{{ rm(a.amount) }} · {{ addOnCount(a.id) }}</div></th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (c of addOnChildren; track c.id) {
+              <tr>
+                <td>{{ c.fullName }}<div class="cell-sub">{{ c.className ?? 'No class' }} · {{ c.sessionType }}</div></td>
+                @for (a of addOnItems; track a.id) {
+                  <td class="text-center">
+                    <input type="checkbox" class="form-check-input" [checked]="c.addOnIds.includes(a.id)"
+                           (change)="toggleAddOn(c, a.id, $any($event.target).checked)" [attr.aria-label]="c.fullName + ' — ' + a.name" />
+                  </td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="hint mt-2">Saved as you tick. Included in invoices created from now on.</p>
+    }
+  }
+
+  <!-- ═════════════ Settings ═════════════ -->
+  @if (tab === 'settings') {
+    <div class="table-card settings-card">
+      <div class="modal-form">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="fs-disc">Sibling discount (%)</label>
+            <input id="fs-disc" type="number" min="0" max="100" step="0.5" [(ngModel)]="settings.siblingDiscountPercent" />
+            <div class="hint">Off the 2nd and later child of a family (children who share a parent). The eldest pays in full. 0 = none.</div>
+          </div>
+          <div class="form-group">
+            <label for="fs-due">Fees due on day</label>
+            <input id="fs-due" type="number" min="1" max="28" [(ngModel)]="settings.feeDueDay" />
+            <div class="hint">Of the month the invoice is for, e.g. 7 = due by the 7th.</div>
+          </div>
+          <div class="form-group span-2">
+            <label for="fs-how">How to pay (printed on invoices, shown to parents)</label>
+            <textarea id="fs-how" rows="4" maxlength="1000" [(ngModel)]="settings.feePaymentInstructions"
+                      placeholder="e.g. Maybank 5123 4567 8901 (Golden Montessori Sdn Bhd). Please put your child's name as the reference and send us the receipt."></textarea>
+          </div>
+        </div>
+        <button class="btn btn-primary" (click)="saveSettings()" [disabled]="settingsSaving">
+          @if (settingsSaving) { <span class="spinner-border spinner-border-sm me-1"></span> } Save settings
+        </button>
+      </div>
+    </div>
+  }
+</div>
+
+<!-- Invoice detail -->
+@if (detail) {
+  <div class="modal-overlay" (click)="closeDetail()">
+    <div class="modal-box wide" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <h5>
+          {{ detail.invoiceNo }}
+          <span class="pay-pill ms-2" [ngClass]="detail.overdue ? 'overdue' : detail.status.toLowerCase()">
+            {{ detail.overdue ? 'Overdue' : detail.status === 'Partial' ? 'Part paid' : detail.status }}
+          </span>
+          @if (!detail.sentAt && detail.status !== 'Void') { <span class="tag muted ms-1">Not sent</span> }
+        </h5>
+        <button class="btn-close-modal" (click)="closeDetail()" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+
+      <div class="modal-form">
+        @if (detailError) { <div class="alert alert-danger py-2">{{ detailError }}</div> }
+        @if (detail.status === 'Void') { <div class="alert alert-secondary py-2">Cancelled: {{ detail.voidReason }}</div> }
+
+        <div class="inv-head">
+          <div><span class="cell-sub">Child</span><strong>{{ detail.studentName }}</strong><span class="cell-sub">{{ detail.className ?? 'No class' }}</span></div>
+          <div><span class="cell-sub">Fees for</span><strong>{{ detail.monthName }}</strong></div>
+          <div>
+            <span class="cell-sub">Due date</span>
+            @if (editable) { <input type="date" [(ngModel)]="detailDue" /> } @else { <strong>{{ detail.dueDate | date: 'd MMM yyyy' }}</strong> }
+          </div>
+        </div>
+
+        <div class="section-title">Lines</div>
+        <table class="table table-sm align-middle lines">
+          <tbody>
+            @for (l of detailLines; track $index; let i = $index) {
+              <tr>
+                <td>
+                  @if (editable) { <input type="text" [(ngModel)]="l.description" maxlength="150" placeholder="Description" /> }
+                  @else { {{ l.description }} }
+                </td>
+                <td class="amount">
+                  @if (editable) { <input type="number" step="0.01" [(ngModel)]="l.amount" /> }
+                  @else { {{ rm(l.amount) }} }
+                </td>
+                @if (editable) {
+                  <td class="x"><button class="btn btn-sm btn-link text-danger" (click)="removeLine(i)" title="Remove line"><i class="bi bi-x-lg"></i></button></td>
+                }
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr><td><strong>Total</strong></td><td class="amount"><strong>{{ rm(editable ? detailTotal : detail.total) }}</strong></td>@if (editable) { <td></td> }</tr>
+            <tr><td>Paid</td><td class="amount">{{ rm(detail.amountPaid) }}</td>@if (editable) { <td></td> }</tr>
+            <tr><td><strong>Balance</strong></td><td class="amount"><strong>{{ rm(detail.balance) }}</strong></td>@if (editable) { <td></td> }</tr>
+          </tfoot>
+        </table>
+        @if (editable) {
+          <div class="d-flex gap-2 flex-wrap mb-2">
+            <button class="btn btn-sm btn-outline-secondary" (click)="addLine()"><i class="bi bi-plus"></i> Add line</button>
+            <button class="btn btn-sm btn-outline-secondary" (click)="addLine(true)"><i class="bi bi-dash"></i> Add discount (enter a minus amount)</button>
+          </div>
+          <div class="form-group">
+            <label for="inv-notes">Note on the invoice (optional)</label>
+            <input id="inv-notes" type="text" [(ngModel)]="detailNotes" maxlength="500" placeholder="e.g. Pro-rated: joined on 15 November" />
+          </div>
+          <button class="btn btn-outline-primary btn-sm" (click)="saveDetail()" [disabled]="detailSaving">Save changes</button>
+        }
+
+        @for (c of detail.claims; track c.id) {
+          @if (c.status === 'Pending') {
+            <div class="claim-box">
+              <div>
+                <strong>{{ c.createdByName }} says they paid {{ rm(c.amount) }}</strong>
+                <div class="cell-sub">{{ c.paidOn | date: 'd MMM yyyy' }} · {{ c.method }}{{ c.reference ? ' · Ref ' + c.reference : '' }}{{ c.note ? ' · "' + c.note + '"' : '' }}</div>
+              </div>
+              <div class="d-flex gap-1 flex-wrap">
+                @if (c.hasSlip) { <button class="btn btn-sm btn-outline-secondary" (click)="slip(c)">View slip</button> }
+                <button class="btn btn-sm btn-success" (click)="confirmClaim(c)" [disabled]="confirming === c.id">Confirm</button>
+                <button class="btn btn-sm btn-outline-danger" (click)="rejecting = c">Not received</button>
+              </div>
+            </div>
+          }
+        }
+
+        <div class="section-title mt-4">Payments</div>
+        @for (p of detail.payments; track p.id) {
+          <div class="payment">
+            <i class="bi bi-cash-coin"></i>
+            <div>
+              <strong>{{ rm(p.amount) }}</strong> · {{ p.paidOn | date: 'd MMM yyyy' }} · {{ p.method }}{{ p.reference ? ' (' + p.reference + ')' : '' }}
+              <div class="cell-sub">Receipt {{ p.receiptNo }} · recorded by {{ p.recordedByName }}</div>
+            </div>
+            <button class="btn btn-sm btn-outline-secondary ms-auto" (click)="receipt(p.id)" title="Receipt PDF"><i class="bi bi-file-earmark-pdf"></i> Receipt</button>
+            <button class="btn btn-sm btn-link text-danger" (click)="confirmPaymentDelete = p.id" title="Remove payment"><i class="bi bi-trash"></i></button>
+          </div>
+        } @empty { <p class="text-muted">No payments yet.</p> }
+
+        @if (editable && detail.balance > 0) {
+          <div class="pay-form">
+            <div class="form-group">
+              <label for="pay-amt">Amount received (RM)</label>
+              <input id="pay-amt" type="number" step="0.01" min="0" [(ngModel)]="pay.amount" />
+            </div>
+            <div class="form-group">
+              <label for="pay-date">Date</label>
+              <input id="pay-date" type="date" [(ngModel)]="pay.paidOn" />
+            </div>
+            <div class="form-group">
+              <label for="pay-method">Method</label>
+              <select id="pay-method" [(ngModel)]="pay.method">
+                @for (m of methods; track m) { <option [value]="m">{{ m }}</option> }
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="pay-ref">Reference (optional)</label>
+              <input id="pay-ref" type="text" [(ngModel)]="pay.reference" maxlength="100" placeholder="Bank ref / cheque no." />
+            </div>
+            <button class="btn btn-success" (click)="recordPayment()" [disabled]="detailSaving"><i class="bi bi-check-lg"></i> Record payment</button>
+          </div>
+        }
+      </div>
+
+      <div class="modal-footer-row">
+        @if (detail.status !== 'Void' && detail.payments.length === 0) {
+          <button class="btn btn-outline-danger me-auto" (click)="askVoid = true">Cancel invoice</button>
+        }
+        <button class="btn btn-outline-secondary" (click)="pdf(detail.id)"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
+        @if (detail.status !== 'Void') {
+          <button class="btn btn-success" (click)="sendOne()"
+                  [title]="detail.sentAt ? 'Sent ' + detail.sendCount + '× · last ' + (detail.lastSentAt | date: 'd MMM, h:mm a') : ''">
+            <i class="bi bi-send"></i> {{ detail.sentAt ? 'Send again' : 'Send to parents' }}
+          </button>
+        }
+        <button class="btn btn-secondary" (click)="closeDetail()">Close</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Fee item -->
+@if (itemModal) {
+  <div class="modal-overlay" (click)="itemModal = false">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <h5>{{ itemEditing ? 'Edit fee item' : itemForm.kind === 'AddOn' ? 'Add an add-on' : 'Add a session fee' }}</h5>
+        <button class="btn-close-modal" (click)="itemModal = false" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="modal-form">
+        @if (itemError) { <div class="alert alert-danger py-2">{{ itemError }}</div> }
+        <div class="form-grid">
+          <div class="form-group span-2">
+            <label for="fi-name">Name</label>
+            <input id="fi-name" type="text" [(ngModel)]="itemForm.name" maxlength="100"
+                   [placeholder]="itemForm.kind === 'AddOn' ? 'e.g. Mandarin class' : 'e.g. Full day tuition'" />
+          </div>
+          <div class="form-group">
+            <label for="fi-kind">Type</label>
+            <select id="fi-kind" [(ngModel)]="itemForm.kind">
+              <option value="Session">Monthly session fee</option>
+              <option value="AddOn">Add-on</option>
+            </select>
+          </div>
+          @if (itemForm.kind === 'Session') {
+            <div class="form-group">
+              <label for="fi-session">For session</label>
+              <select id="fi-session" [(ngModel)]="itemForm.sessionType">
+                @for (s of sessionTypes; track s) { <option [value]="s">{{ s }}</option> }
+              </select>
+            </div>
+          }
+          <div class="form-group">
+            <label for="fi-amount">Per month (RM)</label>
+            <input id="fi-amount" type="number" step="0.01" min="0" [(ngModel)]="itemForm.amount" />
+          </div>
+          <div class="form-group">
+            <label for="fi-order">Order on invoice</label>
+            <input id="fi-order" type="number" [(ngModel)]="itemForm.sortOrder" />
+          </div>
+          <div class="form-group">
+            <label>Status</label>
+            <label class="toggle-wrap">
+              <input type="checkbox" [(ngModel)]="itemForm.isActive" />
+              <span class="toggle-track" [class.on]="itemForm.isActive"></span>
+              <span class="toggle-text">{{ itemForm.isActive ? 'In use' : 'Off (not billed)' }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer-row">
+        <button class="btn btn-secondary" (click)="itemModal = false">Cancel</button>
+        <button class="btn btn-primary" (click)="saveItem()" [disabled]="!itemForm.name?.trim()">Save</button>
+      </div>
+    </div>
+  </div>
+}
+
+<app-confirm-modal
+  [show]="confirmGenerate"
+  title="Create invoices"
+  [message]="'Create an invoice for ' + monthLabel + ' for every active child who has none yet? Parents see them only after you send them.'"
+  variant="info"
+  confirmText="Create"
+  (confirmed)="generate()"
+  (cancelled)="confirmGenerate = false">
+</app-confirm-modal>
+
+<app-confirm-modal
+  [show]="!!confirmItemDelete"
+  title="Delete fee item"
+  [message]="'Delete ' + (confirmItemDelete?.name ?? '') + '? Invoices already created keep their lines. To stop billing it but keep it, switch it off instead.'"
+  variant="danger"
+  confirmText="Delete"
+  (confirmed)="deleteItem()"
+  (cancelled)="confirmItemDelete = null">
+</app-confirm-modal>
+
+<app-confirm-modal
+  [show]="!!confirmPaymentDelete"
+  title="Remove payment"
+  message="Remove this payment? Use this only for a payment recorded by mistake; its receipt number won't be reused."
+  variant="danger"
+  confirmText="Remove"
+  (confirmed)="deletePayment()"
+  (cancelled)="confirmPaymentDelete = null">
+</app-confirm-modal>
+
+<app-input-modal
+  [show]="!!rejecting"
+  title="Payment not confirmed"
+  [message]="'Tell ' + (rejecting?.createdByName ?? 'the parent') + ' why the payment of ' + rm(rejecting?.amount) + ' cannot be confirmed.'"
+  placeholder="e.g. Not received in our account yet; please send the bank slip"
+  [required]="true"
+  confirmText="Send to parent"
+  cancelText="Back"
+  (confirmed)="rejectClaim($event)"
+  (cancelled)="rejecting = null">
+</app-input-modal>
+
+<app-input-modal
+  [show]="askVoid"
+  title="Cancel invoice"
+  message="Why is this invoice cancelled? (Kept on record.)"
+  placeholder="e.g. Child left the school"
+  [required]="true"
+  confirmText="Cancel invoice"
+  cancelText="Keep it"
+  (confirmed)="voidInvoice($event)"
+  (cancelled)="askVoid = false">
+</app-input-modal>

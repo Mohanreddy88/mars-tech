@@ -1,0 +1,94 @@
+<div class="school-page parent-home">
+
+  @if (loading) {
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+  } @else if (!me?.enabled) {
+    <div class="table-card empty-state">
+      <i class="bi bi-door-closed"></i>
+      <h5>The parent portal isn't available</h5>
+      <p>Please contact the school office.</p>
+    </div>
+  } @else {
+    <div class="hello">
+      <h3>{{ greeting() }}, {{ me?.name }}</h3>
+      <p>{{ branding?.isConfigured ? branding!.displayName + ' · parent portal' : 'Parent portal' }}</p>
+    </div>
+
+    <div class="quick">
+      <a class="quick-card" routerLink="/parent/messages">
+        <i class="bi bi-chat-dots-fill"></i>
+        <div><strong>Messages</strong><span>{{ unreadMessages > 0 ? unreadMessages + ' unread' : 'Talk to the teacher or office' }}</span></div>
+        @if (unreadMessages > 0) { <span class="unread-dot">{{ unreadMessages }}</span> }
+      </a>
+      <a class="quick-card" routerLink="/parent/announcements">
+        <i class="bi bi-megaphone-fill"></i>
+        <div><strong>Announcements</strong><span>Notices from the school</span></div>
+      </a>
+      <a class="quick-card" routerLink="/parent/fees">
+        <i class="bi bi-cash-coin"></i>
+        <div><strong>Fees</strong><span>Invoices, payments and receipts</span></div>
+      </a>
+    </div>
+
+    <h4 class="section">My {{ (me?.children?.length ?? 0) === 1 ? 'child' : 'children' }}</h4>
+    @if (!me?.children?.length) {
+      <div class="table-card empty-state">
+        <i class="bi bi-emoji-smile"></i>
+        <h5>No child is linked to your account yet</h5>
+        <p>Please ask the school office to link your child.</p>
+      </div>
+    } @else {
+      <div class="children">
+        @for (c of me!.children!; track c.id) {
+          <div class="child-card">
+            <div class="child-top">
+              <div class="child-avatar">{{ c.fullName.charAt(0) }}</div>
+              <div>
+                <h5>{{ c.fullName }}</h5>
+                <div class="cell-sub">
+                  @if (c.className) { Class {{ c.className }} } @else { No class yet }
+                  @if (c.dateOfBirth) { · {{ age(c.dateOfBirth) }} }
+                </div>
+              </div>
+            </div>
+            <dl>
+              <dt>Class teacher</dt><dd>{{ c.classTeacherName ?? '—' }}</dd>
+              <dt>Session</dt><dd>{{ c.sessionType }}</dd>
+            </dl>
+            <div class="child-actions">
+              <a class="btn btn-success btn-sm" [routerLink]="['/parent/child', c.id]"><i class="bi bi-journal-heart"></i> Today at school</a>
+              <button class="btn btn-primary btn-sm" (click)="message(c, 'Teacher')" [disabled]="opening !== null">
+                @if (opening === c.id + '-Teacher') { <span class="spinner-border spinner-border-sm"></span> }
+                <i class="bi bi-person-workspace"></i> Message teacher
+              </button>
+              <button class="btn btn-outline-secondary btn-sm" (click)="message(c, 'Office')" [disabled]="opening !== null">
+                @if (opening === c.id + '-Office') { <span class="spinner-border spinner-border-sm"></span> }
+                <i class="bi bi-building"></i> Message office
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+    <div class="section-row">
+      <h4 class="section">Latest announcements</h4>
+      <a routerLink="/parent/announcements">See all</a>
+    </div>
+    @if (announcements.length === 0) {
+      <p class="text-muted">No announcements yet.</p>
+    } @else {
+      <div class="latest">
+        @for (a of announcements; track a.id) {
+          <a class="latest-item" routerLink="/parent/announcements" [class.unread]="!a.isRead">
+            <div class="row1">
+              <strong>{{ a.title }}</strong>
+              <span class="cell-sub">{{ utc(a.createdAt) | date: 'd MMM' }}</span>
+            </div>
+            <div class="cell-sub">{{ a.className ? 'Class ' + a.className : 'All parents' }} · {{ a.body.length > 120 ? (a.body | slice: 0:120) + '…' : a.body }}</div>
+          </a>
+        }
+      </div>
+    }
+  }
+</div>

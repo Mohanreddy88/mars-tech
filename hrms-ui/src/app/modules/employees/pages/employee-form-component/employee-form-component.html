@@ -61,20 +61,11 @@
           <!-- Mobile: country code + number -->
           <div class="form-group">
             <label for="emp-phone">Mobile No. <span class="req">*</span></label>
-            <div class="phone-row">
-              <select formControlName="phoneCountryCode" class="dial-code" aria-label="Country code">
-                @for (d of dialCodes; track d.dial) {
-                  <option [value]="d.dial">{{ d.label }}</option>
-                }
-              </select>
-              <input id="emp-phone" type="text" inputmode="numeric" formControlName="phone"
-                placeholder="e.g. 123456789" (input)="onPhoneInput()"
-                [class.is-invalid]="f['phone'].invalid && f['phone'].touched" />
-            </div>
-            @if (f['phone'].invalid && f['phone'].touched) {
+            <app-phone-input inputId="emp-phone" formControlName="mobile" [showHint]="false" />
+            @if (f['mobile'].invalid && f['mobile'].touched) {
               <span class="field-error">{{ phoneError }}</span>
             } @else {
-              <small class="field-hint">Numbers only, without the country code</small>
+              <small class="field-hint">Malaysia: e.g. 012-345 6789. Other countries: choose the code first.</small>
             }
           </div>
 

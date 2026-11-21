@@ -1,0 +1,298 @@
+<div class="school-page">
+
+  <div class="page-header">
+    <div>
+      <h3>Attendance &amp; Daily Reports</h3>
+      <p>Check children in and out, see the parents' notes, and send each child's daily report.</p>
+    </div>
+    <div class="header-actions">
+      @if (unpublished.length > 0) {
+        <button class="btn btn-primary" (click)="publishAll()">
+          <i class="bi bi-send"></i> Send {{ unpublished.length }} draft report{{ unpublished.length === 1 ? '' : 's' }}
+        </button>
+      }
+    </div>
+  </div>
+
+  <div class="filters-row">
+    <select [(ngModel)]="classId" (ngModelChange)="changed()" aria-label="Class">
+      @if (isAdmin) { <option [ngValue]="null">All classes</option> }
+      @else if (classes.length > 1) { <option [ngValue]="null">All my classes</option> }
+      @for (c of classes; track c.id) { <option [ngValue]="c.id">{{ c.name }}</option> }
+    </select>
+
+    <div class="day-nav">
+      <button class="btn btn-sm btn-outline-secondary" (click)="shiftDay(-1)" aria-label="Previous day"><i class="bi bi-chevron-left"></i></button>
+      <input type="date" [(ngModel)]="date" (ngModelChange)="changed()" [max]="today" aria-label="Date" />
+      <button class="btn btn-sm btn-outline-secondary" (click)="shiftDay(1)" [disabled]="isToday" aria-label="Next day"><i class="bi bi-chevron-right"></i></button>
+      @if (!isToday) { <button class="btn btn-sm btn-link" (click)="goToday()">Today</button> }
+    </div>
+
+    <div class="list-search">
+      <i class="bi bi-search" aria-hidden="true"></i>
+      <input type="search" [(ngModel)]="search" placeholder="Find a child" aria-label="Find a child" />
+    </div>
+  </div>
+
+  @if (data && !loading) {
+    <div class="summary-chips">
+      <span class="chip ok"><i class="bi bi-check-circle-fill"></i> {{ data.summary.present }} present</span>
+      <span class="chip home"><i class="bi bi-house-door-fill"></i> {{ data.summary.checkedOut }} gone home</span>
+      <span class="chip bad"><i class="bi bi-x-circle-fill"></i> {{ data.summary.absent }} absent</span>
+      <span class="chip muted"><i class="bi bi-question-circle"></i> {{ data.summary.notMarked }} not marked</span>
+      <span class="chip info"><i class="bi bi-journal-check"></i> {{ data.summary.reportsPublished }} / {{ data.summary.total }} reports sent</span>
+    </div>
+  }
+
+  @if (loading) {
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+  } @else if ((data?.rows?.length ?? 0) === 0) {
+    <div class="table-card empty-state">
+      <i class="bi bi-calendar-check"></i>
+      <h5>No children here</h5>
+      <p>{{ isAdmin ? 'Add children under School → Children and put them in a class.' : 'No children are in your class yet.' }}</p>
+    </div>
+  } @else {
+    <div class="table-card">
+      <table class="table align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Child</th>
+            <th>Parents' notes</th>
+            <th>Arrival</th>
+            <th>Home time</th>
+            <th>Daily report</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of rows; track r.studentId) {
+            <tr [class.row-absent]="r.attendance?.status === 'Absent'"
+                [class.row-expected-absent]="!r.attendance && hasAbsence(r)">
+              <td>
+                <div class="cell-main">
+                  <i class="bi bi-person-circle cell-icon"></i>
+                  <div>
+                    <strong>{{ r.fullName }}</strong>
+                    <div class="cell-sub">{{ r.className ?? 'No class' }} · {{ r.sessionType }}</div>
+                    @if (r.medicalNotes) {
+                      <div class="medical-note" [title]="r.medicalNotes"><i class="bi bi-heart-pulse-fill"></i> {{ r.medicalNotes }}</div>
+                    }
+                  </div>
+                </div>
+              </td>
+
+              <td class="notes-cell">
+                @for (n of r.notes; track n.id) {
+                  <div class="note" [class.absence]="n.kind === 'Absence'" [class.pickup]="n.kind === 'Pickup'">
+                    <i class="bi" [class.bi-thermometer-half]="n.kind === 'Absence'" [class.bi-car-front-fill]="n.kind === 'Pickup'"></i>
+                    <span>{{ noteText(n) }} <small>— {{ n.createdByName }}</small></span>
+                    @if (!n.seenAt) {
+                      <button class="btn btn-sm btn-link p-0 ms-1" (click)="seen(n)" title="Mark as seen (the parent sees it)">Mark seen</button>
+                    } @else {
+                      <i class="bi bi-check2-all seen" [title]="'Seen by ' + n.seenByName"></i>
+                    }
+                  </div>
+                } @empty { <span class="text-muted">—</span> }
+              </td>
+
+              <td>
+                @if (r.attendance?.status === 'Absent') {
+                  <span class="tag bad">Absent</span>
+                  @if (r.attendance?.absenceReason) { <div class="cell-sub">{{ r.attendance?.absenceReason }}</div> }
+                } @else if (r.attendance?.checkIn) {
+                  <strong>{{ r.attendance?.checkIn }}</strong>
+                  <div class="cell-sub">by {{ r.attendance?.checkInBy }}</div>
+                } @else {
+                  <div class="btn-group-tight">
+                    <button class="btn btn-sm btn-success" (click)="checkIn(r)" [disabled]="busy === r.studentId">
+                      @if (busy === r.studentId) { <span class="spinner-border spinner-border-sm"></span> } @else { <i class="bi bi-box-arrow-in-right"></i> }
+                      Check in
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" (click)="openDialog('absent', r)" [disabled]="busy === r.studentId">Absent</button>
+                  </div>
+                }
+              </td>
+
+              <td>
+                @if (r.attendance?.checkOut) {
+                  <strong>{{ r.attendance?.checkOut }}</strong>
+                  <div class="cell-sub">{{ r.attendance?.pickedUpBy }}</div>
+                } @else if (r.attendance?.checkIn) {
+                  <button class="btn btn-sm btn-outline-primary" (click)="openDialog('out', r)" [disabled]="busy === r.studentId">
+                    <i class="bi bi-box-arrow-right"></i> Check out
+                  </button>
+                } @else { <span class="text-muted">—</span> }
+                @if (r.attendance) {
+                  <div><button class="btn btn-sm btn-link p-0 undo" (click)="undo(r)" [disabled]="busy === r.studentId">Undo</button></div>
+                }
+              </td>
+
+              <td>
+                <button class="btn btn-sm" (click)="openReport(r)"
+                        [class.btn-outline-secondary]="!r.report"
+                        [class.btn-warning]="r.report && !r.report.published"
+                        [class.btn-outline-success]="r.report?.published">
+                  @if (!r.report) { <i class="bi bi-pencil-square"></i> Write }
+                  @else if (!r.report.published) { <i class="bi bi-pencil"></i> Draft }
+                  @else { <i class="bi bi-check2-circle"></i> Sent }
+                  @if (r.report?.mood) { {{ moodIcon(r.report?.mood) }} }
+                  @if (r.report?.photos) { <span class="photo-count"><i class="bi bi-image"></i> {{ r.report?.photos }}</span> }
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
+
+<!-- Check-in (past day) / check-out / absent -->
+@if (dialog) {
+  <div class="modal-overlay" (click)="dialog = null">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <h5>
+          @switch (dialog.kind) {
+            @case ('in') { Check in {{ dialog.row.fullName }} }
+            @case ('out') { Check out {{ dialog.row.fullName }} }
+            @default { {{ dialog.row.fullName }} is absent }
+          }
+        </h5>
+        <button class="btn-close-modal" (click)="dialog = null" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="modal-form">
+        @if (dialogError) { <div class="alert alert-danger py-2">{{ dialogError }}</div> }
+        <p class="cell-sub mb-3">{{ dayLabel(date) }}{{ isToday ? ' (today)' : '' }}</p>
+
+        @if (dialog.kind !== 'absent') {
+          <div class="form-group">
+            <label for="att-time">Time</label>
+            <input id="att-time" type="time" [(ngModel)]="dialogTime" />
+            @if (isToday) { <div class="hint">Now, unless you change it.</div> }
+          </div>
+        }
+
+        @if (dialog.kind === 'out') {
+          <div class="form-group">
+            <label for="att-who">Picked up by</label>
+            <select id="att-who" [(ngModel)]="dialogPickup">
+              @for (p of pickupChoices(dialog.row); track p) { <option [value]="p">{{ p }}</option> }
+              <option value="__other">Someone else…</option>
+            </select>
+            @if (dialogPickup === '__other') {
+              <input type="text" class="mt-2" [(ngModel)]="dialogPickupOther" maxlength="150" placeholder="Name (and relation), e.g. Grandma Lim" />
+              <div class="hint warn-text"><i class="bi bi-exclamation-triangle"></i> Not a parent and no pickup note: check their ID and call a parent if unsure.</div>
+            }
+          </div>
+        }
+
+        @if (dialog.kind === 'absent') {
+          <div class="form-group">
+            <label for="att-reason">Reason (optional)</label>
+            <input id="att-reason" type="text" [(ngModel)]="dialogReason" maxlength="300" placeholder="e.g. Fever, family trip" />
+          </div>
+        }
+      </div>
+      <div class="modal-footer-row">
+        <button class="btn btn-secondary" (click)="dialog = null">Cancel</button>
+        <button class="btn btn-primary" (click)="confirmDialog()" [disabled]="busy === dialog.row.studentId">
+          @if (busy === dialog.row.studentId) { <span class="spinner-border spinner-border-sm me-1"></span> }
+          Save
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Daily report -->
+@if (editing) {
+  <div class="modal-overlay" (click)="closeReport()">
+    <div class="modal-box wide" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <h5>Daily report · {{ editing.fullName }} · {{ dayLabel(date) }}</h5>
+        <button class="btn-close-modal" (click)="closeReport()" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="modal-form">
+        @if (reportError) { <div class="alert alert-danger py-2">{{ reportError }}</div> }
+        @if (reportInfo?.publishedAt) {
+          <div class="alert alert-success py-2"><i class="bi bi-check2-circle"></i> Already sent to the parents. Changes you save are shown to them straight away.</div>
+        }
+
+        <div class="section-title">Meals</div>
+        @for (m of [['breakfast', 'Breakfast'], ['lunch', 'Lunch'], ['snack', 'Tea / snack']]; track m[0]) {
+          <div class="choice-row">
+            <span class="choice-label">{{ m[1] }}</span>
+            <div class="choices">
+              @for (a of meals; track a) {
+                <button type="button" class="choice" [class.on]="$any(report)[m[0]] === a" (click)="pick($any(m[0]), a)">{{ a }}</button>
+              }
+            </div>
+          </div>
+        }
+
+        <div class="section-title">Nap and toilet</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="rp-nap1">Nap from</label>
+            <input id="rp-nap1" type="time" [(ngModel)]="report.napFrom" />
+          </div>
+          <div class="form-group">
+            <label for="rp-nap2">Nap until</label>
+            <input id="rp-nap2" type="time" [(ngModel)]="report.napTo" />
+          </div>
+          <div class="form-group span-2">
+            <label for="rp-toilet">Toilet / diaper</label>
+            <input id="rp-toilet" type="text" [(ngModel)]="report.toilet" maxlength="200" placeholder="e.g. Diaper changed 3 times, used the potty once" />
+          </div>
+        </div>
+
+        <div class="section-title">Mood</div>
+        <div class="choices mood mb-3">
+          @for (m of moods; track m.value) {
+            <button type="button" class="choice" [class.on]="report.mood === m.value" (click)="pick('mood', m.value)">{{ m.icon }} {{ m.value }}</button>
+          }
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group span-2">
+            <label for="rp-act">Activities and learning</label>
+            <textarea id="rp-act" [(ngModel)]="report.activities" maxlength="1000" rows="3" placeholder="e.g. Painting with leaves, practised counting to 10, outdoor play"></textarea>
+          </div>
+          <div class="form-group span-2">
+            <label for="rp-note">Note to parents (optional)</label>
+            <textarea id="rp-note" [(ngModel)]="report.teacherNote" maxlength="1000" rows="2" placeholder="e.g. Please bring a spare set of clothes tomorrow"></textarea>
+          </div>
+        </div>
+
+        <div class="section-title">Photos ({{ reportInfo?.photos?.length ?? 0 }} of 6)</div>
+        <div class="photos">
+          @for (p of reportInfo?.photos ?? []; track p.id) {
+            <div class="photo">
+              @if (photoUrls.get(p.id); as url) { <img [src]="url" [alt]="p.fileName" (click)="openPhoto(p.id)" /> }
+              @else { <div class="photo-loading"><span class="spinner-border spinner-border-sm"></span></div> }
+              <button type="button" class="photo-del" (click)="removePhoto(p.id)" title="Remove photo" aria-label="Remove photo"><i class="bi bi-x"></i></button>
+            </div>
+          }
+          @if ((reportInfo?.photos?.length ?? 0) < 6) {
+            <label class="photo add" [class.disabled]="uploading">
+              @if (uploading) { <span class="spinner-border spinner-border-sm"></span> } @else { <i class="bi bi-camera"></i><span>Add photos</span> }
+              <input type="file" accept="image/jpeg,image/png" multiple hidden (change)="addPhotos($any($event.target))" [disabled]="uploading" />
+            </label>
+          }
+        </div>
+        <div class="hint">JPG or PNG, up to 5 MB each. Only this child's parents can see them.</div>
+      </div>
+      <div class="modal-footer-row">
+        <button class="btn btn-secondary" (click)="closeReport()">Close</button>
+        @if (!reportInfo?.publishedAt) {
+          <button class="btn btn-outline-primary" (click)="saveReport(false)" [disabled]="reportSaving">Save draft</button>
+        }
+        <button class="btn btn-primary" (click)="saveReport(!reportInfo?.publishedAt)" [disabled]="reportSaving">
+          @if (reportSaving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+          {{ reportInfo?.publishedAt ? 'Save changes' : 'Save and send to parents' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

@@ -1,0 +1,163 @@
+<div class="messages-page" [class.thread-open]="selectedId !== null">
+
+  <!-- ── Thread list ── -->
+  <aside class="thread-list">
+    <div class="list-head">
+      <h4>Messages</h4>
+      @if (me?.isAdmin) {
+        <select [(ngModel)]="kindFilter" aria-label="Show">
+          <option value="">All threads</option>
+          <option value="Office">Office</option>
+          <option value="Teacher">Class teachers</option>
+        </select>
+      }
+    </div>
+    @if (!isParent) {
+      <div class="list-search-box">
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <input type="search" [(ngModel)]="search" placeholder="Search child, class or parent" aria-label="Search conversations" />
+      </div>
+    }
+
+    @if (listLoading) {
+      <div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div></div>
+    } @else if (filtered.length === 0) {
+      <div class="list-empty">
+        <i class="bi bi-chat-dots"></i>
+        @if (isParent) {
+          <p>No conversations yet. Ask the school to link your child to your account.</p>
+        } @else {
+          <p>No messages yet.</p>
+          <p class="small">To start one, open
+            <a [routerLink]="me?.isAdmin ? '/school/students' : '/school/my-class'">{{ me?.isAdmin ? 'Children' : 'My Class' }}</a>
+            and use <i class="bi bi-chat-dots"></i> next to a child.</p>
+        }
+      </div>
+    } @else {
+      <ul>
+        @for (c of filtered; track c.id) {
+          <li [class.active]="c.id === selectedId" [class.has-unread]="c.unread > 0" (click)="select(c.id)"
+              (keydown.enter)="select(c.id)" tabindex="0" role="button">
+            <div class="avatar" [class.office]="c.kind === 'Office'">
+              <i class="bi" [class.bi-building]="c.kind === 'Office'" [class.bi-person-workspace]="c.kind === 'Teacher'"></i>
+            </div>
+            <div class="info">
+              <div class="row1">
+                <span class="name">{{ threadTitle(c) }}</span>
+                @if (c.lastMessageAt) { <span class="time">{{ utc(c.lastMessageAt) | date: 'd MMM' }}</span> }
+              </div>
+              <div class="row2">{{ threadSubtitle(c) }}</div>
+              <div class="row3">
+                <span class="preview">
+                  @if (c.lastMessage) { @if (c.lastMessage.mine) { You: } {{ c.lastMessage.text }} }
+                  @else { <em>No messages yet</em> }
+                </span>
+                @if (c.unread > 0) { <span class="unread-badge">{{ c.unread }}</span> }
+              </div>
+            </div>
+          </li>
+        }
+      </ul>
+    }
+  </aside>
+
+  <!-- ── Conversation ── -->
+  <section class="thread">
+    @if (selectedId === null) {
+      <div class="thread-placeholder">
+        <i class="bi bi-chat-square-text"></i>
+        <p>Choose a conversation.</p>
+      </div>
+    } @else {
+      <header class="thread-head">
+        <button class="btn btn-sm btn-light back-btn" (click)="back()" aria-label="Back to conversations"><i class="bi bi-arrow-left"></i></button>
+        @if (header) {
+          <div class="who">
+            @if (isParent) {
+              <h5>{{ header.title }}</h5>
+              <div class="sub">About {{ header.studentName }}@if (header.className) { · {{ header.className }} }</div>
+            } @else {
+              <h5>{{ header.studentName }}@if (header.className) { <span class="cls">{{ header.className }}</span> }</h5>
+              <div class="sub">
+                {{ header.kind === 'Office' ? 'With the office' : 'With the class teacher' + (header.teacherName ? ' (' + header.teacherName + ')' : '') }}
+                · Parents:
+                @for (p of header.parents; track p.fullName; let last = $last) {
+                  {{ p.fullName }}@if (!p.hasLogin) { <span class="no-login" title="This parent has no login and won't see messages">(no login)</span> }@if (!last) {, }
+                } @empty { none linked }
+              </div>
+            }
+          </div>
+        }
+      </header>
+
+      <div class="thread-body" #scroller>
+        @if (threadLoading) {
+          <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+        } @else {
+          @if (hasMore) {
+            <div class="older">
+              <button class="btn btn-sm btn-light" (click)="loadOlder()" [disabled]="loadingOlder">
+                @if (loadingOlder) { <span class="spinner-border spinner-border-sm"></span> } Earlier messages
+              </button>
+            </div>
+          }
+          @if (messages.length === 0) {
+            <div class="thread-empty">
+              <p>No messages yet. Say hello 👋</p>
+              @if (isParent) { <p class="small">{{ header?.kind === 'Office' ? 'The school office will reply here.' : 'Your child\'s class teacher will reply here.' }}</p> }
+            </div>
+          }
+          @for (m of messages; track m.id; let i = $index) {
+            @if (showDay(i)) { <div class="day"><span>{{ dayLabel(m.sentAt) }}</span></div> }
+            <div class="msg" [class.mine]="isMine(m)">
+              <div class="bubble">
+                @if (!isMine(m)) {
+                  <div class="sender">{{ m.senderName }} <span class="role" [class]="'role ' + m.senderRole.toLowerCase()">{{ roleLabel(m) }}</span></div>
+                }
+                @if (m.attachment) {
+                  @if (m.attachment.contentType !== 'application/pdf' && previews.get(m.id)) {
+                    <img class="photo" [src]="previews.get(m.id)" [alt]="m.attachment.name" (click)="openAttachment(m)" />
+                  } @else {
+                    <button class="file" (click)="openAttachment(m)">
+                      <i class="bi" [class.bi-file-earmark-pdf-fill]="m.attachment.contentType === 'application/pdf'" [class.bi-image]="m.attachment.contentType !== 'application/pdf'"></i>
+                      <span>{{ m.attachment.name }}<small>{{ fileSize(m.attachment.size) }}</small></span>
+                    </button>
+                  }
+                }
+                @if (m.body) { <div class="text">{{ m.body }}</div> }
+                <div class="meta">
+                  {{ utc(m.sentAt) | date: 'h:mm a' }}
+                  @if (isMine(m)) {
+                    <i class="bi" [class.bi-check2-all]="isSeen(m)" [class.seen]="isSeen(m)" [class.bi-check2]="!isSeen(m)"
+                       [title]="isSeen(m) ? 'Seen' : 'Sent'"></i>
+                  }
+                </div>
+              </div>
+            </div>
+          }
+        }
+      </div>
+
+      <footer class="composer">
+        @if (file) {
+          <div class="attached">
+            <i class="bi bi-paperclip"></i> {{ file.name }} <small>({{ fileSize(file.size) }})</small>
+            <button class="btn btn-sm btn-link text-danger" (click)="file = null" aria-label="Remove attachment"><i class="bi bi-x-lg"></i></button>
+          </div>
+        }
+        <div class="compose-row">
+          <label class="btn btn-light attach" title="Attach a photo or PDF">
+            <i class="bi bi-paperclip"></i>
+            <input type="file" accept="image/jpeg,image/png,application/pdf" (change)="onFile($event)" hidden />
+          </label>
+          <textarea #composer [(ngModel)]="text" (keydown)="onKeydown($event)" rows="1" maxlength="4000"
+                    placeholder="Write a message… (Enter to send, Shift+Enter for a new line)" aria-label="Message"
+                    [disabled]="!header"></textarea>
+          <button class="btn btn-primary send" (click)="send()" [disabled]="sending || !header || (!text.trim() && !file)" aria-label="Send">
+            @if (sending) { <span class="spinner-border spinner-border-sm"></span> } @else { <i class="bi bi-send-fill"></i> }
+          </button>
+        </div>
+      </footer>
+    }
+  </section>
+</div>

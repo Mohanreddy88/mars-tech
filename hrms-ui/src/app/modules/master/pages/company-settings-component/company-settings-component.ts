@@ -5,6 +5,7 @@ import {
   CompanySettingsService, CompanySettings, CompanySettingsUpdate
 } from '../../../../core/services/company-settings.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { SchoolService } from '../../../../core/services/school.service';
 
 /** Company Settings: the employer's name, logo and statutory numbers used on payslips, EA forms and emails. */
 @Component({
@@ -26,13 +27,19 @@ export class CompanySettingsComponent implements OnInit {
 
   readonly maxLogoBytes = 1024 * 1024;
 
+  /** School features (classes, children, parent logins, messages) for this company. */
+  schoolEnabled = false;
+  savingSchool = false;
+
   constructor(
     private settings: CompanySettingsService,
     private toast: ToastService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private school: SchoolService
   ) {}
 
   ngOnInit(): void {
+    this.school.loadMe(true).subscribe(me => { this.schoolEnabled = !!me?.enabled; this.cdr.detectChanges(); });
     this.settings.get().subscribe({
       next: s => { this.apply(s); this.loading = false; this.cdr.detectChanges(); },
       error: err => {
@@ -51,6 +58,26 @@ export class CompanySettingsComponent implements OnInit {
 
   get colorValid(): boolean {
     return /^#[0-9A-Fa-f]{6}$/.test(this.form.brandColor);
+  }
+
+  /** Switch the school features on or off (the menu updates straight away). */
+  setSchool(enabled: boolean): void {
+    this.savingSchool = true;
+    this.school.setEnabled(enabled).subscribe({
+      next: r => {
+        this.schoolEnabled = r.enabled;
+        this.savingSchool = false;
+        this.toast.success('School Features', r.enabled
+          ? 'Turned on. Find Classes, Children, Parents and Messages under School in the menu.'
+          : 'Turned off. School data is kept and comes back when you turn it on again.');
+        this.cdr.detectChanges();
+      },
+      error: err => {
+        this.savingSchool = false;
+        this.toast.error('School Features', err?.error?.message ?? 'Could not change the setting.');
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   save(): void {
