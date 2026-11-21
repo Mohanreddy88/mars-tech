@@ -193,9 +193,9 @@ class SchoolRepository {
         return MyFees.fromJson(r.data!);
       });
 
-  Future<InvoiceMonth> invoices(int year, int month, {String? status}) => _call(() async {
+  Future<InvoiceMonth> invoices(int year, int month, {String? status, int? classId}) => _call(() async {
         final r = await _dio.get<Map<String, dynamic>>('school/fees/invoices',
-            queryParameters: {'year': year, 'month': month, if (status != null) 'status': status});
+            queryParameters: {'year': year, 'month': month, if (status != null) 'status': status, if (classId != null) 'classId': classId});
         return InvoiceMonth.fromJson(r.data!);
       });
 

@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/network/api_exception.dart';
-import '../../../core/router/app_router.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/error_view.dart';
 import '../data/school_models.dart';
 import '../data/school_repository.dart';
+import 'fees_admin_screens.dart';
 import 'school_widgets.dart';
 
 String _due(String ymd) => ymd.isEmpty ? '' : DateFormat('d MMM yyyy').format(ymdToDate(ymd));
@@ -192,168 +191,6 @@ class _InvoiceBody extends ConsumerWidget {
   }
 }
 
-// ═══════════════════ Admin ═══════════════════
-
-/// Admin → Fees overview for a month: billed, collected, outstanding; every invoice.
-/// Creating invoices and fee items stays on the web (Fees page).
-class AdminFeesScreen extends ConsumerStatefulWidget {
-  const AdminFeesScreen({super.key});
-
-  @override
-  ConsumerState<AdminFeesScreen> createState() => _AdminFeesScreenState();
-}
-
-class _AdminFeesScreenState extends ConsumerState<AdminFeesScreen> {
-  late DateTime _month = DateTime(ymdToDate(schoolToday()).year, ymdToDate(schoolToday()).month);
-  String? _status;
-  late Future<InvoiceMonth> _load = _fetch();
-
-  Future<InvoiceMonth> _fetch() => ref.read(schoolRepositoryProvider).invoices(_month.year, _month.month, status: _status);
-
-  void _reload() => setState(() => _load = _fetch());
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Fees')),
-      body: FutureBuilder<InvoiceMonth>(
-        future: _load,
-        builder: (context, snap) {
-          final m = snap.data;
-          return RefreshIndicator(
-            onRefresh: () async => _reload(),
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
-              children: [
-                Row(children: [
-                  IconButton(
-                      onPressed: () {
-                        _month = DateTime(_month.year, _month.month - 1);
-                        _reload();
-                      },
-                      icon: const Icon(Icons.chevron_left)),
-                  Expanded(child: Center(child: Text(DateFormat('MMMM yyyy').format(_month), style: text.titleMedium))),
-                  IconButton(
-                      onPressed: () {
-                        _month = DateTime(_month.year, _month.month + 1);
-                        _reload();
-                      },
-                      icon: const Icon(Icons.chevron_right)),
-                ]),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(children: [
-                    for (final s in [null, 'Unpaid', 'Partial', 'Paid', 'Overdue'])
-                      Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: ChoiceChip(
-                          label: Text(s == null ? 'All' : s == 'Partial' ? 'Part paid' : s),
-                          selected: _status == s,
-                          onSelected: (_) {
-                            _status = s;
-                            _reload();
-                          },
-                        ),
-                      ),
-                  ]),
-                ),
-                const SizedBox(height: 8),
-                if (snap.connectionState == ConnectionState.waiting && m == null)
-                  const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
-                else if (snap.hasError)
-                  ErrorView(error: snap.error!, onRetry: _reload)
-                else if (m != null) ...[
-                  Row(children: [
-                    _Stat('Billed', Fmt.money(m.billed), '${m.count} invoices'),
-                    _Stat('Collected', Fmt.money(m.collected), '${m.paid} paid'),
-                    _Stat('Outstanding', Fmt.money(m.outstanding), '${m.overdue} overdue'),
-                  ]),
-                  if (m.claimsPending > 0)
-                    Card(
-                      color: const Color(0xFFFFFBEB),
-                      child: ListTile(
-                        leading: const Icon(Icons.fact_check_outlined, color: Color(0xFF92400E)),
-                        title: Text('${m.claimsPending} payment${m.claimsPending == 1 ? '' : 's'} to confirm'),
-                        subtitle: const Text('Parents reported paying; check the bank, then confirm'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () async {
-                          await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const ClaimsScreen()));
-                          _reload();
-                        },
-                      ),
-                    ),
-                  if (m.overdue > 0)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: OutlinedButton.icon(
-                        onPressed: () async {
-                          await attempt(context, () async {
-                            final n = await ref.read(schoolRepositoryProvider).remind(_month.year, _month.month);
-                            if (context.mounted) toast(context, n == 0 ? 'No overdue invoices that were sent.' : '$n reminder${n == 1 ? '' : 's'} sent.');
-                          });
-                        },
-                        icon: const Icon(Icons.notifications_active_outlined),
-                        label: Text('Remind ${m.overdue} overdue'),
-                      ),
-                    ),
-                  const SizedBox(height: 8),
-                  if (m.invoices.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Text('No invoices for this month. Create them on the web: School → Fees.', textAlign: TextAlign.center),
-                    ),
-                  for (final i in m.invoices)
-                    Card(
-                      margin: const EdgeInsets.only(bottom: 6),
-                      child: ListTile(
-                        onTap: () async {
-                          await context.push('${Routes.schoolInvoice}/${i.id}');
-                          _reload();
-                        },
-                        title: Text(i.studentName, style: const TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: Text('${i.invoiceNo} · ${i.className ?? 'No class'}${i.sent ? '' : ' · not sent'}'
-                            '${i.pendingClaim ? ' · paid? confirm' : ''}'),
-                        trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-                          Text(Fmt.money(i.balance > 0 ? i.balance : i.total), style: const TextStyle(fontWeight: FontWeight.w700)),
-                          const SizedBox(height: 2),
-                          Pill(i.statusLabel, tone: invoiceTone(i)),
-                        ]),
-                      ),
-                    ),
-                ],
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _Stat extends StatelessWidget {
-  const _Stat(this.label, this.value, this.sub);
-  final String label, value, sub;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return Expanded(
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label, style: text.labelSmall),
-            FittedBox(child: Text(value, style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700))),
-            Text(sub, style: text.bodySmall),
-          ]),
-        ),
-      ),
-    );
-  }
-}
-
 /// Admin → one invoice: lines, payments, PDFs, record a payment.
 class InvoiceScreen extends ConsumerStatefulWidget {
   const InvoiceScreen({super.key, required this.invoiceId});
@@ -422,8 +259,7 @@ class _InvoiceScreenState extends ConsumerState<InvoiceScreen> {
                   const SizedBox(height: 12),
                   Card(child: Padding(padding: const EdgeInsets.all(14), child: _InvoiceBody(i: i, repo: repo))),
                   const SizedBox(height: 8),
-                  const Text('To change the lines, send or cancel the invoice, use the web: School → Fees.',
-                      style: TextStyle(fontSize: 12)),
+                  InvoiceAdminActions(invoice: i, onChanged: _load),
                 ]),
     );
   }
@@ -660,7 +496,10 @@ class _ClaimSheetState extends ConsumerState<_ClaimSheet> {
 
 /// Admin: payments parents reported — view the slip, confirm (payment + receipt) or say why not.
 class ClaimsScreen extends ConsumerStatefulWidget {
-  const ClaimsScreen({super.key});
+  const ClaimsScreen({super.key, this.embedded = false});
+
+  /// Inside the Fees tabs (no app bar of its own).
+  final bool embedded;
 
   @override
   ConsumerState<ClaimsScreen> createState() => _ClaimsScreenState();
@@ -705,9 +544,7 @@ class _ClaimsScreenState extends ConsumerState<ClaimsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Payments to confirm')),
-      body: FutureBuilder<List<PaymentClaim>>(
+    final body = FutureBuilder<List<PaymentClaim>>(
         future: _load,
         builder: (context, snap) {
           if (snap.hasError) return ErrorView(error: snap.error!, onRetry: _reload);
@@ -752,7 +589,8 @@ class _ClaimsScreenState extends ConsumerState<ClaimsScreen> {
             ),
           );
         },
-      ),
-    );
+      );
+    if (widget.embedded) return body;
+    return Scaffold(appBar: AppBar(title: const Text('Payments to confirm')), body: body);
   }
 }

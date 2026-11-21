@@ -35,13 +35,18 @@ class SchoolMenuCard extends ConsumerWidget {
         );
 
     final items = <Widget>[
+      if (me.isAdmin) ...[
+        item(Icons.class_outlined, 'Classes', 'Classes and class teachers', Routes.schoolClasses),
+        item(Icons.child_care_outlined, 'Children', 'Class, session, health notes, parents', Routes.schoolChildren),
+        item(Icons.family_restroom_outlined, 'Parents', 'Parents, their children and logins', Routes.schoolParents),
+      ],
       if (me.isTeacher && !me.isAdmin)
         item(Icons.groups_outlined, 'My Class', 'Children, medical notes, parents\' phones', Routes.schoolMyClass),
       item(Icons.fact_check_outlined, 'Attendance & reports', 'Check in / out, absences, daily reports', Routes.schoolAttendance),
       item(Icons.chat_bubble_outline, 'Messages', 'Parents of your ${me.isAdmin ? 'school' : 'class'}', Routes.schoolMessages,
           badge: unread),
       item(Icons.campaign_outlined, 'Announcements', 'Notices to parents', Routes.schoolAnnouncements),
-      if (me.isAdmin) item(Icons.payments_outlined, 'Fees', 'Invoices, payments, overdue', Routes.schoolFees),
+      if (me.isAdmin) item(Icons.payments_outlined, 'Fees', 'Invoices, to confirm, fee items, settings', Routes.schoolFees),
     ];
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
