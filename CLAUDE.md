@@ -48,6 +48,14 @@ Logins are `Admin` or `Employee` (also legacy `User`). Every endpoint that manag
 `[Authorize(Roles = "Admin")]` (approvals may use `UserAccess.Approvers`); `[Authorize]` alone lets any employee in.
 Employee self-service goes through `/api/selfservice/*`; elsewhere check ownership with `UserAccess`
 (`CurrentEmployeeIdAsync`, `CanAccessEmployeeAsync`) and never trust an `employeeId` sent by a non-admin client.
+School features (per company, `CompanySettings.SchoolFeaturesEnabled`, endpoints carry `[RequiresSchoolFeatures]`):
+classes, children, parents, announcements, parent ↔ teacher/office messages, attendance (check-in/out, parents'
+absence/pickup notes), daily reports with photos, monthly fees (invoices, sibling discount, receipts, parents'
+"I've paid" claims confirmed by the office). School dates use Malaysia time (`SchoolClock`). Phone numbers are
+stored as +60… (`PhoneNumbers`). The mobile app has the parent area and staff school screens. `Parent` logins are managed under
+School → Parents (hidden from Master → Users); class teachers are employees named on a class. Decide access with
+`SchoolViewer` (admin / class teacher / parent) loaded from the database, never from ids the client sends. Live
+updates: SignalR hub `/api/hubs/chat` (groups include the company; nginx `location ^~ /api/hubs/`).
 
 ## Secrets — the repo is PUBLIC
 Never commit `deploy/.env`, `deploy/.env.uat`, `HrmsApi/appsettings.Development.json` or any password/API key.
