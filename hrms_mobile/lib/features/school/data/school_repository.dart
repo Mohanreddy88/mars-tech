@@ -43,6 +43,10 @@ class SchoolRepository {
         return SchoolMe.fromJson(r.data!);
       });
 
+  /// Admin: switch the school features on or off for this company.
+  Future<void> setEnabled(bool enabled) =>
+      _call(() => _dio.put<void>('school/settings', data: {'enabled': enabled}));
+
   Future<List<StudentInfo>> students({int? classId}) => _call(() async {
         final r = await _dio.get<List<dynamic>>('school/students',
             queryParameters: {if (classId != null) 'classId': classId});
