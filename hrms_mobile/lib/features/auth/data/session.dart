@@ -46,6 +46,9 @@ class Session {
 
   bool get isAdmin => role.toLowerCase() == 'admin';
 
+  /// Parent login (school features): gets the parent area only.
+  bool get isParent => role.toLowerCase() == 'parent';
+
   factory Session.fromJson(Map<String, dynamic> json) => Session(
         token: json['token'] as String,
         username: json['username'] as String,

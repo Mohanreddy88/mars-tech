@@ -93,7 +93,14 @@ class NotificationsScreen extends ConsumerWidget {
       }
       ref.invalidate(notificationsProvider);
     }
-    final isAdmin = ref.read(authControllerProvider)?.isAdmin ?? false;
+    final session = ref.read(authControllerProvider);
+    final isAdmin = session?.isAdmin ?? false;
+    // School notifications carry the page they are about
+    final schoolTarget = session == null ? null : Routes.fromWebLink(session, n.link);
+    if (schoolTarget != null) {
+      if (context.mounted) context.push(schoolTarget);
+      return;
+    }
     final target = isAdmin
         ? switch (n.area) {
             // Admins are told about submitted leave / attendance: open approvals.
@@ -129,6 +136,7 @@ class _NotificationTile extends StatelessWidget {
       'leave' => (Icons.beach_access_outlined, scheme.primary),
       'attendance' => (Icons.event_available_outlined, scheme.tertiary),
       'payroll' => (Icons.receipt_long_outlined, const Color(0xFF15803D)),
+      'school' => (Icons.school_outlined, scheme.primary),
       _ => (Icons.notifications_outlined, scheme.secondary),
     };
     final bad = type.endsWith('_rejected');

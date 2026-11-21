@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../school/presentation/school_menu.dart';
 
 /// Admin "More" tab: account (change password, sign out) and the admin
 /// modules that don't have their own tab.
@@ -82,6 +83,7 @@ class AdminMoreScreen extends ConsumerWidget {
               ],
             ),
           ),
+          const SchoolMenuCard(heading: _Heading('School')),
           const _Heading('Attendance & leave'),
           Card(
             child: Column(children: [

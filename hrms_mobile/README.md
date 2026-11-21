@@ -75,8 +75,11 @@ credentials. To switch it on:
    `FIREBASE_CREDENTIALS_JSON='{"type":"service_account",...}'` (single quotes; `jq -c . key.json`
    makes one line), then recreate the app container. The API log says
    `Push notifications are on (Firebase project ...)`.
-4. App side (needs step 2's file to build): add `firebase_core` + `firebase_messaging`, call
-   `POST notification/devices` with the FCM token after sign-in, and pass it to `logout`.
+4. App side — done (`lib/core/push/push_notifications.dart`): after sign-in the phone's FCM token
+   goes to `POST notification/devices`; sign-out removes it. Alerts tapped open Notifications; while
+   the app is open they show as a banner. Builds without `google-services.json` still run (push off).
+   Local API testing: `FIREBASE_CREDENTIALS_FILE` (path to the key JSON) in
+   `HrmsApi/appsettings.Development.json`.
 
 ## Structure
 
@@ -94,7 +97,26 @@ lib/
     auth/ dashboard/ payslips/ leave/ attendance/ notifications/ profile/   employee app
     admin/                  admin app: dashboard, approvals, employees, payroll/, reports/,
                             master/, audit/
+    school/                 school features (companies with School features on):
+                            parents' area, messages, announcements, attendance, daily reports, fees
+  core/push/                Firebase push (phone registration, alert taps)
 ```
+
+## School features
+
+Shown only when the company has **School features** on (web: Company Settings), from
+`GET school/me`:
+- **Parent logins** get their own area (`/parent`): Home (children, today's status), My Child
+  (arrival / home time, daily report and photos, absence and pickup notes), Messages, News
+  (announcements), Fees (invoices, receipts, PDFs), Account.
+- **Class teachers** (employees named on a class) get a School block on Home: My Class, Attendance &
+  reports (check in / out, absent, parents' notes, daily report with camera photos), Messages,
+  Announcements.
+- **Admins** get the same under More, plus Fees (month overview, invoice detail, record payment).
+  Setting up classes, children, parents, fee items and creating invoices stays on the web.
+
+Chats refresh every few seconds while open (the web uses live SignalR updates). Alerts tapped open
+the matching screen (`Routes.fromWebLink`).
 
 Each feature has `data/` (models + repository calling the API), `application/` (Riverpod state)
 when needed, and `presentation/` (screens). Tests: `flutter test` (models, rules, routing).

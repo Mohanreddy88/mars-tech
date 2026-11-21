@@ -6,6 +6,12 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Firebase push: google-services.json (git-ignored, from the Firebase console) is needed for
+// alerts. Without it the app still builds and runs, with push notifications off.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 // Release signing: android/key.properties (git-ignored) points at the upload keystore,
 // which lives outside the repo. See hrms_mobile/README.md "Release build".
 val keystoreProperties = Properties().apply {

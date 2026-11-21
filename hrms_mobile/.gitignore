@@ -32,3 +32,6 @@ ios/Runner.xcodeproj/xcuserdata/
 # Firebase config (add per environment, do not commit secrets)
 android/app/google-services.json
 ios/Runner/GoogleService-Info.plist
+
+# Kotlin compiler cache (Android builds)
+android/.kotlin/

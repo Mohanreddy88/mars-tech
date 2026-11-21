@@ -14,6 +14,7 @@ class AppNotification {
     required this.type,
     required this.isRead,
     this.createdAt,
+    this.link,
   });
 
   final int id;
@@ -25,11 +26,14 @@ class AppNotification {
   final bool isRead;
   final DateTime? createdAt;
 
+  /// The page it is about (web path, e.g. "/parent/fees"); school notifications have one.
+  final String? link;
+
   /// Which part of the app the notification is about.
   String get area => type.split('_').first; // leave | attendance | payroll
 
   AppNotification markedRead() => AppNotification(
-      id: id, title: title, message: message, type: type, isRead: true, createdAt: createdAt);
+      id: id, title: title, message: message, type: type, isRead: true, createdAt: createdAt, link: link);
 
   factory AppNotification.fromJson(Map<String, dynamic> json) => AppNotification(
         id: json['id'] as int,
@@ -38,6 +42,7 @@ class AppNotification {
         type: json['type'] as String? ?? '',
         isRead: json['isRead'] as bool? ?? false,
         createdAt: tryParseApiDate(json['createdAt']),
+        link: json['link'] as String?,
       );
 }
 

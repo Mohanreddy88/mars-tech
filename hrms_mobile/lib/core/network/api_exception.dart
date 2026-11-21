@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 /// A user-presentable error from the HRMS API.
 ///
@@ -20,6 +21,10 @@ class ApiException implements Exception {
   }
 
   static ApiException _fromDio(DioException error) {
+    // Debug only: the real cause (refused, DNS, TLS...) behind "Cannot reach the server".
+    if (kDebugMode && error.response == null) {
+      debugPrint('API ${error.requestOptions.uri} failed: ${error.type} ${error.error}');
+    }
     switch (error.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:

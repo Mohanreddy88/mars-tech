@@ -7,6 +7,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../notifications/data/notification_repository.dart';
 import '../../notifications/presentation/notifications_screen.dart';
+import '../../school/presentation/school_menu.dart';
 import '../data/dashboard_models.dart';
 import '../data/dashboard_repository.dart';
 
@@ -54,6 +55,8 @@ class _DashboardBody extends StatelessWidget {
       children: [
         _GreetingCard(employee: data.employee),
         const SizedBox(height: 12),
+        // Class teachers (school features): their class, attendance, messages
+        const SchoolMenuCard(heading: _SectionHeader(title: 'School')),
         Row(
           children: [
             Expanded(
