@@ -129,6 +129,11 @@ builder.Services.AddRateLimiter(o =>
         ctx.Request.Headers["X-Forwarded-For"].FirstOrDefault()?.Split(',')[0].Trim()
             ?? ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
+    // Website contact form (marshrms.com): a few enquiries per visitor per hour
+    o.AddPolicy("public-contact", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Request.Headers["X-Forwarded-For"].FirstOrDefault()?.Split(',')[0].Trim()
+            ?? ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromHours(1) }));
 });
 
 // ── JWT Authentication ──────────────────────────────────
