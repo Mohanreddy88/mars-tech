@@ -1,12 +1,14 @@
 # Builds the iPhone app (unsigned .ipa) on a free GitHub Mac, for installing on your own iPhone
 # with Sideloadly (your Apple ID signs it; it runs for 7 days, then install again).
-# Runs when the "ios-build" branch is pushed, or by hand (Actions tab → Run workflow).
+# Runs when one of these branches is pushed, or by hand (Actions tab → Run workflow):
+#   ios-build       → UAT app      (company code → <code>.uat.marshrms.com)
+#   ios-build-prod  → production   (company code → <code>.marshrms.com)
 # For TestFlight / App Store a paid Apple Developer account and signing are needed instead.
-name: iOS app (unsigned, UAT)
+name: iOS app (unsigned)
 
 on:
   push:
-    branches: [ios-build]
+    branches: [ios-build, ios-build-prod]
   workflow_dispatch:
 
 jobs:
@@ -16,6 +18,8 @@ jobs:
     defaults:
       run:
         working-directory: hrms_mobile
+    env:
+      PROD: ${{ github.ref_name == 'ios-build-prod' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -28,18 +32,26 @@ jobs:
         run: flutter pub get
 
       - name: Build iOS (no signing)
-        # The app asks for the company code at sign-in and talks to UAT (<code>.uat.marshrms.com)
-        run: flutter build ios --release --no-codesign --dart-define=API_DOMAIN=uat.marshrms.com
+        # The app asks for the company code at sign-in; production builds talk to <code>.marshrms.com,
+        # UAT builds to <code>.uat.marshrms.com
+        run: |
+          if [ "$PROD" = "true" ]; then
+            flutter build ios --release --no-codesign
+          else
+            flutter build ios --release --no-codesign --dart-define=API_DOMAIN=uat.marshrms.com
+          fi
 
       - name: Package .ipa
         run: |
+          NAME=$([ "$PROD" = "true" ] && echo MarsHRMS || echo MarsHRMS-UAT)
           mkdir -p Payload
           cp -R build/ios/iphoneos/Runner.app Payload/
-          zip -qry MarsHRMS-UAT.ipa Payload
-          ls -lh MarsHRMS-UAT.ipa
+          zip -qry "$NAME.ipa" Payload
+          ls -lh "$NAME.ipa"
+          echo "IPA_NAME=$NAME" >> "$GITHUB_ENV"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MarsHRMS-UAT-ipa
-          path: hrms_mobile/MarsHRMS-UAT.ipa
+          name: ${{ env.IPA_NAME }}-ipa
+          path: hrms_mobile/${{ env.IPA_NAME }}.ipa
           retention-days: 14
