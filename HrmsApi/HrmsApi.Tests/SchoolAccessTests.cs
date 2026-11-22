@@ -179,6 +179,75 @@ public class SchoolAccessTests
     }
 
     [Fact]
+    public async Task Parent_StartsConversationsWithSubjects_OnlyForOwnChild()
+    {
+        var db = Setup();
+        var (ctl, live) = Controller(db, MumUser, SchoolViewer.ParentRole);
+
+        var first = await ctl.Start(new StartConversationForm { StudentId = Ali, Kind = Conversation.Teacher, Subject = "Sick today", Body = "Ali has a fever" });
+        var second = await ctl.Start(new StartConversationForm { StudentId = Ali, Kind = Conversation.Teacher, Subject = "Pickup", Body = "Grandma will pick up" });
+        first.Should().BeOfType<OkObjectResult>();
+        second.Should().BeOfType<OkObjectResult>();
+
+        db.Conversations.Where(c => c.StudentId == Ali && c.Kind == Conversation.Teacher)
+            .Select(c => c.Subject).Should().BeEquivalentTo(new[] { "Sick today", "Pickup" }, "one conversation per topic");
+        db.Conversations.Should().OnlyContain(c => c.CreatedByUserId == MumUser && c.Status == Conversation.Open);
+        live.Sent.Where(s => s.ev == "message").Should().HaveCount(2);
+
+        (await ctl.Start(new StartConversationForm { StudentId = Bala, Kind = Conversation.Office, Subject = "Hi", Body = "x" }))
+            .Should().BeOfType<ForbidResult>("not her child");
+        (await ctl.Start(new StartConversationForm { StudentId = Ali, Kind = Conversation.Office, Subject = "  ", Body = "x" }))
+            .Should().BeOfType<BadRequestObjectResult>("a subject is required");
+        (await ctl.Start(new StartConversationForm { StudentId = Ali, Kind = Conversation.Office, Subject = "Fees", Body = "" }))
+            .Should().BeOfType<BadRequestObjectResult>("a message is required");
+        db.Conversations.Count().Should().Be(2, "refused requests leave nothing behind");
+    }
+
+    [Fact]
+    public async Task StaffClose_ParentCannot_AndAReplyReopens()
+    {
+        var db = Setup();
+        db.Conversations.Add(new Conversation { Id = 1, StudentId = Ali, Kind = Conversation.Teacher, Subject = "Homework" });
+        db.SaveChanges();
+
+        var (mum, _) = Controller(db, MumUser, SchoolViewer.ParentRole);
+        (await mum.Close(1)).Should().BeOfType<BadRequestObjectResult>();
+
+        var (tan, live) = Controller(db, TanUser, "Employee");
+        (await tan.Close(1)).Should().BeOfType<OkObjectResult>();
+        var conv = db.Conversations.AsNoTracking().Single(c => c.Id == 1);
+        conv.Status.Should().Be(Conversation.Closed);
+        conv.ClosedByName.Should().Be("Ms Tan");
+        live.Sent.Should().Contain(s => s.ev == "conversation");
+
+        // The parent writes again: open again
+        var (mum2, _) = Controller(db, MumUser, SchoolViewer.ParentRole);
+        (await mum2.Send(1, new SendMessageForm { Body = "One more question" })).Should().BeOfType<OkObjectResult>();
+        db.Conversations.AsNoTracking().Single(c => c.Id == 1).Status.Should().Be(Conversation.Open);
+    }
+
+    [Fact]
+    public async Task Open_ReusesLatestOpenConversation_OrStartsGeneral()
+    {
+        var db = Setup();
+        db.Conversations.AddRange(
+            new Conversation { Id = 1, StudentId = Ali, Kind = Conversation.Teacher, Subject = "Old", Status = Conversation.Closed, LastMessageAt = DateTime.UtcNow.AddDays(-1) },
+            new Conversation { Id = 2, StudentId = Ali, Kind = Conversation.Teacher, Subject = "Current", LastMessageAt = DateTime.UtcNow.AddHours(-1) });
+        db.SaveChanges();
+        var (ctl, _) = Controller(db, TanUser, "Employee");
+
+        var reused = (await ctl.Open(new OpenConversationRequest { StudentId = Ali, Kind = Conversation.Teacher })) as OkObjectResult;
+        reused!.Value!.GetType().GetProperty("Id")!.GetValue(reused.Value).Should().Be(2);
+
+        db.Conversations.Find(2)!.Status = Conversation.Closed;
+        db.SaveChanges();
+        var created = (await ctl.Open(new OpenConversationRequest { StudentId = Ali, Kind = Conversation.Teacher })) as OkObjectResult;
+        var id = (int)created!.Value!.GetType().GetProperty("Id")!.GetValue(created.Value)!;
+        id.Should().NotBe(1).And.NotBe(2);
+        db.Conversations.Find(id)!.Subject.Should().Be(Conversation.DefaultSubject);
+    }
+
+    [Fact]
     public async Task EmptyMessage_IsRefused()
     {
         var db = Setup();

@@ -20,8 +20,10 @@ class SchoolMe {
     required this.isParent,
     required this.classes,
     required this.children,
+    this.school = SchoolInfo.empty,
   });
 
+  final SchoolInfo school;
   final bool enabled;
   final int userId;
   final String name;
@@ -42,10 +44,49 @@ class SchoolMe {
         isParent: j['isParent'] as bool? ?? false,
         classes: _list(j['classes'], SchoolClassRef.fromJson),
         children: _list(j['children'], ChildSummary.fromJson),
+        school: j['school'] is Map<String, dynamic> ? SchoolInfo.fromJson(j['school'] as Map<String, dynamic>) : SchoolInfo.empty,
       );
 
   static const off = SchoolMe(enabled: false, userId: 0, name: '', isAdmin: false, isTeacher: false,
       isParent: false, classes: [], children: []);
+}
+
+/// GET school/today — staff home counters: children looked after, checked in / absent today,
+/// and (admins) parents' payment claims to confirm.
+class StaffToday {
+  const StaffToday({required this.children, required this.checkedIn, required this.absent, this.feeClaimsPending});
+  final int children;
+  final int checkedIn;
+  final int absent;
+  final int? feeClaimsPending;
+
+  factory StaffToday.fromJson(Map<String, dynamic> j) => StaffToday(
+        children: _i(j['children']),
+        checkedIn: _i(j['checkedIn']),
+        absent: _i(j['absent']),
+        feeClaimsPending: (j['feeClaimsPending'] as num?)?.toInt(),
+      );
+}
+
+/// The school's name and contact details (from Company Settings).
+class SchoolInfo {
+  const SchoolInfo({required this.name, this.logoUrl, this.phone, this.address, this.website});
+  final String name;
+  /// Server path of the logo ("/api/company-settings/logo?v=…"), or null.
+  final String? logoUrl;
+  final String? phone;
+  final String? address;
+  final String? website;
+
+  static const empty = SchoolInfo(name: '');
+
+  factory SchoolInfo.fromJson(Map<String, dynamic> j) => SchoolInfo(
+        name: j['name'] as String? ?? '',
+        logoUrl: _s(j['logoUrl']),
+        phone: _s(j['phone']),
+        address: _s(j['address']),
+        website: _s(j['website']),
+      );
 }
 
 class SchoolClassRef {
@@ -188,6 +229,8 @@ class Announcement {
 
 // ── Messages ──
 
+/// A conversation about one child with the class teacher or the office, with its own subject.
+/// Staff close it when done ([isClosed]); a new message reopens it.
 class ConversationSummary {
   const ConversationSummary({
     required this.id,
@@ -195,6 +238,8 @@ class ConversationSummary {
     required this.studentName,
     this.className,
     required this.title,
+    required this.subject,
+    required this.status,
     this.lastMessageAt,
     this.lastText,
     this.lastSender,
@@ -206,7 +251,11 @@ class ConversationSummary {
   final String kind; // Teacher | Office
   final String studentName;
   final String? className;
+  /// Who the conversation is with: "Class teacher · Ms Tan" or "School office".
   final String title;
+  final String subject;
+  final String status; // Open | Closed
+  bool get isClosed => status == 'Closed';
   final DateTime? lastMessageAt;
   final String? lastText;
   final String? lastSender;
@@ -221,6 +270,8 @@ class ConversationSummary {
       studentName: j['studentName'] as String? ?? '',
       className: _s(j['className']),
       title: j['title'] as String? ?? '',
+      subject: j['subject'] as String? ?? 'General',
+      status: j['status'] as String? ?? 'Open',
       lastMessageAt: tryParseApiDate(j['lastMessageAt']),
       lastText: last?['text'] as String?,
       lastSender: last?['senderName'] as String?,
@@ -270,23 +321,40 @@ class ChatMessage {
 
 class MessagePage {
   const MessagePage({required this.title, required this.subtitle, required this.messages,
-      required this.hasMore, required this.seenUpTo});
+      required this.hasMore, required this.seenUpTo, this.status = 'Open', this.closedByName});
+  /// The conversation's subject.
   final String title;
+  /// With whom, about which child, and the child's parents.
   final String subtitle;
   final List<ChatMessage> messages;
   final bool hasMore;
   final int seenUpTo;
+  final String status; // Open | Closed
+  final String? closedByName;
+  bool get isClosed => status == 'Closed';
+
+  MessagePage copyWith({List<ChatMessage>? messages, bool? hasMore, String? status, String? closedByName}) => MessagePage(
+        title: title,
+        subtitle: subtitle,
+        messages: messages ?? this.messages,
+        hasMore: hasMore ?? this.hasMore,
+        seenUpTo: seenUpTo,
+        status: status ?? this.status,
+        closedByName: status == 'Open' ? null : closedByName ?? this.closedByName,
+      );
 
   factory MessagePage.fromJson(Map<String, dynamic> j) {
     final c = j['conversation'] as Map<String, dynamic>? ?? const {};
     final parents = _list(c['parents'], (p) => p['fullName'] as String? ?? '').where((s) => s.isNotEmpty);
     return MessagePage(
-      title: c['title'] as String? ?? '',
-      subtitle: [c['studentName'], if (c['className'] != null) c['className']].whereType<String>().join(' · ') +
+      title: c['subject'] as String? ?? c['title'] as String? ?? '',
+      subtitle: [c['title'], c['studentName'], if (c['className'] != null) c['className']].whereType<String>().join(' · ') +
           (parents.isNotEmpty ? ' · ${parents.join(', ')}' : ''),
       messages: _list(j['messages'], ChatMessage.fromJson),
       hasMore: j['hasMore'] as bool? ?? false,
       seenUpTo: _i(j['seenUpTo']),
+      status: c['status'] as String? ?? 'Open',
+      closedByName: _s(c['closedByName']),
     );
   }
 }

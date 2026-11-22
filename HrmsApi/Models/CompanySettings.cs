@@ -47,6 +47,21 @@ public class CompanySettings
     /// <summary>Classes, children, parents, announcements and parent messages (schools only).</summary>
     public bool SchoolFeaturesEnabled { get; set; }
 
+    /// <summary>
+    /// Help chatbot answers with AI (Claude) when the server has an API key: personal questions
+    /// ("how much do I owe?") and anything the FAQ list can't answer. Off = FAQ answers only.
+    /// </summary>
+    public bool AssistantAiEnabled { get; set; }
+
+    /// <summary>
+    /// The company's own Anthropic API key (Chatbot → Connect AI), encrypted with
+    /// <see cref="HrmsApi.Services.SecretBox"/>; null = use the server's key, if any.
+    /// </summary>
+    [MaxLength(1000)] public string? AssistantAiKeyEncrypted { get; set; }
+    /// <summary>The key's last characters, to show which key is connected ("…a1b2").</summary>
+    [MaxLength(20)] public string? AssistantAiKeyHint { get; set; }
+    public DateTime? AssistantAiKeySetAt { get; set; }
+
     // School fees (School → Fees → Settings)
     /// <summary>Taken off the 2nd and later child of a family (children who share a parent), e.g. 10.</summary>
     public decimal SiblingDiscountPercent { get; set; }

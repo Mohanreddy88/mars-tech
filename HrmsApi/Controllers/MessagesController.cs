@@ -10,8 +10,10 @@ using Microsoft.EntityFrameworkCore;
 namespace HrmsApi.Controllers;
 
 /// <summary>
-/// Parent ↔ school messages. One thread per child and kind: "Teacher" (the child's class
-/// teacher) and "Office" (the admins). Both parents of a child share the thread.
+/// Parent ↔ school messages. Conversations are about one child and go either to the class
+/// teacher ("Teacher") or the office ("Office", the admins); each has a subject, and parents or
+/// staff start a new one per topic. Both parents of a child share the child's conversations.
+/// Staff close a conversation when it's done; a new message reopens it.
 /// Who may read/write: <see cref="SchoolViewer.CanAccessConversation"/> — checked on every call.
 /// New messages reach the other side live (<see cref="ChatHub"/>) and as a phone push.
 /// </summary>
@@ -33,9 +35,8 @@ public class MessagesController : ControllerBase
     }
 
     /// <summary>
-    /// GET /api/school/conversations — the threads this user sees, latest activity first.
-    /// Parents always see both threads (class teacher, office) for each child, even before the
-    /// first message. Staff see threads that have messages.
+    /// GET /api/school/conversations — the conversations this user sees (those with at least
+    /// one message), latest activity first, open and closed.
     /// </summary>
     [HttpGet("conversations")]
     public async Task<IActionResult> List()
@@ -43,15 +44,11 @@ public class MessagesController : ControllerBase
         var me = await SchoolViewer.LoadAsync(_db, User);
         if (me == null || (!me.IsStaff && !me.IsParent)) return Forbid();
 
-        if (me.IsParent) await EnsureParentThreadsAsync(me);
-
-        var q = Accessible(me);
-        if (!me.IsParent) q = q.Where(c => c.LastMessageAt != null);
-
-        var rows = await q
+        var rows = await Accessible(me)
+            .Where(c => c.LastMessageAt != null)
             .Select(c => new
             {
-                c.Id, c.Kind, c.StudentId, c.LastMessageAt,
+                c.Id, c.Kind, c.StudentId, c.LastMessageAt, c.Subject, c.Status, c.CreatedByUserId,
                 studentName = c.Student.FullName,
                 className   = c.Student.Class != null ? c.Student.Class.Name : null,
                 teacherName = c.Student.Class != null && c.Student.Class.ClassTeacher != null ? c.Student.Class.ClassTeacher.Name : null,
@@ -69,6 +66,7 @@ public class MessagesController : ControllerBase
             .Select(r => new
             {
                 r.Id, r.Kind, r.StudentId, r.studentName, r.className, r.LastMessageAt,
+                r.Subject, r.Status, startedByMe = r.CreatedByUserId == me.UserId,
                 title = r.Kind == Conversation.Office ? "School office"
                       : r.teacherName != null ? $"Class teacher · {r.teacherName}" : "Class teacher",
                 r.teacherName, r.parentNames,
@@ -107,8 +105,9 @@ public class MessagesController : ControllerBase
     }
 
     /// <summary>
-    /// POST /api/school/conversations/open { studentId, kind } — the thread for a child, created
-    /// on first use. Staff use it to start a conversation with a child's parents.
+    /// POST /api/school/conversations/open { studentId, kind } — the child's latest open
+    /// conversation of that kind, or a new "General" one. Used by the "message" buttons next to
+    /// a child; a conversation with its own subject is started with POST /conversations.
     /// </summary>
     [HttpPost("conversations/open")]
     public async Task<IActionResult> Open([FromBody] OpenConversationRequest req)
@@ -122,9 +121,65 @@ public class MessagesController : ControllerBase
             ?? throw new KeyNotFoundException("Child not found.");
         if (!me.CanAccessConversation(req.Kind, student.Id, student.ClassId)) return Forbid();
 
-        var conv = await GetOrCreateAsync(student.Id, req.Kind);
+        var conv = await _db.Conversations
+            .Where(c => c.StudentId == student.Id && c.Kind == req.Kind && c.Status == Conversation.Open)
+            .OrderByDescending(c => c.LastMessageAt ?? c.CreatedAt)
+            .FirstOrDefaultAsync();
+        if (conv == null)
+        {
+            conv = new Conversation { StudentId = student.Id, Kind = req.Kind, CreatedByUserId = me.UserId, CreatedAt = DateTime.UtcNow };
+            _db.Conversations.Add(conv);
+            await _db.SaveChangesAsync();
+        }
         return Ok(new { conv.Id });
     }
+
+    /// <summary>
+    /// POST /api/school/conversations (multipart: studentId, kind, subject, body, file?) — starts
+    /// a new conversation about a child with its first message. Parents: their own children.
+    /// Staff: children they may message (class teacher: "Teacher" ones of their classes).
+    /// </summary>
+    [HttpPost("conversations")]
+    [RequestSizeLimit(ChatMessage.MaxAttachmentBytes + 256 * 1024)]
+    public async Task<IActionResult> Start([FromForm] StartConversationForm form)
+    {
+        var me = await SchoolViewer.LoadAsync(_db, User);
+        if (me == null || (!me.IsStaff && !me.IsParent)) return Forbid();
+        if (!Conversation.Kinds.Contains(form.Kind)) return BadRequest(new { message = "Choose class teacher or office." });
+
+        var subject = (form.Subject ?? "").Trim();
+        if (subject.Length == 0) return BadRequest(new { message = "Enter a subject." });
+        if (subject.Length > Conversation.MaxSubjectLength)
+            return BadRequest(new { message = $"The subject is too long ({Conversation.MaxSubjectLength} characters at most)." });
+
+        var student = await _db.Students.AsNoTracking().Where(s => s.Id == form.StudentId)
+            .Select(s => new { s.Id, s.ClassId, s.IsActive }).FirstOrDefaultAsync()
+            ?? throw new KeyNotFoundException("Child not found.");
+        if (!me.CanAccessConversation(form.Kind, student.Id, student.ClassId)) return Forbid();
+
+        var body = (form.Body ?? "").Trim();
+        var (attachment, error) = await ReadMessageAsync(body, form.File);
+        if (error != null) return BadRequest(new { message = error });
+
+        var conv = new Conversation
+        {
+            StudentId = student.Id, Kind = form.Kind, Subject = subject,
+            CreatedByUserId = me.UserId, CreatedAt = DateTime.UtcNow
+        };
+        _db.Conversations.Add(conv);
+        await _db.SaveChangesAsync();
+
+        var dto = await PostAsync(me, conv, student.ClassId, body, attachment, isNew: true);
+        return Ok(new { conv.Id, message = dto });
+    }
+
+    /// <summary>POST /api/school/conversations/{id}/close — staff mark the conversation as done.</summary>
+    [HttpPost("conversations/{id:int}/close")]
+    public Task<IActionResult> Close(int id) => SetStatusAsync(id, Conversation.Closed);
+
+    /// <summary>POST /api/school/conversations/{id}/reopen — anyone in the conversation (a new message also reopens it).</summary>
+    [HttpPost("conversations/{id:int}/reopen")]
+    public Task<IActionResult> Reopen(int id) => SetStatusAsync(id, Conversation.Open);
 
     /// <summary>
     /// GET /api/school/conversations/{id}/messages?before= — up to 50 messages (oldest first),
@@ -163,42 +218,10 @@ public class MessagesController : ControllerBase
         if (me == null) return Forbid();
 
         var body = (form.Body ?? "").Trim();
-        if (body.Length > ChatMessage.MaxBodyLength) return BadRequest(new { message = "The message is too long (4000 characters at most)." });
-        var hasFile = form.File != null && form.File.Length > 0;
-        if (body.Length == 0 && !hasFile) return BadRequest(new { message = "Write a message or attach a file." });
+        var (attachment, error) = await ReadMessageAsync(body, form.File);
+        if (error != null) return BadRequest(new { message = error });
 
-        var msg = new ChatMessage
-        {
-            ConversationId = id, SenderUserId = me.UserId, SenderName = me.Name,
-            SenderRole = SenderRoleIn(me, conv!.Kind), Body = body, SentAt = DateTime.UtcNow
-        };
-        if (hasFile)
-        {
-            var (file, error) = await ChatFiles.ReadAsync(form.File!);
-            if (error != null) return BadRequest(new { message = error });
-            var f = file!.Value;
-            msg.Attachment = new ChatAttachment { FileName = f.name, ContentType = f.type!, SizeBytes = f.size ?? 0, Data = f.data };
-        }
-        _db.ChatMessages.Add(msg);
-        conv.LastMessageAt = msg.SentAt;
-        await _db.SaveChangesAsync();
-
-        // The sender has read everything up to their own message
-        await MarkReadAsync(id, me.UserId, msg.Id);
-
-        var dto = MessageDto.From(msg);
-        var parents = await SchoolParticipants.ParentUserIdsAsync(_db, conv.StudentId);
-        var staff   = await SchoolParticipants.StaffUserIdsAsync(_db, conv.Kind, classId);
-        await _live.SendAsync(parents.Concat(staff), "message", new { conversationId = id, message = dto });
-
-        // Phone push to the other side (the web app shows the unread badge instead)
-        var studentName = await _db.Students.Where(s => s.Id == conv.StudentId).Select(s => s.FullName).FirstAsync();
-        var recipients = me.IsParent
-            ? (conv.Kind == Conversation.Office ? await AdminIdsAsync() : staff.Except(await AdminIdsAsync()).ToList())
-            : parents;
-        await _push.SendToUsersAsync(_db, recipients.Where(u => u != me.UserId).ToList(),
-            $"{me.Name} ({studentName})", body.Length > 0 ? Preview(body) : "Sent an attachment", "school_message", $"/school/messages?c={id}");
-
+        var dto = await PostAsync(me, conv!, classId, body, attachment, isNew: false);
         return Ok(dto);
     }
 
@@ -260,34 +283,87 @@ public class MessagesController : ControllerBase
                             && me.TeacherClassIds.Contains(c.Student.ClassId.Value));
     }
 
-    private async Task EnsureParentThreadsAsync(SchoolViewer me)
+    /// <summary>Checks the text and reads the optional photo/PDF. Error = the reason to show.</summary>
+    private static async Task<(ChatAttachment? attachment, string? error)> ReadMessageAsync(string body, IFormFile? file)
     {
-        var existing = await _db.Conversations.Where(c => me.ChildIds.Contains(c.StudentId))
-            .Select(c => new { c.StudentId, c.Kind }).ToListAsync();
-        var missing = me.ChildIds
-            .SelectMany(s => Conversation.Kinds.Select(k => (s, k)))
-            .Where(x => !existing.Any(e => e.StudentId == x.s && e.Kind == x.k))
-            .ToList();
-        if (missing.Count == 0) return;
-        foreach (var (s, k) in missing)
-            _db.Conversations.Add(new Conversation { StudentId = s, Kind = k, CreatedAt = DateTime.UtcNow });
-        try { await _db.SaveChangesAsync(); }
-        catch (DbUpdateException) { _db.ChangeTracker.Clear(); /* the other parent created them at the same moment */ }
+        if (body.Length > ChatMessage.MaxBodyLength) return (null, "The message is too long (4000 characters at most).");
+        var hasFile = file != null && file.Length > 0;
+        if (body.Length == 0 && !hasFile) return (null, "Write a message or attach a file.");
+        if (!hasFile) return (null, null);
+
+        var (read, error) = await ChatFiles.ReadAsync(file!);
+        if (error != null) return (null, error);
+        var f = read!.Value;
+        return (new ChatAttachment { FileName = f.name, ContentType = f.type!, SizeBytes = f.size ?? 0, Data = f.data }, null);
     }
 
-    private async Task<Conversation> GetOrCreateAsync(int studentId, string kind)
+    /// <summary>
+    /// Saves a message (reopening a closed conversation), then tells everyone in it: live to
+    /// open screens, and a phone push to the other side. <paramref name="conv"/> must be tracked.
+    /// </summary>
+    private async Task<MessageDto> PostAsync(
+        SchoolViewer me, Conversation conv, int? classId, string body, ChatAttachment? attachment, bool isNew)
     {
-        var conv = await _db.Conversations.FirstOrDefaultAsync(c => c.StudentId == studentId && c.Kind == kind);
-        if (conv != null) return conv;
-        conv = new Conversation { StudentId = studentId, Kind = kind, CreatedAt = DateTime.UtcNow };
-        _db.Conversations.Add(conv);
-        try { await _db.SaveChangesAsync(); }
-        catch (DbUpdateException)
+        var msg = new ChatMessage
         {
-            _db.ChangeTracker.Clear();
-            conv = await _db.Conversations.FirstAsync(c => c.StudentId == studentId && c.Kind == kind);
+            ConversationId = conv.Id, SenderUserId = me.UserId, SenderName = me.Name,
+            SenderRole = SenderRoleIn(me, conv.Kind), Body = body, SentAt = DateTime.UtcNow,
+            Attachment = attachment
+        };
+        var reopened = conv.Status == Conversation.Closed;
+        if (reopened)
+        {
+            conv.Status = Conversation.Open;
+            conv.ClosedAt = null;
+            conv.ClosedByName = null;
         }
-        return conv;
+        _db.ChatMessages.Add(msg);
+        conv.LastMessageAt = msg.SentAt;
+        await _db.SaveChangesAsync();
+
+        // The sender has read everything up to their own message
+        await MarkReadAsync(conv.Id, me.UserId, msg.Id);
+
+        var dto = MessageDto.From(msg);
+        var parents = await SchoolParticipants.ParentUserIdsAsync(_db, conv.StudentId);
+        var staff   = await SchoolParticipants.StaffUserIdsAsync(_db, conv.Kind, classId);
+        var everyone = parents.Concat(staff).ToList();
+        if (reopened)
+            await _live.SendAsync(everyone, "conversation", new { conversationId = conv.Id, status = conv.Status, closedByName = (string?)null });
+        await _live.SendAsync(everyone, "message", new { conversationId = conv.Id, message = dto });
+
+        // Phone push to the other side (the web app shows the unread badge instead)
+        var studentName = await _db.Students.Where(s => s.Id == conv.StudentId).Select(s => s.FullName).FirstAsync();
+        var admins = await AdminIdsAsync();
+        var recipients = me.IsParent
+            ? (conv.Kind == Conversation.Office ? admins : staff.Except(admins).ToList())
+            : parents;
+        var title = isNew ? $"{me.Name} ({studentName}): {conv.Subject}" : $"{me.Name} ({studentName})";
+        await _push.SendToUsersAsync(_db, recipients.Where(u => u != me.UserId).ToList(),
+            title, body.Length > 0 ? Preview(body) : "Sent an attachment", "school_message", $"/school/messages?c={conv.Id}");
+
+        return dto;
+    }
+
+    /// <summary>Close (staff only) or reopen (anyone in it) a conversation, and tell everyone in it.</summary>
+    private async Task<IActionResult> SetStatusAsync(int id, string status)
+    {
+        var (me, conv, classId) = await LoadAsync(id, tracking: true);
+        if (me == null) return Forbid();
+        if (status == Conversation.Closed && !me.IsStaff)
+            return BadRequest(new { message = "Only the school can close a conversation." });
+        if (conv!.Status == status) return Ok(new { conv.Status, conv.ClosedByName });
+
+        conv.Status = status;
+        conv.ClosedAt = status == Conversation.Closed ? DateTime.UtcNow : null;
+        conv.ClosedByName = status == Conversation.Closed ? me.Name : null;
+        await _db.SaveChangesAsync();
+
+        var parents = await SchoolParticipants.ParentUserIdsAsync(_db, conv.StudentId);
+        var staff   = await SchoolParticipants.StaffUserIdsAsync(_db, conv.Kind, classId);
+        await _live.SendAsync(parents.Concat(staff), "conversation",
+            new { conversationId = id, status = conv.Status, closedByName = conv.ClosedByName });
+        return Ok(new { conv.Status, conv.ClosedByName });
     }
 
     private async Task<object> HeaderAsync(Conversation conv, int? classId)
@@ -303,7 +379,7 @@ public class MessagesController : ControllerBase
             }).FirstAsync();
         return new
         {
-            conv.Id, conv.Kind, conv.StudentId,
+            conv.Id, conv.Kind, conv.StudentId, conv.Subject, conv.Status, conv.ClosedAt, conv.ClosedByName,
             studentName = s.FullName, s.className, s.teacherName, s.parents,
             title = conv.Kind == Conversation.Office ? "School office"
                   : s.teacherName != null ? $"Class teacher · {s.teacherName}" : "Class teacher"
@@ -393,6 +469,15 @@ public class OpenConversationRequest
 {
     public int StudentId { get; set; }
     public string Kind { get; set; } = Conversation.Teacher;
+}
+
+public class StartConversationForm
+{
+    public int StudentId { get; set; }
+    public string Kind { get; set; } = Conversation.Teacher;
+    public string? Subject { get; set; }
+    public string? Body { get; set; }
+    public IFormFile? File { get; set; }
 }
 
 public class SendMessageForm

@@ -98,7 +98,8 @@ class NotificationsScreen extends ConsumerWidget {
     // School notifications carry the page they are about
     final schoolTarget = session == null ? null : Routes.fromWebLink(session, n.link);
     if (schoolTarget != null) {
-      if (context.mounted) context.push(schoolTarget);
+      // Tab pages (Fees, Announcements…) are switched to; other pages open on top
+      if (context.mounted) Routes.open(GoRouter.of(context), schoolTarget);
       return;
     }
     final target = isAdmin

@@ -146,6 +146,8 @@ const companyRoutes: Routes = [
       { path: 'master/public-holidays',  component: PublicHolidaysComponent,   canActivate: [adminGuard] },
       { path: 'master/company-settings', component: CompanySettingsComponent,  canActivate: [adminGuard] },
       { path: 'master/statutory-rates',  component: StatutoryRatesComponent,   canActivate: [adminGuard] },
+      { path: 'master/chatbot',          loadComponent: () => import('./modules/master/pages/chatbot-component/chatbot-component').then(m => m.ChatbotComponent),
+                                         canActivate: [adminGuard], title: 'Chatbot' },
       
       // School (only when the company has school features on; the API enforces access)
       { path: 'school/classes',       loadComponent: schoolClasses,       canActivate: [adminGuard], title: 'Classes' },

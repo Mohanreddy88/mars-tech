@@ -46,9 +46,12 @@ import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/school/presentation/admin_setup_screens.dart';
 import '../../features/school/presentation/announcements_screen.dart';
 import '../../features/school/presentation/child_day_screen.dart';
+import '../../features/assistant/presentation/assistant_screen.dart';
+import '../../features/assistant/presentation/chatbot_admin_screen.dart';
 import '../../features/school/presentation/fees_admin_screens.dart';
 import '../../features/school/presentation/fees_screens.dart';
 import '../../features/school/presentation/messages_screens.dart';
+import '../../features/school/presentation/parent_home_screen.dart';
 import '../../features/school/presentation/parent_screens.dart';
 import '../../features/school/presentation/staff_screens.dart';
 
@@ -92,6 +95,8 @@ class Routes {
   static const companySettings = '/master-company';
   static const statutoryRates = '/master-rates';
   static const auditLog = '/audit-log';
+  static const chatbotAdmin = '/master-chatbot';
+  static const assistant = '/assistant'; // help chatbot, every role
   static const attendanceReview = '/attendance-review'; // /{periodId}
   static const employeeDetail = '/employee-detail'; // extra: EmployeeSummary
   static const employeeForm = '/employee-form'; // extra: EmployeeSummary to edit, none = new
@@ -126,14 +131,28 @@ class Routes {
   static const _adminOnly = [adminHome, attendanceReview, employeeDetail, employeeForm,
       attendanceHistory, leaveBalances, payrollReport, attendanceReport, directoryReport,
       monthlySummary, analytics, departmentsMaster, banksMaster, holidaysMaster, usersMaster,
-      companySettings, statutoryRates, auditLog,
+      companySettings, statutoryRates, auditLog, chatbotAdmin,
       payrollRecord, generatePayroll, salaryRelease, yearEnd];
 
   /// Home screen for the signed-in role.
   static String homeFor(Session s) => s.isAdmin ? adminHome : s.isParent ? parentHome : dashboard;
 
+  /// Bottom-navigation tabs. These must be opened with go(), never push(): pushing one puts a
+  /// second copy of its tab shell on the stack and the navigator fails (duplicate page key).
+  static const _tabs = [
+    parentHome, parentMessages, parentAnnouncements, parentFees, parentAccount,
+    adminHome, adminApprovals, adminEmployees, adminPayroll, adminMore,
+    dashboard, payslips, leave, attendance, profile,
+  ];
+
+  static bool isTab(String location) => _tabs.contains(Uri.parse(location).path);
+
+  /// Opens [location]: switches tab for bottom-navigation pages, otherwise pushes the page.
+  static void open(GoRouter router, String location) =>
+      isTab(location) ? router.go(location) : router.push(location);
+
   /// Pages a parent login may open.
-  static const _parentPages = [parentHome, schoolChat, schoolChild, notifications, changePassword];
+  static const _parentPages = [parentHome, schoolChat, schoolChild, notifications, changePassword, assistant];
   static const _adminSchool = [schoolFees, schoolInvoice, schoolClasses, schoolChildren, schoolParents];
 
   /// The app screen for a page link from a notification (web paths, e.g. "/parent/fees",
@@ -243,6 +262,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           date: state.uri.queryParameters['date'],
         ),
       ),
+      GoRoute(path: Routes.assistant, builder: (context, state) => const AssistantScreen()),
+      GoRoute(path: Routes.chatbotAdmin, builder: (context, state) => const ChatbotAdminScreen()),
       GoRoute(path: Routes.schoolMessages, builder: (context, state) => const ConversationsScreen()),
       GoRoute(path: Routes.schoolAnnouncements, builder: (context, state) => const AnnouncementsScreen()),
       GoRoute(

@@ -260,6 +260,7 @@ builder.Services.AddScoped<IPayrollCalculationService, PayrollCalculationService
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<ICompanySettingsService, CompanySettingsService>();
 builder.Services.AddSingleton<IPushService, PushService>();   // off until Firebase credentials are configured
+builder.Services.AddSingleton<IAssistantAi, AssistantAi>();   // AI chatbot answers: off until ANTHROPIC_API_KEY is set
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddSignalR();                                   // live school messages (/api/hubs/chat)

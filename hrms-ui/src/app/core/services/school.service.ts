@@ -126,6 +126,9 @@ export interface ConversationSummary {
   studentName: string;
   className: string | null;
   lastMessageAt: string | null;
+  subject: string;
+  status: ConversationStatus;
+  startedByMe: boolean;
   title: string;
   teacherName: string | null;
   parentNames: string[];
@@ -144,10 +147,16 @@ export interface ChatMessage {
   attachment: { name: string; contentType: string; size: number } | null;
 }
 
+export type ConversationStatus = 'Open' | 'Closed';
+
 export interface ConversationHeader {
   id: number;
   kind: 'Teacher' | 'Office';
   studentId: number;
+  subject: string;
+  status: ConversationStatus;
+  closedAt: string | null;
+  closedByName: string | null;
   studentName: string;
   className: string | null;
   teacherName: string | null;
@@ -164,6 +173,7 @@ export interface MessagePage {
 
 /** Live events from /api/hubs/chat. */
 export interface LiveMessage { conversationId: number; message: ChatMessage; }
+export interface LiveConversation { conversationId: number; status: ConversationStatus; closedByName: string | null; }
 export interface LiveRead { conversationId: number; userId: number; lastReadMessageId: number; byParent: boolean; }
 
 export const SESSION_TYPES = ['Half day', 'Full day', 'Daycare'];
@@ -194,6 +204,8 @@ export class SchoolService {
   readonly liveMessage$ = new Subject<LiveMessage>();
   /** Someone read a thread up to a message ("Seen" ticks). */
   readonly liveRead$ = new Subject<LiveRead>();
+  /** A conversation was closed or reopened. */
+  readonly liveConversation$ = new Subject<LiveConversation>();
   /** A new announcement for this parent. */
   readonly liveAnnouncement$ = new Subject<{ id: number; title: string; className: string | null }>();
   /** A child's day changed: check-in / check-out, daily report published (parents). */
@@ -269,7 +281,8 @@ export class SchoolService {
       this.liveRead$.next(e);
       if (e.userId === this.meSubject.value?.userId) this.refreshUnread();
     });
-    this.hub.on('announcement', (e: { id: number; title: string; className: string | null }) => {
+    this.hub.on('conversation', (e: LiveConversation) => this.liveConversation$.next(e));
+    this.hub.on('announcement',(e: { id: number; title: string; className: string | null }) => {
       this.liveAnnouncement$.next(e);
       this.refreshUnread();
     });
@@ -354,6 +367,21 @@ export class SchoolService {
   getConversations(): Observable<ConversationSummary[]> { return this.http.get<ConversationSummary[]>(`${this.api}/conversations`); }
   openConversation(studentId: number, kind: 'Teacher' | 'Office'): Observable<{ id: number }> {
     return this.http.post<{ id: number }>(`${this.api}/conversations/open`, { studentId, kind });
+  }
+  /** Starts a new conversation about a child, with a subject and the first message. */
+  startConversation(studentId: number, kind: 'Teacher' | 'Office', subject: string, body: string, file: File | null)
+    : Observable<{ id: number; message: ChatMessage }> {
+    const form = new FormData();
+    form.append('studentId', String(studentId));
+    form.append('kind', kind);
+    form.append('subject', subject);
+    form.append('body', body);
+    if (file) form.append('file', file);
+    return this.http.post<{ id: number; message: ChatMessage }>(`${this.api}/conversations`, form);
+  }
+  setConversationStatus(conversationId: number, close: boolean): Observable<{ status: ConversationStatus; closedByName: string | null }> {
+    return this.http.post<{ status: ConversationStatus; closedByName: string | null }>(
+      `${this.api}/conversations/${conversationId}/${close ? 'close' : 'reopen'}`, {});
   }
   getMessages(conversationId: number, before?: number): Observable<MessagePage> {
     const params: Record<string, string> = before ? { before: String(before) } : {};

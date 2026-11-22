@@ -659,6 +659,67 @@ public class FeesController : ControllerBase
         return Ok(await DetailAsync(inv.Id));
     }
 
+    /// <summary>
+    /// GET /api/school/fees/export?year=&amp;month=&amp;unpaidOnly= — invoices as an Excel sheet (admins).
+    /// No month: all months. unpaidOnly (default true): only invoices with a balance left.
+    /// </summary>
+    [HttpGet("export")]
+    [Authorize(Roles = UserAccess.Admin)]
+    public async Task<IActionResult> Export([FromQuery] int? year, [FromQuery] int? month, [FromQuery] bool unpaidOnly = true)
+    {
+        var q = _db.FeeInvoices.AsNoTracking().Include(i => i.Student).ThenInclude(s => s.Class)
+            .Where(i => i.Status != FeeInvoice.Void);
+        if (year != null) q = q.Where(i => i.Year == year);
+        if (month != null) q = q.Where(i => i.Month == month);
+        if (unpaidOnly) q = q.Where(i => i.Status != FeeInvoice.Paid);
+        var rows = await q.OrderBy(i => i.Year).ThenBy(i => i.Month).ThenBy(i => i.Student.FullName).ToListAsync();
+
+        using var book = new ClosedXML.Excel.XLWorkbook();
+        var sheet = book.Worksheets.Add(unpaidOnly ? "Unpaid fees" : "Fee invoices");
+        string[] headers = { "Invoice", "Child", "Class", "Month", "Due date", "Total (RM)", "Paid (RM)", "Balance (RM)", "Status", "Sent", "Overdue" };
+        for (var c = 0; c < headers.Length; c++) sheet.Cell(1, c + 1).Value = headers[c];
+        var header = sheet.Range(1, 1, 1, headers.Length);
+        header.Style.Font.Bold = true;
+        header.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.LightBlue;
+
+        var today = SchoolClock.Today;
+        var r = 2;
+        foreach (var i in rows)
+        {
+            sheet.Cell(r, 1).Value = i.InvoiceNo;
+            sheet.Cell(r, 2).Value = i.Student.FullName;
+            sheet.Cell(r, 3).Value = i.Student.Class?.Name ?? "";
+            sheet.Cell(r, 4).Value = new DateTime(i.Year, i.Month, 1).ToString("MMM yyyy");
+            sheet.Cell(r, 5).Value = i.DueDate;
+            sheet.Cell(r, 5).Style.DateFormat.Format = "dd MMM yyyy";
+            sheet.Cell(r, 6).Value = i.Total;
+            sheet.Cell(r, 7).Value = i.AmountPaid;
+            sheet.Cell(r, 8).Value = i.Balance;
+            sheet.Cell(r, 9).Value = i.Status;
+            sheet.Cell(r, 10).Value = i.SentAt == null ? "Draft" : "Sent";
+            sheet.Cell(r, 11).Value = i.Status != FeeInvoice.Paid && i.DueDate.Date < today ? "Yes" : "";
+            r++;
+        }
+        sheet.Range(2, 6, Math.Max(2, r - 1), 8).Style.NumberFormat.Format = "#,##0.00";
+        if (rows.Count > 0)
+        {
+            sheet.Cell(r, 5).Value = "Total";
+            sheet.Cell(r, 5).Style.Font.Bold = true;
+            sheet.Cell(r, 6).Value = rows.Sum(i => i.Total);
+            sheet.Cell(r, 7).Value = rows.Sum(i => i.AmountPaid);
+            sheet.Cell(r, 8).Value = rows.Sum(i => i.Balance);
+            sheet.Range(r, 6, r, 8).Style.Font.Bold = true;
+            sheet.Range(r, 6, r, 8).Style.NumberFormat.Format = "#,##0.00";
+        }
+        sheet.Columns().AdjustToContents();
+
+        using var ms = new MemoryStream();
+        book.SaveAs(ms);
+        var period = month != null && year != null ? $"_{year}-{month:00}" : year != null ? $"_{year}" : "";
+        return File(ms.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"{(unpaidOnly ? "Unpaid_fees" : "Fee_invoices")}{period}.xlsx");
+    }
+
     // ════════════════════════════ PDFs ════════════════════════════
 
     /// <summary>GET /api/school/fees/invoices/{id}/pdf — admins, or the child's parents once sent.</summary>

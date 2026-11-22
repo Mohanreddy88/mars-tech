@@ -12,97 +12,129 @@ import '../data/school_models.dart';
 import '../data/school_repository.dart';
 import 'school_widgets.dart';
 
-/// Message threads: one per child with the class teacher, one with the office.
-/// Parents see their children's; teachers their classes'; admins all.
-class ConversationsScreen extends ConsumerWidget {
+/// Opens the "New conversation" form (optionally prefilled), then the new conversation.
+/// Used by Messages, the parent home's "Message" buttons and the help chatbot.
+Future<void> startNewConversation(BuildContext context, WidgetRef ref,
+    {int? studentId, String? kind, String? subject}) async {
+  final id = await Navigator.of(context).push<int>(MaterialPageRoute(
+    fullscreenDialog: true,
+    builder: (_) => NewConversationScreen(studentId: studentId, kind: kind, subject: subject),
+  ));
+  if (id == null || !context.mounted) return;
+  ref.invalidate(conversationsProvider);
+  await context.push('${Routes.schoolChat}/$id');
+  if (context.mounted) {
+    ref.invalidate(conversationsProvider);
+    ref.invalidate(schoolUnreadProvider);
+  }
+}
+
+/// Conversations with the school. Each is about one child, goes to the class teacher or the
+/// office, and has a subject. Parents see their children's; teachers their classes'; admins all.
+/// Staff start on the open ones (closed = done).
+class ConversationsScreen extends ConsumerStatefulWidget {
   const ConversationsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ConversationsScreen> createState() => _ConversationsScreenState();
+}
+
+class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
+  /// 'Open', 'Closed' or '' (all). Null until we know whether this is a parent.
+  String? _filter;
+
+  @override
+  Widget build(BuildContext context) {
     final list = ref.watch(conversationsProvider);
     final me = ref.watch(schoolMeProvider).valueOrNull;
+    final filter = _filter ?? (me == null || me.isParent ? '' : 'Open');
+    final canStart = me != null && (me.isParent ? me.children.isNotEmpty : me.isStaff);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Messages')),
-      floatingActionButton: me != null && me.isParent && me.children.isNotEmpty
+      floatingActionButton: canStart
           ? FloatingActionButton.extended(
-              onPressed: () => _newThread(context, ref, me),
+              onPressed: () => startNewConversation(context, ref),
               icon: const Icon(Icons.edit_outlined),
-              label: const Text('New message'),
+              label: const Text('New conversation'),
             )
           : null,
       body: list.when(
         skipLoadingOnRefresh: true,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(conversationsProvider)),
-        data: (items) => RefreshIndicator(
-          onRefresh: () {
-            ref.invalidate(schoolUnreadProvider);
-            return ref.refresh(conversationsProvider.future);
-          },
-          child: items.isEmpty
-              ? ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [
-                  SizedBox(height: 120),
-                  Icon(Icons.forum_outlined, size: 56),
-                  SizedBox(height: 12),
-                  Center(child: Text('No messages yet')),
-                ])
-              : ListView.separated(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  itemCount: items.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (context, i) => _ThreadTile(c: items[i]),
-                ),
-        ),
+        data: (items) {
+          final shown = items.where((c) => filter.isEmpty || c.status == filter).toList();
+          final openCount = items.where((c) => !c.isClosed).length;
+          return RefreshIndicator(
+            onRefresh: () {
+              ref.invalidate(schoolUnreadProvider);
+              return ref.refresh(conversationsProvider.future);
+            },
+            child: ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(bottom: 88),
+              itemCount: shown.isEmpty ? 2 : shown.length + 1,
+              separatorBuilder: (_, i) => i == 0 ? const SizedBox.shrink() : const Divider(height: 1),
+              itemBuilder: (context, i) {
+                if (i == 0) {
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                    child: SegmentedButton<String>(
+                      segments: [
+                        ButtonSegment(value: 'Open', label: Text(openCount > 0 ? 'Open ($openCount)' : 'Open')),
+                        const ButtonSegment(value: 'Closed', label: Text('Closed')),
+                        const ButtonSegment(value: '', label: Text('All')),
+                      ],
+                      selected: {filter},
+                      showSelectedIcon: false,
+                      onSelectionChanged: (s) => setState(() => _filter = s.first),
+                    ),
+                  );
+                }
+                if (shown.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 80, 24, 24),
+                    child: Column(children: [
+                      const Icon(Icons.forum_outlined, size: 56),
+                      const SizedBox(height: 12),
+                      Text(
+                        items.isEmpty
+                            ? 'No conversations yet'
+                            : 'No ${filter == 'Open' ? 'open ' : filter == 'Closed' ? 'closed ' : ''}conversations',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      if (items.isEmpty && canStart) ...[
+                        const SizedBox(height: 6),
+                        const Text('Tap "New conversation" to ask the class teacher or the school office something.',
+                            textAlign: TextAlign.center),
+                      ],
+                    ]),
+                  );
+                }
+                return _ThreadTile(c: shown[i - 1], isParent: me?.isParent ?? false);
+              },
+            ),
+          );
+        },
       ),
     );
-  }
-
-  /// Parent: choose the child and teacher/office, then open (or start) that thread.
-  Future<void> _newThread(BuildContext context, WidgetRef ref, SchoolMe me) async {
-    final choice = await showModalBottomSheet<(int, String)>(
-      context: context,
-      showDragHandle: true,
-      builder: (ctx) => SafeArea(
-        child: ListView(shrinkWrap: true, children: [
-          for (final c in me.children) ...[
-            ListTile(
-              leading: const Icon(Icons.person_outline),
-              title: Text('${c.fullName}: class teacher'),
-              subtitle: Text(c.classTeacherName ?? 'Class teacher'),
-              onTap: () => Navigator.pop(ctx, (c.id, 'Teacher')),
-            ),
-            ListTile(
-              leading: const Icon(Icons.business_outlined),
-              title: Text('${c.fullName}: school office'),
-              onTap: () => Navigator.pop(ctx, (c.id, 'Office')),
-            ),
-          ],
-        ]),
-      ),
-    );
-    if (choice == null || !context.mounted) return;
-    try {
-      final id = await ref.read(schoolRepositoryProvider).openConversation(choice.$1, choice.$2);
-      if (context.mounted) {
-        await context.push('${Routes.schoolChat}/$id');
-        ref.invalidate(conversationsProvider);
-      }
-    } catch (e) {
-      if (context.mounted) toast(context, ApiException.from(e).message, error: true);
-    }
   }
 }
 
 class _ThreadTile extends ConsumerWidget {
-  const _ThreadTile({required this.c});
+  const _ThreadTile({required this.c, required this.isParent});
   final ConversationSummary c;
+  final bool isParent;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final when = c.lastMessageAt == null ? '' : _when(c.lastMessageAt!.toLocal());
     final preview = c.lastText == null ? 'No messages yet' : '${c.lastMine ? 'You' : c.lastSender}: ${c.lastText}';
+    final about = isParent
+        ? '${c.title} · ${c.studentName}'
+        : [c.studentName, c.className, c.kind == 'Office' ? 'Office' : 'Class teacher'].whereType<String>().join(' · ');
     return ListTile(
       onTap: () async {
         await context.push('${Routes.schoolChat}/${c.id}');
@@ -114,9 +146,23 @@ class _ThreadTile extends ConsumerWidget {
         child: Icon(c.kind == 'Office' ? Icons.business_outlined : Icons.person_outline,
             color: c.kind == 'Office' ? scheme.tertiary : scheme.primary),
       ),
-      title: Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontWeight: c.unread > 0 ? FontWeight.w700 : FontWeight.w500)),
-      subtitle: Text(preview, maxLines: 2, overflow: TextOverflow.ellipsis),
+      title: Row(children: [
+        Flexible(
+          child: Text(c.subject, maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  fontWeight: c.unread > 0 ? FontWeight.w700 : FontWeight.w500,
+                  color: c.isClosed ? scheme.onSurfaceVariant : null)),
+        ),
+        if (c.isClosed) ...[
+          const SizedBox(width: 6),
+          const Pill('Closed', tone: PillTone.neutral),
+        ],
+      ]),
+      subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(about, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.labelMedium),
+        Text(preview, maxLines: 1, overflow: TextOverflow.ellipsis),
+      ]),
+      isThreeLine: true,
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -138,8 +184,198 @@ class _ThreadTile extends ConsumerWidget {
   }
 }
 
-/// One thread: messages (oldest first), photos and PDFs, "Seen" on my last message.
+/// A child to pick in the "New conversation" form.
+typedef _ChildOption = ({int id, String name, String? className, String? teacher});
+
+/// New conversation: which child, to whom (class teacher / office), subject and first message.
+/// Pops with the new conversation's id.
+class NewConversationScreen extends ConsumerStatefulWidget {
+  const NewConversationScreen({super.key, this.studentId, this.kind, this.subject});
+  final int? studentId;
+  final String? kind;
+  final String? subject;
+
+  @override
+  ConsumerState<NewConversationScreen> createState() => _NewConversationScreenState();
+}
+
+class _NewConversationScreenState extends ConsumerState<NewConversationScreen> {
+  late final TextEditingController _subject = TextEditingController(text: widget.subject ?? '');
+  final _body = TextEditingController();
+  int? _studentId;
+  String? _kind;
+  PickedFile? _file;
+  bool _sending = false;
+  Future<List<_ChildOption>>? _children;
+
+  @override
+  void initState() {
+    super.initState();
+    _studentId = widget.studentId;
+    _kind = widget.kind;
+  }
+
+  @override
+  void dispose() {
+    _subject.dispose();
+    _body.dispose();
+    super.dispose();
+  }
+
+  Future<List<_ChildOption>> _loadChildren(SchoolMe me) async {
+    if (me.isParent) {
+      return [
+        for (final c in me.children) (id: c.id, name: c.fullName, className: c.className, teacher: c.classTeacherName)
+      ];
+    }
+    // Staff: the children they may message (the API limits teachers to their classes)
+    final list = await ref.read(schoolRepositoryProvider).students();
+    return [for (final s in list) (id: s.id, name: s.fullName, className: s.className, teacher: null)];
+  }
+
+  Future<void> _send(SchoolMe me) async {
+    final subject = _subject.text.trim();
+    final body = _body.text.trim();
+    if (_studentId == null) return toast(context, 'Choose the child.', error: true);
+    if (subject.isEmpty) return toast(context, 'Enter a subject.', error: true);
+    if (body.isEmpty && _file == null) return toast(context, 'Write a message.', error: true);
+    final canChoose = me.isParent || me.isAdmin;
+    final kind = canChoose ? (_kind ?? 'Teacher') : 'Teacher';
+    setState(() => _sending = true);
+    try {
+      final id = await ref.read(schoolRepositoryProvider).startConversation(
+          studentId: _studentId!, kind: kind, subject: subject, body: body, file: _file);
+      if (mounted) Navigator.of(context).pop(id);
+    } catch (e) {
+      if (mounted) toast(context, ApiException.from(e).message, error: true);
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final meAsync = ref.watch(schoolMeProvider);
+    return Scaffold(
+      appBar: AppBar(title: const Text('New conversation')),
+      body: meAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(schoolMeProvider)),
+        data: (me) {
+          _children ??= _loadChildren(me);
+          _kind ??= me.isAdmin && !me.isParent ? 'Office' : 'Teacher';
+          final canChoose = me.isParent || me.isAdmin;
+          return FutureBuilder<List<_ChildOption>>(
+            future: _children,
+            builder: (context, snap) {
+              if (snap.hasError) {
+                return ErrorView(error: snap.error!, onRetry: () => setState(() => _children = _loadChildren(me)));
+              }
+              if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+              final children = snap.data!;
+              if (_studentId != null && !children.any((c) => c.id == _studentId)) _studentId = null;
+              if (_studentId == null && children.length == 1) _studentId = children.first.id;
+              final teacher = children.where((c) => c.id == _studentId).firstOrNull?.teacher;
+
+              return ListView(padding: const EdgeInsets.all(16), children: [
+                DropdownButtonFormField<int>(
+                  value: _studentId,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'About', border: OutlineInputBorder()),
+                  hint: const Text('Choose the child'),
+                  items: [
+                    for (final c in children)
+                      DropdownMenuItem(
+                        value: c.id,
+                        child: Text(c.className == null ? c.name : '${c.name} (${c.className})',
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                  ],
+                  onChanged: _sending ? null : (v) => setState(() => _studentId = v),
+                ),
+                if (canChoose) ...[
+                  const SizedBox(height: 16),
+                  Text('To', style: Theme.of(context).textTheme.labelLarge),
+                  const SizedBox(height: 6),
+                  SegmentedButton<String>(
+                    segments: [
+                      ButtonSegment(
+                        value: 'Teacher',
+                        icon: const Icon(Icons.person_outline),
+                        label: Text(me.isParent && teacher != null ? 'Teacher ($teacher)' : 'Class teacher',
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                      const ButtonSegment(value: 'Office', icon: Icon(Icons.business_outlined), label: Text('Office')),
+                    ],
+                    selected: {_kind!},
+                    onSelectionChanged: _sending ? null : (s) => setState(() => _kind = s.first),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _subject,
+                  maxLength: 150,
+                  enabled: !_sending,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    labelText: 'Subject',
+                    hintText: me.isParent ? 'e.g. Sick leave tomorrow' : 'e.g. Field trip consent',
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _body,
+                  minLines: 4,
+                  maxLines: 10,
+                  maxLength: 4000,
+                  enabled: !_sending,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(labelText: 'Message', alignLabelWithHint: true, border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 4),
+                if (_file == null)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: _sending
+                          ? null
+                          : () async {
+                              final f = await pickPhoto(context);
+                              if (f != null) setState(() => _file = f);
+                            },
+                      icon: const Icon(Icons.add_photo_alternate_outlined),
+                      label: const Text('Add a photo'),
+                    ),
+                  )
+                else
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.image_outlined),
+                    title: Text(_file!.name, overflow: TextOverflow.ellipsis),
+                    trailing: IconButton(
+                        onPressed: _sending ? null : () => setState(() => _file = null), icon: const Icon(Icons.close)),
+                  ),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: _sending ? null : () => _send(me),
+                  icon: _sending
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.send),
+                  label: const Text('Send'),
+                ),
+              ]);
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// One conversation: messages (oldest first), photos and PDFs, "Seen" on my last message.
 /// New messages arrive by refreshing every few seconds while the screen is open.
+/// Staff can close it when done; sending a message reopens it.
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key, required this.conversationId});
   final int conversationId;
@@ -156,6 +392,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Object? _error;
   bool _sending = false;
   bool _loadingOlder = false;
+  bool _statusBusy = false;
   PickedFile? _file;
   Timer? _poll;
 
@@ -187,7 +424,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       final older = _messages.where((m) => page.messages.isEmpty || m.id < page.messages.first.id);
       final changed = page.messages.isNotEmpty && (_messages.isEmpty || page.messages.last.id != _messages.last.id);
       setState(() {
-        _page = page;
+        _page = page.copyWith(hasMore: first ? page.hasMore : _page?.hasMore ?? page.hasMore);
         _messages = [...older, ...page.messages];
         _error = null;
       });
@@ -208,8 +445,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       if (mounted) {
         setState(() {
           _messages = [...older.messages, ..._messages];
-          _page = MessagePage(title: _page!.title, subtitle: _page!.subtitle, messages: _page!.messages,
-              hasMore: older.hasMore, seenUpTo: _page!.seenUpTo);
+          _page = _page!.copyWith(hasMore: older.hasMore);
         });
       }
     } catch (_) {
@@ -230,6 +466,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         _messages = [..._messages, msg];
         _text.clear();
         _file = null;
+        // A message reopens a closed conversation
+        if (_page != null && _page!.isClosed) _page = _page!.copyWith(status: 'Open');
       });
     } catch (e) {
       if (mounted) toast(context, ApiException.from(e).message, error: true);
@@ -238,10 +476,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
+  Future<void> _toggleClosed() async {
+    final page = _page;
+    if (page == null || _statusBusy) return;
+    final close = !page.isClosed;
+    setState(() => _statusBusy = true);
+    try {
+      final status = await _repo.setConversationClosed(widget.conversationId, close);
+      if (!mounted) return;
+      final me = ref.read(schoolMeProvider).valueOrNull;
+      setState(() => _page = _page!.copyWith(status: status, closedByName: me?.name));
+      ref.invalidate(conversationsProvider);
+      toast(context, close ? 'Conversation closed' : 'Conversation reopened');
+    } catch (e) {
+      if (mounted) toast(context, ApiException.from(e).message, error: true);
+    } finally {
+      if (mounted) setState(() => _statusBusy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final page = _page;
+    final me = ref.watch(schoolMeProvider).valueOrNull;
+    final isStaff = me?.isStaff ?? false;
     // "Seen" goes under my latest message once the other side has read that far
     var myLastId = 0;
     for (final m in _messages) {
@@ -255,8 +514,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           if (page != null)
             Text(page.subtitle, style: Theme.of(context).textTheme.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
         ]),
+        actions: [
+          if (page != null && (isStaff || page.isClosed))
+            _statusBusy
+                ? const Padding(
+                    padding: EdgeInsets.all(14),
+                    child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)))
+                : IconButton(
+                    tooltip: page.isClosed ? 'Reopen' : 'Close (done)',
+                    onPressed: _toggleClosed,
+                    icon: Icon(page.isClosed ? Icons.lock_open_outlined : Icons.check_circle_outline),
+                  ),
+        ],
       ),
       body: Column(children: [
+        if (page != null && page.isClosed)
+          Container(
+            width: double.infinity,
+            color: scheme.secondaryContainer,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              'Closed${page.closedByName != null ? ' by ${page.closedByName}' : ''}. Sending a message opens it again.',
+              style: TextStyle(color: scheme.onSecondaryContainer, fontSize: 13),
+            ),
+          ),
         Expanded(
           child: _error != null
               ? ErrorView(error: _error!, onRetry: () => _load(first: true))

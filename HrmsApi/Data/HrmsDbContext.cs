@@ -52,6 +52,9 @@ public class HrmsDbContext : DbContext
     public DbSet<FeeInvoiceLine>        FeeInvoiceLines       => Set<FeeInvoiceLine>();
     public DbSet<FeePayment>            FeePayments           => Set<FeePayment>();
     public DbSet<FeePaymentClaim>       FeePaymentClaims      => Set<FeePaymentClaim>();
+    public DbSet<BotFaq>                BotFaqs               => Set<BotFaq>();
+    public DbSet<BotUnanswered>         BotUnansweredQuestions => Set<BotUnanswered>();
+    public DbSet<BotAiUsage>            BotAiUsageLog         => Set<BotAiUsage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -442,7 +445,12 @@ public class HrmsDbContext : DbContext
         modelBuilder.Entity<Conversation>(e =>
         {
             e.Property(x => x.Kind).IsRequired().HasMaxLength(20);
-            e.HasIndex(x => new { x.StudentId, x.Kind }).IsUnique();
+            e.Property(x => x.Subject).IsRequired().HasMaxLength(Conversation.MaxSubjectLength).HasDefaultValue(Conversation.DefaultSubject);
+            e.Property(x => x.Status).IsRequired().HasMaxLength(10).HasDefaultValue(Conversation.Open);
+            e.Property(x => x.ClosedByName).HasMaxLength(150);
+            // Many conversations per child and kind (one per subject)
+            e.HasIndex(x => new { x.StudentId, x.Kind });
+            e.HasIndex(x => x.LastMessageAt);
             e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
         });
 
@@ -474,6 +482,7 @@ public class HrmsDbContext : DbContext
 
         ConfigureSchoolDay(modelBuilder);
         ConfigureSchoolFees(modelBuilder);
+        ConfigureAssistant(modelBuilder);
     }
 
     /// <summary>School phase 3: attendance, parents' notes, daily reports.</summary>
@@ -538,6 +547,36 @@ public class HrmsDbContext : DbContext
     }
 
     /// <summary>School phase 4: fee items, add-ons, invoices, payments.</summary>
+    /// <summary>Help chatbot: admins' questions and answers, and questions it couldn't answer.</summary>
+    private static void ConfigureAssistant(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<BotFaq>(e =>
+        {
+            e.Property(x => x.Category).IsRequired().HasMaxLength(BotFaq.MaxCategoryLength);
+            e.Property(x => x.Question).IsRequired().HasMaxLength(BotFaq.MaxQuestionLength);
+            e.Property(x => x.Answer).IsRequired().HasMaxLength(BotFaq.MaxAnswerLength);
+            e.Property(x => x.Keywords).HasMaxLength(BotFaq.MaxKeywordsLength);
+            e.Property(x => x.Audience).IsRequired().HasMaxLength(20);
+            e.Property(x => x.Action).HasMaxLength(40);
+        });
+
+        modelBuilder.Entity<BotUnanswered>(e =>
+        {
+            e.ToTable("BotUnanswered");
+            e.Property(x => x.Text).IsRequired().HasMaxLength(BotUnanswered.MaxTextLength);
+            e.Property(x => x.Audience).IsRequired().HasMaxLength(20);
+            e.HasIndex(x => x.AskedAt);
+        });
+
+        modelBuilder.Entity<BotAiUsage>(e =>
+        {
+            e.ToTable("BotAiUsage");
+            e.Property(x => x.Model).IsRequired().HasMaxLength(60);
+            e.HasIndex(x => new { x.UserId, x.AskedAt });
+            e.HasIndex(x => x.AskedAt);
+        });
+    }
+
     private static void ConfigureSchoolFees(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<CompanySettings>().Property(x => x.SiblingDiscountPercent).HasPrecision(5, 2);

@@ -4,21 +4,30 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { Subscription } from 'rxjs';
 import {
-  SchoolService, SchoolMe, ConversationSummary, ConversationHeader, ChatMessage, LiveMessage, LiveRead, utc
+  SchoolService, SchoolMe, ConversationSummary, ConversationHeader, ChatMessage, LiveMessage, LiveRead,
+  LiveConversation, utc
 } from '../../../../core/services/school.service';
 import { ToastService } from '../../../../core/services/toast.service';
 
+/** A child the user can start a conversation about. */
+interface ChildOption { id: number; fullName: string; className: string | null; classId: number | null; }
+
 /**
- * Messages between parents and the school, one thread per child: with the class teacher and
- * with the office. Parents see their children's threads; class teachers their classes';
- * admins every thread (and answer the office ones). New messages arrive live.
+ * Messages between parents and the school. Each conversation is about one child, goes to the
+ * class teacher or the office, and has a subject; parents (and staff) start a new one per topic.
+ * Staff close a conversation when done; a reply reopens it. Parents see their children's
+ * conversations; class teachers their classes'; admins all (and answer the office ones).
+ * New messages arrive live.
+ *
+ * Query parameters: c=<id> opens a conversation; new=1 opens "New conversation"
+ * (optional child=<id>, kind=Teacher|Office, subject=… prefill it, e.g. from the help chatbot).
  */
 @Component({
   selector: 'app-school-messages',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterModule],
   templateUrl: './school-messages.component.html',
-  styleUrls: ['./school-messages.component.scss']
+  styleUrls: ['../../school-shared.scss', './school-messages.component.scss']
 })
 export class SchoolMessagesComponent implements OnInit, OnDestroy {
   private school = inject(SchoolService);
@@ -39,6 +48,18 @@ export class SchoolMessagesComponent implements OnInit, OnDestroy {
   listLoading = true;
   search = '';
   kindFilter: '' | 'Office' | 'Teacher' = '';
+  /** Staff work through open conversations; parents see all of theirs. */
+  statusFilter: '' | 'Open' | 'Closed' = '';
+  statusBusy = false;
+
+  // New conversation
+  showNew = false;
+  newChildren: ChildOption[] = [];
+  newChildrenLoading = false;
+  newForm = { studentId: null as number | null, kind: 'Teacher' as 'Teacher' | 'Office', subject: '', body: '' };
+  newFile: File | null = null;
+  newError = '';
+  starting = false;
 
   selectedId: number | null = null;
   header: ConversationHeader | null = null;
@@ -59,20 +80,36 @@ export class SchoolMessagesComponent implements OnInit, OnDestroy {
     const q = this.search.trim().toLowerCase();
     return this.conversations.filter(c =>
       (!this.kindFilter || c.kind === this.kindFilter)
+      && (!this.statusFilter || c.status === this.statusFilter)
       && (!q || c.studentName.toLowerCase().includes(q) || (c.className ?? '').toLowerCase().includes(q)
-          || c.parentNames.some(p => p.toLowerCase().includes(q)) || c.title.toLowerCase().includes(q)));
+          || c.parentNames.some(p => p.toLowerCase().includes(q)) || c.title.toLowerCase().includes(q)
+          || c.subject.toLowerCase().includes(q)));
   }
 
   get isParent(): boolean { return !!this.me?.isParent; }
+  get isStaff(): boolean { return !!this.me && (this.me.isAdmin || this.me.isTeacher); }
+  get openCount(): number { return this.conversations.filter(c => c.status === 'Open').length; }
 
   ngOnInit(): void {
     this.school.loadMe().subscribe(me => {
       this.me = me;
-      const c = this.route.snapshot.queryParamMap.get('c');
+      if (!me?.isParent) this.statusFilter = 'Open';
+      const params = this.route.snapshot.queryParamMap;
+      const c = params.get('c');
       this.loadList(c ? +c : null);
+      if (params.get('new')) {
+        const kind = params.get('kind');
+        this.openNew({
+          studentId: params.get('child') ? +params.get('child')! : null,
+          kind: kind === 'Office' || kind === 'Teacher' ? kind : null,
+          subject: params.get('subject') ?? ''
+        });
+        this.location.replaceState(this.router.url.split('?')[0]);
+      }
     });
     this.subs.add(this.school.liveMessage$.subscribe(e => this.onLiveMessage(e)));
     this.subs.add(this.school.liveRead$.subscribe(e => this.onLiveRead(e)));
+    this.subs.add(this.school.liveConversation$.subscribe(e => this.onLiveConversation(e)));
   }
 
   ngOnDestroy(): void {
@@ -87,9 +124,9 @@ export class SchoolMessagesComponent implements OnInit, OnDestroy {
       next: list => {
         this.conversations = list;
         this.listLoading = false;
-        // Parents with one child (two threads) go straight to the class teacher thread on wide screens
+        // Parents on wide screens go straight to their latest conversation
         const target = select ?? this.selectedId
-          ?? (this.isParent && window.innerWidth >= 900 ? list.find(c => c.kind === 'Teacher')?.id ?? null : null);
+          ?? (this.isParent && window.innerWidth >= 900 ? list[0]?.id ?? null : null);
         if (target && target !== this.selectedId) this.select(target);
         this.cdr.markForCheck();
       },
@@ -202,7 +239,122 @@ export class SchoolMessagesComponent implements OnInit, OnDestroy {
     });
   }
 
+  // ── New conversation ──
+
+  /** Opens the "New conversation" form, optionally prefilled. */
+  openNew(prefill: { studentId?: number | null; kind?: 'Teacher' | 'Office' | null; subject?: string } = {}): void {
+    this.newError = '';
+    this.newFile = null;
+    this.newForm = {
+      studentId: prefill.studentId ?? null,
+      kind: prefill.kind ?? (this.me?.isAdmin && !this.isParent ? 'Office' : 'Teacher'),
+      subject: (prefill.subject ?? '').slice(0, 150),
+      body: ''
+    };
+    this.showNew = true;
+
+    if (this.isParent) {
+      this.newChildren = (this.me?.children ?? []).map(c => ({ id: c.id, fullName: c.fullName, className: c.className, classId: c.classId }));
+      this.pickDefaultChild();
+    } else {
+      // Staff: the children they may message (the API limits teachers to their classes)
+      this.newChildrenLoading = true;
+      this.school.getStudents().subscribe({
+        next: list => {
+          this.newChildren = list.filter(s => s.isActive)
+            .map(s => ({ id: s.id, fullName: s.fullName, className: s.className, classId: s.classId }));
+          this.newChildrenLoading = false;
+          this.pickDefaultChild();
+          this.cdr.markForCheck();
+        },
+        error: () => { this.newChildrenLoading = false; this.newError = 'Could not load the children.'; this.cdr.markForCheck(); }
+      });
+    }
+  }
+
+  private pickDefaultChild(): void {
+    if (this.newForm.studentId && !this.newChildren.some(c => c.id === this.newForm.studentId)) this.newForm.studentId = null;
+    if (!this.newForm.studentId && this.newChildren.length === 1) this.newForm.studentId = this.newChildren[0].id;
+  }
+
+  /** Who the conversation can go to: parents and admins choose; a class teacher writes as the teacher. */
+  get canChooseKind(): boolean { return this.isParent || !!this.me?.isAdmin; }
+
+  /** Name of the class teacher of the chosen child (parents only know it from their children list). */
+  get newTeacherName(): string | null {
+    const child = this.me?.children?.find(c => c.id === this.newForm.studentId);
+    return child?.classTeacherName ?? null;
+  }
+
+  onNewFile(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const f = input.files?.[0] ?? null;
+    if (!f) { this.newFile = null; return; }
+    if (f.size > 5 * 1024 * 1024) { this.newError = 'The file must be 5 MB or smaller.'; input.value = ''; return; }
+    if (!['image/jpeg', 'image/png', 'application/pdf'].includes(f.type)) { this.newError = 'Attach a photo (JPG, PNG) or a PDF.'; input.value = ''; return; }
+    this.newError = '';
+    this.newFile = f;
+  }
+
+  startConversation(): void {
+    const f = this.newForm;
+    if (!f.studentId) { this.newError = 'Choose the child.'; return; }
+    if (!f.subject.trim()) { this.newError = 'Enter a subject.'; return; }
+    if (!f.body.trim() && !this.newFile) { this.newError = 'Write a message.'; return; }
+    const kind = this.canChooseKind ? f.kind : 'Teacher';
+    this.starting = true;
+    this.newError = '';
+    this.school.startConversation(f.studentId, kind, f.subject.trim(), f.body.trim(), this.newFile).subscribe({
+      next: r => {
+        this.starting = false;
+        this.showNew = false;
+        if (this.statusFilter === 'Closed') this.statusFilter = '';
+        this.selectedId = null;
+        this.loadList(r.id);
+        this.toast.success('Sent', 'Your conversation has started.');
+      },
+      error: err => {
+        this.starting = false;
+        this.newError = err?.error?.message ?? 'Could not start the conversation. Please try again.';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  // ── Close / reopen ──
+
+  toggleStatus(): void {
+    if (!this.selectedId || !this.header || this.statusBusy) return;
+    const id = this.selectedId;
+    const close = this.header.status === 'Open';
+    this.statusBusy = true;
+    this.school.setConversationStatus(id, close).subscribe({
+      next: r => {
+        this.statusBusy = false;
+        this.applyStatus({ conversationId: id, status: r.status, closedByName: r.closedByName });
+        this.toast.success(close ? 'Closed' : 'Reopened', close ? 'The conversation is marked as done.' : 'The conversation is open again.');
+      },
+      error: err => {
+        this.statusBusy = false;
+        this.toast.error('Messages', err?.error?.message ?? 'Could not change the conversation.');
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private applyStatus(e: LiveConversation): void {
+    const summary = this.conversations.find(c => c.id === e.conversationId);
+    if (summary) summary.status = e.status;
+    if (this.header && this.header.id === e.conversationId) {
+      this.header = { ...this.header, status: e.status, closedByName: e.closedByName, closedAt: e.status === 'Closed' ? new Date().toISOString() : null };
+    }
+    this.conversations = [...this.conversations];
+    this.cdr.markForCheck();
+  }
+
   // ── Live updates ──
+
+  private onLiveConversation(e: LiveConversation): void { this.applyStatus(e); }
 
   private onLiveMessage(e: LiveMessage): void {
     const summary = this.conversations.find(c => c.id === e.conversationId);
@@ -281,15 +433,14 @@ export class SchoolMessagesComponent implements OnInit, OnDestroy {
     return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
   }
 
-  /** Thread name in the list: parents see who they talk to, staff see the child. */
-  threadTitle(c: ConversationSummary): string {
-    return this.isParent ? c.title : c.studentName;
-  }
+  /** Conversation name in the list: its subject. */
+  threadTitle(c: ConversationSummary): string { return c.subject; }
 
+  /** Parents see who they talk to and about which child; staff see the child and class. */
   threadSubtitle(c: ConversationSummary): string {
-    if (this.isParent) return c.studentName + (c.className ? ` · ${c.className}` : '');
+    if (this.isParent) return `${c.title} · ${c.studentName}`;
     const who = c.kind === 'Office' ? 'Office' : 'Class teacher';
-    return [c.className, who].filter(Boolean).join(' · ');
+    return [c.studentName, c.className, who].filter(Boolean).join(' · ');
   }
 
   openAttachment(m: ChatMessage): void {

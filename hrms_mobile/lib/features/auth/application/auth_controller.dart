@@ -78,7 +78,7 @@ class AuthController extends Notifier<Session?> {
   Future<void> logout({String? deviceToken}) async {
     _endTimer?.cancel();
     // This phone stops getting the signed-out user's alerts
-    deviceToken ??= ref.read(pushNotificationsProvider).token;
+    deviceToken ??= ref.read(pushTokenProvider);
     if (state != null) {
       unawaited(ref.read(authRepositoryProvider).logout(deviceToken: deviceToken));
     }

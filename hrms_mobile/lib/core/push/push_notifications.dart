@@ -54,11 +54,13 @@ class PushNotifications {
 
     try {
       _token = await messaging.getToken();
+      _ref.read(pushTokenProvider.notifier).state = _token;
     } catch (e) {
       debugPrint('Push notifications: no token ($e)');
     }
     messaging.onTokenRefresh.listen((t) {
       _token = t;
+      _ref.read(pushTokenProvider.notifier).state = t;
       _registeredFor = null;
       unawaited(_register());
     });
@@ -120,8 +122,13 @@ class PushNotifications {
   void _openFor(String? link) {
     final session = _ref.read(authControllerProvider);
     if (session == null) return;   // the login screen comes first
-    _ref.read(routerProvider).push(Routes.fromWebLink(session, link) ?? Routes.notifications);
+    Routes.open(_ref.read(routerProvider), Routes.fromWebLink(session, link) ?? Routes.notifications);
   }
 }
 
 final pushNotificationsProvider = Provider<PushNotifications>((ref) => PushNotifications(ref));
+
+/// This phone's push token (null until Firebase gives one). Kept apart from
+/// [pushNotificationsProvider], which watches the sign-in state: sign-out reads the token
+/// here, so the auth controller doesn't depend on a provider that depends on it.
+final pushTokenProvider = StateProvider<String?>((ref) => null);

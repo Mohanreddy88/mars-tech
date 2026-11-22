@@ -36,7 +36,8 @@ public class SchoolController : ControllerBase
     [HttpGet("me")]
     public async Task<IActionResult> Me()
     {
-        var enabled = (await _settings.GetAsync()).SchoolFeaturesEnabled;
+        var company = await _settings.GetAsync();
+        var enabled = company.SchoolFeaturesEnabled;
         var me = await SchoolViewer.LoadAsync(_db, User);
         if (me == null) return Unauthorized();
 
@@ -59,7 +60,47 @@ public class SchoolController : ControllerBase
             isTeacher = enabled && me.IsTeacher,
             isParent  = me.IsParent,
             classes,
-            children
+            children,
+            // The school's contact details (Company Settings), for the parent app's "School" page
+            school = new
+            {
+                name    = company.NameForDisplay,
+                logoUrl = company.LogoData == null ? null : $"/api/company-settings/logo?v={company.UpdatedAt.Ticks}",
+                phone   = company.Phone,
+                address = company.Address,
+                website = company.Website
+            }
+        });
+    }
+
+    /// <summary>
+    /// GET /api/school/today — counters for the staff home screen: of the children this user looks
+    /// after (admin: all active children; class teacher: their classes), how many are checked in
+    /// and absent today, plus (admins) parents' "I've paid" claims waiting to be confirmed.
+    /// </summary>
+    [HttpGet("today")]
+    [RequiresSchoolFeatures]
+    public async Task<IActionResult> Today()
+    {
+        var me = await SchoolViewer.LoadAsync(_db, User);
+        if (me == null || !me.IsStaff) return Forbid();
+
+        var children = _db.Students.AsNoTracking().Where(s => s.IsActive);
+        if (!me.IsAdmin)
+            children = children.Where(s => s.ClassId != null && me.TeacherClassIds.Contains(s.ClassId.Value));
+        var ids = children.Select(s => s.Id);
+
+        var today = SchoolClock.Today;
+        var att = _db.StudentAttendance.AsNoTracking().Where(a => a.Date == today && ids.Contains(a.StudentId));
+
+        return Ok(new
+        {
+            children  = await children.CountAsync(),
+            checkedIn = await att.CountAsync(a => a.Status == StudentAttendance.Present && a.CheckInAt != null),
+            absent    = await att.CountAsync(a => a.Status == StudentAttendance.Absent),
+            feeClaimsPending = me.IsAdmin
+                ? await _db.FeePaymentClaims.CountAsync(c => c.Status == FeePaymentClaim.Pending)
+                : (int?)null
         });
     }
 

@@ -1,0 +1,311 @@
+<div class="school-page">
+
+  <div class="page-header">
+    <div>
+      <h3>Chatbot</h3>
+      <p>The questions and answers of the help assistant (the <i class="bi bi-chat-dots-fill"></i> button on every page and in the mobile app).
+        It answers from this list, and with AI answers on, also from each person's own records. <code>{{ '{' }}company{{ '}' }}</code>, <code>{{ '{' }}phone{{ '}' }}</code> and
+        <code>{{ '{' }}feeDueDay{{ '}' }}</code> are filled in from Company Settings.</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-outline-secondary" (click)="addStarter()" [disabled]="addingStarter">
+        @if (addingStarter) { <span class="spinner-border spinner-border-sm me-1"></span> } <i class="bi bi-magic"></i> Add starter questions
+      </button>
+      <button class="btn btn-primary" (click)="openCreate()"><i class="bi bi-plus-lg"></i> Add question</button>
+    </div>
+  </div>
+
+  @if (ai) {
+    <div class="ai-card" [class.on]="ai.enabled">
+      <div class="ai-icon"><i class="bi bi-stars"></i></div>
+      <div class="ai-text">
+        <strong>AI answers</strong>
+        @if (!ai.configured) {
+          <span class="badge bg-secondary ms-1">Not connected</span>
+          <p>Connect your company's Anthropic (Claude) account to let the chatbot answer personal questions for every login:
+            parents ("how much do I owe?"), teachers ("who is absent today?"), staff ("my leave balance?") and admins
+            ("any unpaid invoices?" with page links and Excel downloads). Each person only sees what their login allows.
+            Until then the chatbot answers from the list below, free.</p>
+          @if (ai.keyUnreadable) {
+            <div class="alert alert-warning py-2 mt-2 mb-0 small">The saved API key can no longer be read (the server's secret changed). Please connect it again.</div>
+          }
+        } @else {
+          <span class="badge ms-1" [class.bg-success]="ai.enabled" [class.bg-secondary]="!ai.enabled">{{ ai.enabled ? 'On' : 'Off' }}</span>
+          <p>
+            @if (ai.keySource === 'company') {
+              Connected with your Anthropic API key <strong>{{ ai.keyHint }}</strong>@if (ai.keySetAt) { (since {{ utc(ai.keySetAt) | date: 'd MMM yyyy' }})}.
+              Usage is billed to your Anthropic account.
+            } @else {
+              Using the AI key provided by the server.
+            }
+            Personal questions and questions this list can't answer are answered by AI, from each person's own records only.
+            Clear matches from this list are still answered directly, at no cost. Limit: {{ ai.dailyLimitPerUser }} AI answers per person per day.
+          </p>
+          <div class="ai-usage">
+            Today: <strong>{{ ai.today.questions }}</strong> AI questions ·
+            Last 30 days: <strong>{{ ai.last30Days.questions }}</strong>
+            ({{ tokens(ai.last30Days.inputTokens) }} in / {{ tokens(ai.last30Days.outputTokens) }} out tokens)
+            @if (ai.last30Days.questions > ai.last30Days.answered) { · {{ ai.last30Days.questions - ai.last30Days.answered }} fell back to this list }
+          </div>
+        }
+      </div>
+      <div class="ai-actions">
+        @if (!ai.configured || ai.keySource === 'server') {
+          <button class="btn btn-primary" (click)="openConnect()"><i class="bi bi-plug"></i> {{ ai.configured ? 'Use our own key' : 'Connect AI' }}</button>
+        }
+        @if (ai.configured) {
+          <button class="btn" [class.btn-outline-danger]="ai.enabled" [class.btn-success]="!ai.enabled" (click)="toggleAi()" [disabled]="aiSaving">
+            @if (aiSaving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+            {{ ai.enabled ? 'Switch off' : 'Switch on' }}
+          </button>
+        }
+        @if (ai.keySource === 'company') {
+          <button class="btn btn-link btn-sm" (click)="openConnect()">Replace key</button>
+          <button class="btn btn-link btn-sm text-danger" (click)="confirmDisconnect = true">Disconnect</button>
+        }
+      </div>
+    </div>
+  }
+
+  @if (showConnect) {
+    <div class="modal-overlay" (click)="showConnect = false">
+      <div class="modal-box" (click)="$event.stopPropagation()" role="dialog" aria-labelledby="connect-title">
+        <div class="modal-header-row">
+          <h5 id="connect-title"><i class="bi bi-stars text-primary"></i> Connect AI (Anthropic Claude)</h5>
+          <button class="btn-close-modal" (click)="showConnect = false" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="modal-form">
+          @if (connectError) { <div class="alert alert-danger py-2 mb-3">{{ connectError }}</div> }
+          <ol class="connect-steps">
+            <li>Sign in at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>
+              (create a free account if you don't have one) and add a payment method under <strong>Billing</strong>.</li>
+            <li>Under <strong>API keys</strong>, click <strong>Create key</strong>, name it e.g. "Mars HRMS", and copy it.</li>
+            <li>Paste it below. We test it with Anthropic before saving.</li>
+          </ol>
+          <div class="form-group">
+            <label for="ai-key">Anthropic API key</label>
+            <input id="ai-key" type="password" [(ngModel)]="apiKey" placeholder="sk-ant-…" autocomplete="off" spellcheck="false" (keydown.enter)="connect()" />
+            <div class="hint">Stored encrypted for your company only, never shown again in full. AI usage is billed to this Anthropic account.
+              You can disconnect it at any time.</div>
+          </div>
+        </div>
+        <div class="modal-footer-row">
+          <button class="btn btn-secondary" (click)="showConnect = false">Cancel</button>
+          <button class="btn btn-primary" (click)="connect()" [disabled]="connecting || !apiKey.trim()">
+            @if (connecting) { <span class="spinner-border spinner-border-sm me-1"></span> Testing… } @else { <i class="bi bi-plug"></i> Connect }
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+      <button class="nav-link" [class.active]="tab === 'faqs'" (click)="setTab('faqs')">
+        Questions &amp; answers @if (data) { <span class="badge bg-secondary ms-1">{{ data.faqs.length }}</span> }
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" [class.active]="tab === 'unanswered'" (click)="setTab('unanswered')">
+        Not answered @if (data?.unansweredCount) { <span class="badge bg-warning text-dark ms-1">{{ data?.unansweredCount }}</span> }
+      </button>
+    </li>
+  </ul>
+
+  @if (tab === 'faqs') {
+    @if (loading) {
+      <div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div></div>
+    } @else if (!data?.faqs?.length) {
+      <div class="table-card empty-state">
+        <i class="bi bi-robot"></i>
+        <h5>No questions yet</h5>
+        <p>Start with the ready-made questions (leave, payslips, passwords{{ data?.schoolFeatures ? ', fees, absence, pickup' : '' }}), then edit them for your company.</p>
+        <button class="btn btn-primary" (click)="addStarter()" [disabled]="addingStarter"><i class="bi bi-magic"></i> Add starter questions</button>
+      </div>
+    } @else {
+      <div class="filters-row">
+        <input type="search" class="form-control list-search" [(ngModel)]="search" placeholder="Search questions, answers, keywords" aria-label="Search" />
+        <select [(ngModel)]="audienceFilter" aria-label="Shown to">
+          <option value="">Shown to anyone</option>
+          <option value="All">Everyone</option>
+          <option value="Employee">Staff</option>
+          @if (data?.schoolFeatures) { <option value="Parent">Parents</option> }
+        </select>
+      </div>
+      <div class="table-card">
+        <table class="table align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Topic</th>
+              <th>Question &amp; answer</th>
+              <th>Shown to</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (f of filtered; track f.id) {
+              <tr [class.text-muted]="!f.isActive">
+                <td><span class="tag info">{{ f.category }}</span></td>
+                <td class="qa">
+                  <div class="q">{{ f.question }}</div>
+                  <div class="a">{{ f.answer }}</div>
+                  <div class="meta">
+                    @if (actionLabel(f.action); as label) { <span class="tag ok"><i class="bi bi-box-arrow-up-right"></i> {{ label }}</span> }
+                    @if (f.keywords) { <span class="kw"><i class="bi bi-tags"></i> {{ f.keywords }}</span> }
+                  </div>
+                </td>
+                <td>
+                  {{ audienceLabels[f.audience] }}
+                  @if (f.audience === 'Parent' && !data?.schoolFeatures) { <div class="cell-sub">School features off: hidden</div> }
+                </td>
+                <td>
+                  <button class="status-pill border-0" [class.active-pill]="f.isActive" [class.inactive-pill]="!f.isActive"
+                          (click)="toggleActive(f)" [title]="f.isActive ? 'Click to hide from the chatbot' : 'Click to show in the chatbot'">
+                    {{ f.isActive ? 'Active' : 'Hidden' }}
+                  </button>
+                </td>
+                <td class="actions-cell">
+                  <button class="btn btn-sm btn-outline-primary me-1" (click)="openEdit(f)" title="Edit" aria-label="Edit"><i class="bi bi-pencil"></i></button>
+                  <button class="btn btn-sm btn-outline-danger" (click)="confirmDelete = f" title="Delete" aria-label="Delete"><i class="bi bi-trash"></i></button>
+                </td>
+              </tr>
+            } @empty {
+              <tr><td colspan="5" class="text-center text-muted py-4">Nothing matches.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  } @else {
+    <p class="text-muted small">Questions people typed that the chatbot had no answer for. Use <strong>Answer</strong> to add one, or remove the ones you don't need.</p>
+    @if (unansweredLoading) {
+      <div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div></div>
+    } @else if (unanswered.length === 0) {
+      <div class="table-card empty-state">
+        <i class="bi bi-emoji-smile"></i>
+        <h5>Nothing waiting</h5>
+        <p>Every question so far had an answer.</p>
+      </div>
+    } @else {
+      <div class="table-card">
+        <table class="table align-middle mb-0">
+          <thead>
+            <tr><th>Question</th><th>Asked by</th><th>When</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            @for (u of unanswered; track u.id) {
+              <tr>
+                <td>{{ u.text }}</td>
+                <td>{{ u.audience === 'Parent' ? 'A parent' : 'Staff' }}</td>
+                <td class="text-nowrap">{{ utc(u.askedAt) | date: 'd MMM, h:mm a' }}</td>
+                <td class="actions-cell">
+                  <button class="btn btn-sm btn-primary me-1" (click)="openCreate(u)"><i class="bi bi-reply"></i> Answer</button>
+                  <button class="btn btn-sm btn-outline-secondary" (click)="dismiss(u)" title="Remove" aria-label="Remove"><i class="bi bi-x-lg"></i></button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <div class="text-end mt-2">
+        <button class="btn btn-sm btn-link text-danger" (click)="confirmClear = true">Clear all</button>
+      </div>
+    }
+  }
+</div>
+
+@if (showForm) {
+  <div class="modal-overlay" (click)="showForm = false">
+    <div class="modal-box wide" (click)="$event.stopPropagation()" role="dialog" aria-labelledby="faq-title">
+      <div class="modal-header-row">
+        <h5 id="faq-title">{{ editing ? 'Edit question' : 'Add question' }}</h5>
+        <button class="btn-close-modal" (click)="showForm = false" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="modal-form">
+        @if (formError) { <div class="alert alert-danger py-2 mb-3">{{ formError }}</div> }
+        <div class="form-grid">
+          <div class="form-group span-2">
+            <label for="faq-q">Question</label>
+            <input id="faq-q" type="text" [(ngModel)]="form.question" maxlength="300" placeholder="e.g. What time does school start?" />
+          </div>
+          <div class="form-group span-2">
+            <label for="faq-a">Answer</label>
+            <textarea id="faq-a" [(ngModel)]="form.answer" maxlength="4000" rows="5"></textarea>
+            <div class="hint">{{ form.answer.length }} / 4000 · You can use {{ '{' }}company{{ '}' }}, {{ '{' }}phone{{ '}' }}, {{ '{' }}feeDueDay{{ '}' }}.</div>
+          </div>
+          <div class="form-group span-2">
+            <label for="faq-k">Keywords (optional)</label>
+            <input id="faq-k" type="text" [(ngModel)]="form.keywords" maxlength="500" placeholder="e.g. school hours, start time, masuk, balik" />
+            <div class="hint">Other words people may type, separated by commas (Malay words too). A phrase counts when all its words are typed.</div>
+          </div>
+          <div class="form-group">
+            <label for="faq-c">Topic</label>
+            <input id="faq-c" type="text" [(ngModel)]="form.category" maxlength="60" list="faq-categories" placeholder="General" />
+            <datalist id="faq-categories">
+              @for (c of categories; track c) { <option [value]="c"></option> }
+            </datalist>
+          </div>
+          <div class="form-group">
+            <label for="faq-aud">Shown to</label>
+            <select id="faq-aud" [(ngModel)]="form.audience" (ngModelChange)="onAudienceChange()">
+              <option value="All">Everyone</option>
+              <option value="Employee">Staff only</option>
+              @if (data?.schoolFeatures) { <option value="Parent">Parents only</option> }
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="faq-act">Button under the answer (optional)</label>
+            <select id="faq-act" [(ngModel)]="form.action">
+              <option [ngValue]="null">None</option>
+              @for (a of actionChoices; track a.key) { <option [ngValue]="a.key">Open "{{ a.label }}"</option> }
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="faq-order">Order in the topic</label>
+            <input id="faq-order" type="number" [(ngModel)]="form.sortOrder" placeholder="Last" />
+          </div>
+          <div class="form-group span-2">
+            <label class="check-row"><input type="checkbox" [(ngModel)]="form.isActive" /> Active (shown in the chatbot)</label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer-row">
+        <button class="btn btn-secondary" (click)="showForm = false">Cancel</button>
+        <button class="btn btn-primary" (click)="save()" [disabled]="saving || !form.question.trim() || !form.answer.trim()">
+          @if (saving) { <span class="spinner-border spinner-border-sm me-1"></span> } Save
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<app-confirm-modal
+  [show]="!!confirmDelete"
+  title="Delete question"
+  [message]="'Delete &quot;' + (confirmDelete?.question ?? '') + '&quot;? To keep it for later, hide it instead.'"
+  variant="danger"
+  confirmText="Delete"
+  (confirmed)="remove()"
+  (cancelled)="confirmDelete = null">
+</app-confirm-modal>
+
+<app-confirm-modal
+  [show]="confirmClear"
+  title="Clear the list"
+  message="Remove all questions that weren't answered?"
+  variant="warning"
+  confirmText="Clear all"
+  (confirmed)="clearAll()"
+  (cancelled)="confirmClear = false">
+</app-confirm-modal>
+
+<app-confirm-modal
+  [show]="confirmDisconnect"
+  title="Disconnect AI"
+  message="Remove your Anthropic API key from Mars HRMS? The chatbot goes back to answering from the questions list (unless the server provides a key). You can connect again at any time."
+  variant="warning"
+  confirmText="Disconnect"
+  (confirmed)="disconnect()"
+  (cancelled)="confirmDisconnect = false">
+</app-confirm-modal>

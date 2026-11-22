@@ -43,6 +43,12 @@ class SchoolRepository {
         return SchoolMe.fromJson(r.data!);
       });
 
+  /// Staff home counters (checked in today, absent, payment claims to confirm).
+  Future<StaffToday> staffToday() => _call(() async {
+        final r = await _dio.get<Map<String, dynamic>>('school/today');
+        return StaffToday.fromJson(r.data!);
+      });
+
   /// Admin: switch the school features on or off for this company.
   Future<void> setEnabled(bool enabled) =>
       _call(() => _dio.put<void>('school/settings', data: {'enabled': enabled}));
@@ -108,6 +114,34 @@ class SchoolRepository {
         final r = await _dio.post<Map<String, dynamic>>('school/conversations/open',
             data: {'studentId': studentId, 'kind': kind});
         return (r.data!['id'] as num).toInt();
+      });
+
+  /// Starts a new conversation about a child with a subject and the first message. Returns its id.
+  Future<int> startConversation({
+    required int studentId,
+    required String kind,
+    required String subject,
+    required String body,
+    PickedFile? file,
+  }) =>
+      _call(() async {
+        final r = await _dio.post<Map<String, dynamic>>('school/conversations',
+            data: FormData.fromMap({
+              'studentId': studentId,
+              'kind': kind,
+              'subject': subject,
+              'body': body,
+              if (file != null) 'file': MultipartFile.fromBytes(file.bytes, filename: file.name),
+            }),
+            options: Options(sendTimeout: const Duration(seconds: 60)));
+        return (r.data!['id'] as num).toInt();
+      });
+
+  /// Staff close a conversation when it's done; anyone in it can reopen it. Returns the new status.
+  Future<String> setConversationClosed(int conversationId, bool close) => _call(() async {
+        final r = await _dio.post<Map<String, dynamic>>(
+            'school/conversations/$conversationId/${close ? 'close' : 'reopen'}');
+        return r.data?['status'] as String? ?? (close ? 'Closed' : 'Open');
       });
 
   Future<MessagePage> messages(int conversationId, {int? before}) => _call(() async {
@@ -274,6 +308,17 @@ final schoolUnreadProvider = FutureProvider.autoDispose<({int messages, int anno
     } catch (_) {}
   }
   return (messages: m, announcements: a);
+});
+
+/// Staff home counters; null for non-staff, when school features are off, or on error.
+final staffTodayProvider = FutureProvider.autoDispose<StaffToday?>((ref) async {
+  final me = await ref.watch(schoolMeProvider.future);
+  if (!me.isStaff) return null;
+  try {
+    return await ref.watch(schoolRepositoryProvider).staffToday();
+  } catch (_) {
+    return null;
+  }
 });
 
 final conversationsProvider = FutureProvider.autoDispose<List<ConversationSummary>>(

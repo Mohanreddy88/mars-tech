@@ -55,16 +55,9 @@ export class ParentHomeComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** Starts a new conversation about the child (Messages opens the form, prefilled). */
   message(child: ChildSummary, kind: 'Teacher' | 'Office'): void {
-    this.opening = `${child.id}-${kind}`;
-    this.school.openConversation(child.id, kind).subscribe({
-      next: c => { this.opening = null; this.router.navigate(['/parent/messages'], { queryParams: { c: c.id } }); },
-      error: err => {
-        this.opening = null;
-        this.toast.error('Messages', err?.error?.message ?? 'Could not open the conversation.');
-        this.cdr.markForCheck();
-      }
-    });
+    this.router.navigate(['/parent/messages'], { queryParams: { new: 1, child: child.id, kind } });
   }
 
   greeting(): string {

@@ -108,18 +108,30 @@ public class AnnouncementRead
 }
 
 /// <summary>
-/// The message thread about one child, between that child's parents and either the class
-/// teacher (<see cref="Teacher"/>) or the school office (<see cref="Office"/>). Admins can read
-/// every thread; a class teacher reads the "Teacher" threads of their classes' children.
+/// A conversation about one child, between that child's parents and either the class
+/// teacher (<see cref="Teacher"/>) or the school office (<see cref="Office"/>). A child can have
+/// many conversations, each with its own subject; parents start them ("Sick leave tomorrow"),
+/// staff close them when done, and a new message reopens a closed one.
+/// Admins can read every conversation; a class teacher reads the "Teacher" ones of their classes.
 /// </summary>
 public class Conversation
 {
     public const string Teacher = "Teacher", Office = "Office";
     public static readonly string[] Kinds = { Teacher, Office };
+    public const string Open = "Open", Closed = "Closed";
+    public const string DefaultSubject = "General";
+    public const int MaxSubjectLength = 150;
 
     public int       Id            { get; set; }
     public int       StudentId     { get; set; }
     public string    Kind          { get; set; } = Teacher;
+    public string    Subject       { get; set; } = DefaultSubject;
+    /// <summary><see cref="Open"/> or <see cref="Closed"/>.</summary>
+    public string    Status        { get; set; } = Open;
+    /// <summary>Who started it (null for threads from before subjects existed).</summary>
+    public int?      CreatedByUserId { get; set; }
+    public DateTime? ClosedAt      { get; set; }
+    public string?   ClosedByName  { get; set; }
     public DateTime  CreatedAt     { get; set; } = DateTime.UtcNow;
     public DateTime? LastMessageAt { get; set; }
 

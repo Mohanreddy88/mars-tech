@@ -64,6 +64,10 @@ export class MyLeaveComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    // ?tab=new opens the request form (e.g. from the help chatbot's "Apply for leave")
+    const tab = this.router.parseUrl(this.router.url).queryParams['tab'];
+    if (tab === 'new') this.activeTab = 'newRequest';
+    else if (tab === 'requests') this.activeTab = 'requests';
     this.loadLeaveBalance();
     this.loadLeaveRequests();
     this.loadLeaveTypes();
