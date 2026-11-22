@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in — Mars HRMS</title>
+  <meta name="description" content="Sign in to your company or school on Mars HRMS with your company code.">
+  <link rel="canonical" href="https://marshrms.com/signin">
+  <meta property="og:title" content="Sign in — Mars HRMS">
+  <meta property="og:description" content="Sign in to your company or school on Mars HRMS with your company code.">
+  <meta property="og:image" content="https://marshrms.com/assets/img/og-logo.png">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#0b2c5f">
+  <link rel="icon" type="image/png" href="/assets/img/favicon.png">
+  <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/assets/css/site.css">
+  </head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="container nav">
+    <a class="brand" href="/" aria-label="Mars HRMS home"><img src="/assets/img/logo.png" alt="" width="42" height="42"><span>Mars <b>HRMS</b></span></a>
+    <nav class="nav-links" aria-label="Main">
+      <a href="/features">Features</a>
+      <a href="/schools">For Schools</a>
+      <a href="/#mobile">Mobile app</a>
+      <a href="/#ai">AI assistant</a>
+      <a href="/#faq">FAQ</a>
+      <a href="/#contact">Contact</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="btn btn-outline btn-sm" href="/signin"><i class="bi bi-box-arrow-in-right"></i> Sign in</a>
+      <a class="btn btn-primary btn-sm" href="/#contact">Book a demo</a>
+    </div>
+    <button class="menu-toggle" aria-label="Menu" aria-expanded="false"><i class="bi bi-list"></i></button>
+  </div>
+</header>
+
+<main id="main">
+  <section class="alt" style="min-height:70vh">
+    <div class="container signin">
+      <div class="center reveal" style="margin-bottom:24px">
+        <img src="/assets/img/logo.png" alt="" width="84" height="84" style="margin:0 auto 14px;border-radius:50%">
+        <h1 style="font-size:2rem">Sign in to Mars HRMS</h1>
+        <p class="muted">Enter your company or school code. It's the first part of your Mars HRMS address.</p>
+      </div>
+      <div class="panel reveal">
+        <form id="signin-form" novalidate>
+          <div class="field">
+            <label for="code">Company code</label>
+            <div class="code-input">
+              <input id="code" name="code" autocomplete="organization" autocapitalize="none" spellcheck="false" placeholder="e.g. goldenkids" required>
+              <span data-domain>.marshrms.com</span>
+            </div>
+          </div>
+          <button class="btn btn-primary" type="submit" style="width:100%"><i class="bi bi-box-arrow-in-right"></i> Continue</button>
+          <div class="form-msg" role="alert"></div>
+        </form>
+        <p class="muted center" style="font-size:14px;margin:18px 0 0">Don't know your code? Ask your administrator or school office.<br>
+          On the phone? Use the Mars HRMS app and enter the same code.</p>
+      </div>
+      <p class="center muted" style="margin-top:22px;font-size:14px">New to Mars HRMS? <a href="/#contact">Book a demo</a></p>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="cols">
+      <div>
+        <a class="brand" href="/"><img src="/assets/img/logo.png" alt="" width="42" height="42"><span>Mars HRMS</span></a>
+        <p>HR, payroll and school management in one app — for companies and schools everywhere. A product of Mars Tech.</p>
+      </div>
+      <div><h4>Product</h4><a href="/features">Features</a><a href="/schools">For schools</a><a href="/#mobile">Mobile app</a><a href="/#ai">AI assistant</a></div>
+      <div><h4>Company</h4><a href="/#contact">Contact</a><a href="/#contact">Book a demo</a></div>
+      <div><h4>Account</h4><a href="/signin">Sign in</a><a href="/privacy">Privacy policy</a><a href="/terms">Terms of use</a></div>
+    </div>
+    <div class="bottom"><span>© <span data-year>2026</span> Mars Tech. All rights reserved.</span><a data-email href="mailto:support@marstech.tech"><span data-email-text>support@marstech.tech</span></a></div>
+  </div>
+</footer>
+
+<a class="wa-float" data-whatsapp href="#" aria-label="Chat on WhatsApp"><i class="bi bi-whatsapp"></i></a>
+<script src="/assets/js/site.js" defer></script>
+</body>
+</html>

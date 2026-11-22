@@ -31,6 +31,10 @@ until `FIREBASE_CREDENTIALS_JSON` is set in the server `.env` files.
   own DB `hrms_uat`; reached by prod Caddy over external docker network `web` (alias `uat-app`).
 - Domains (option B, both serve the same apps): `marstech.tech`, `marshrms.com`, their `www.` (redirect), `uat.`,
   and wildcards `*.` / `*.uat.` for company addresses + `admin.` portal (Caddy on-demand TLS).
+- Public website: static files in `website/` (no build), copied into the app image and served by the app's nginx for
+  host `marshrms.com` / `uat.marshrms.com` (first server block in `deploy/nginx.conf`); `/api/` still reaches the API
+  (contact form `POST /api/public/contact`), old app paths redirect to `demo.<host>`. The demo company's address is
+  `demo.marshrms.com` (`TenancyOptions.UrlFor`); `marstech.tech` bare still opens the app. WhatsApp number: `website/assets/js/site.js`.
   Routing lives in `deploy/Caddyfile`; validate before releasing:
   `docker run --rm -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile`
 - Auto-deploy: root crontab runs `/opt/hrms/deploy/auto-deploy.sh uat|prod` every 2 min; it polls `origin/uat` /

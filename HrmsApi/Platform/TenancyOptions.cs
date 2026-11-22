@@ -36,11 +36,15 @@ public class TenancyOptions
         BaseDomains.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                    .FirstOrDefault()?.ToLowerInvariant() ?? "localhost";
 
-    /// <summary>Public address of a company, used in emails and shown in the portal.</summary>
+    /// <summary>
+    /// Public address of a company, used in emails and shown in the portal. Every company, the root
+    /// one too, has its own sub-domain (demo.marshrms.com): the bare domain is the public website.
+    /// </summary>
     public string UrlFor(string slug)
     {
-        var host = slug == RootTenant ? PrimaryDomain : $"{slug}.{PrimaryDomain}";
-        return PrimaryDomain == "localhost" ? $"http://{host}:4200" : $"https://{host}";
+        if (PrimaryDomain == "localhost")
+            return slug == RootTenant ? "http://localhost:4200" : $"http://{slug}.localhost:4200";
+        return $"https://{slug}.{PrimaryDomain}";
     }
 
     /// <summary>Works out what a host name points to.</summary>

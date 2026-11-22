@@ -30,6 +30,8 @@ RUN apt-get update \
 
 COPY --from=dotnet-build /app/publish ./api/
 COPY --from=angular-build /app/frontend/dist/hrms-ui/browser ./wwwroot
+# Public website for the bare domain (marshrms.com), served by nginx (deploy/nginx.conf)
+COPY website/ ./website
 COPY deploy/nginx.conf /etc/nginx/conf.d/hrms.conf
 COPY deploy/start.sh /app/start.sh
 
