@@ -4,9 +4,9 @@
 
   // ── Settings ─────────────────────────────────────────────────────────────
   var SITE = {
-    email: 'support@marstech.tech',
+    email: 'support@marshrms.com',
     // WhatsApp in international format without "+" or spaces, e.g. '60123456789'. Empty = buttons hidden.
-    whatsapp: '',
+    whatsapp: '601111009978',
     whatsappText: 'Hi Mars HRMS, I would like to know more / book a demo.'
   };
 

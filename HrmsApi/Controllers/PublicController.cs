@@ -28,7 +28,7 @@ public class PublicController : ControllerBase
 
     /// <summary>
     /// POST /api/public/contact — "Book a demo" / "Contact us" form. Emailed to the support address
-    /// (config Contact:Email, default the SMTP sender). Spam: a hidden "website" field must stay
+    /// (config Contact:Email, default support@marshrms.com). Spam: a hidden "website" field must stay
     /// empty, and each IP may send a few per hour.
     /// </summary>
     [HttpPost("contact")]
@@ -52,7 +52,7 @@ public class PublicController : ControllerBase
         if (email.Length > 0 && !EmailPattern.IsMatch(email)) return BadRequest(new { message = "Please check the email address." });
         if (_email == null) return StatusCode(503, new { message = "Sending isn't available right now. Please email or WhatsApp us instead." });
 
-        var to = _config["Contact:Email"] ?? _config["Email:FromEmail"] ?? "support@marstech.tech";
+        var to = _config["Contact:Email"] ?? "support@marshrms.com";
         static string H(string s) => WebUtility.HtmlEncode(s);
         string Row(string label, string value) => value.Length == 0 ? "" :
             $"<tr><td style=\"padding:6px 12px 6px 0;color:#6b7280;vertical-align:top\">{label}</td><td style=\"padding:6px 0\">{H(value)}</td></tr>";

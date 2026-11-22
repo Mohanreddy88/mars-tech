@@ -312,12 +312,12 @@ form textarea { min-height: 120px; resize: vertical; }
 
 /* Footer */
 .site-footer { background: #071d40; color: rgba(255, 255, 255, .75); padding: 56px 0 28px; font-size: 14.5px; }
-.site-footer .cols { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr; gap: 32px; }
+.site-footer .cols { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr 1.6fr; gap: 32px; }
 @media (max-width: 860px) { .site-footer .cols { grid-template-columns: 1fr 1fr; } }
 .site-footer h4 { color: #fff; font-size: 15px; margin-bottom: 14px; }
 .site-footer a { color: rgba(255, 255, 255, .75); display: block; padding: 3px 0; }
 .site-footer a:hover { color: #fff; }
-.site-footer .brand { color: #fff; margin-bottom: 12px; }
+.site-footer .brand { color: #fff; margin-bottom: 12px; display: flex; }
 .site-footer .bottom { border-top: 1px solid rgba(255, 255, 255, .12); margin-top: 40px; padding-top: 20px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; font-size: 13px; }
 
 /* Reveal on scroll */
@@ -332,3 +332,20 @@ form textarea { min-height: 120px; resize: vertical; }
   text-decoration: none !important;
 }
 .wa-float.show { display: grid; }
+
+/* Contact card (contact section) */
+.contact-card { margin-top: 18px; background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 20px; }
+.contact-card .cc-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.contact-card .cc-avatar {
+  width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; color: #fff;
+  background: linear-gradient(135deg, var(--navy), var(--navy-3));
+}
+.contact-card .cc-head b { display: block; color: var(--navy); }
+.contact-card .cc-head small { color: var(--muted); }
+.contact-card ul { list-style: none; margin: 0; padding: 0; }
+.contact-card li { display: flex; gap: 12px; padding: 8px 0; border-top: 1px solid #f1f4f9; font-size: 15px; color: #334155; }
+.contact-card li i { color: var(--orange); font-size: 18px; margin-top: 1px; }
+.contact-card li small { color: var(--muted); margin-left: 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+.contact-card address { font-style: normal; line-height: 1.55; }
+.site-footer .f-addr { margin: 8px 0 0; font-size: 13px; line-height: 1.55; }
+@media (max-width: 860px) { .site-footer .cols > div:last-child { grid-column: 1 / -1; } }
