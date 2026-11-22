@@ -1,0 +1,45 @@
+# Builds the iPhone app (unsigned .ipa) on a free GitHub Mac, for installing on your own iPhone
+# with Sideloadly (your Apple ID signs it; it runs for 7 days, then install again).
+# Runs when the "ios-build" branch is pushed, or by hand (Actions tab → Run workflow).
+# For TestFlight / App Store a paid Apple Developer account and signing are needed instead.
+name: iOS app (unsigned, UAT)
+
+on:
+  push:
+    branches: [ios-build]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: hrms_mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Packages
+        run: flutter pub get
+
+      - name: Build iOS (no signing)
+        # The app asks for the company code at sign-in and talks to UAT (<code>.uat.marshrms.com)
+        run: flutter build ios --release --no-codesign --dart-define=API_DOMAIN=uat.marshrms.com
+
+      - name: Package .ipa
+        run: |
+          mkdir -p Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -qry MarsHRMS-UAT.ipa Payload
+          ls -lh MarsHRMS-UAT.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MarsHRMS-UAT-ipa
+          path: hrms_mobile/MarsHRMS-UAT.ipa
+          retention-days: 14

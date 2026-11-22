@@ -6,6 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { ReportsService, EmployeeDirectory } from '../../../../core/services/reports.service';
 import { LoadingService } from '../../../../core/services/loading.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { formatPhone, joinPhone } from '../../../../shared/phone';
 import { environment } from '../../../../../environments/environment';
 
 @Component({
@@ -16,6 +17,9 @@ import { environment } from '../../../../../environments/environment';
   styleUrl: './employee-directory-component.scss'
 })
 export class EmployeeDirectoryComponent implements OnInit {
+  readonly formatPhone = formatPhone;
+  readonly joinPhone = joinPhone;
+
   directoryData: EmployeeDirectory | null = null;
   includeInactive = false;
   searchTerm = '';

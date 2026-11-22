@@ -1,0 +1,71 @@
+@if (open) {
+  <section class="bot-panel" role="dialog" aria-label="Help assistant" (keydown)="onKeydown($event)">
+    <header class="bot-head">
+      <div class="bot-avatar"><i class="bi bi-robot"></i></div>
+      <div class="bot-title">
+        <strong>Help assistant</strong>
+        <small>{{ start?.ai ? 'AI answers from your own records' : 'Answers from your ' + ((start?.canMessageSchool) ? 'school' : 'company') }}</small>
+      </div>
+      <button class="icon-btn" (click)="showMenu()" title="Show topics" aria-label="Show topics" [disabled]="!start"><i class="bi bi-grid"></i></button>
+      <button class="icon-btn" (click)="open = false" title="Close" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+    </header>
+
+    <div class="bot-body" #scroller aria-live="polite">
+      @if (loading) {
+        <div class="bot-loading"><span class="spinner-border spinner-border-sm"></span> Loading…</div>
+      } @else if (failed) {
+        <div class="bot-loading">
+          Couldn't load the assistant.
+          <button class="btn btn-sm btn-link" (click)="load()">Try again</button>
+        </div>
+      }
+      @for (l of lines; track $index) {
+        <div class="line" [class.me]="l.from === 'me'">
+          <div class="bubble">
+            @if (l.ai) { <div class="ai-tag" title="Answered by AI from your own records. Please check important details."><i class="bi bi-stars"></i> AI</div> }
+            <div class="text">{{ l.text }}</div>
+            @if (l.topics?.length) {
+              <div class="chips">
+                @for (t of l.topics!; track t.category) {
+                  <button class="chip" (click)="pickTopic(t)">{{ t.category }}</button>
+                }
+              </div>
+            }
+            @if (l.questions?.length) {
+              <div class="questions">
+                @for (q of l.questions!; track q.id) {
+                  <button class="q" (click)="pickQuestion(q)"><i class="bi bi-question-circle"></i> {{ q.question }}</button>
+                }
+              </div>
+            }
+            @if (canGo(l.action)) {
+              <button class="btn btn-sm btn-primary go" (click)="go(l.action!)">{{ l.action!.label }} <i class="bi bi-arrow-right"></i></button>
+            }
+            @if (l.download) {
+              <button class="btn btn-sm btn-success go" (click)="download(l.download!)" [disabled]="downloading === l.download!.path">
+                @if (downloading === l.download!.path) { <span class="spinner-border spinner-border-sm"></span> } @else { <i class="bi bi-download"></i> }
+                {{ l.download!.label }}
+              </button>
+            }
+            @if (l.handoff) {
+              <button class="btn btn-sm btn-outline-primary go" (click)="messageSchool(l.handoff)"><i class="bi bi-chat-dots"></i> Message the school office</button>
+            }
+          </div>
+        </div>
+      }
+      @if (asking) {
+        <div class="line"><div class="bubble typing"><span></span><span></span><span></span></div></div>
+      }
+    </div>
+
+    <form class="bot-input" (ngSubmit)="send()">
+      <input #input type="text" name="q" [(ngModel)]="text" maxlength="500" placeholder="Type your question…" aria-label="Your question" autocomplete="off" />
+      <button type="submit" class="btn btn-primary" [disabled]="!text.trim() || asking" aria-label="Send"><i class="bi bi-send-fill"></i></button>
+    </form>
+  </section>
+}
+
+<button class="bot-fab" [class.is-open]="open" (click)="toggle()" [attr.aria-expanded]="open"
+        [title]="open ? 'Close help' : 'Need help? Ask the assistant'" aria-label="Help assistant">
+  <i class="bi" [class.bi-chat-dots-fill]="!open" [class.bi-x-lg]="open"></i>
+</button>

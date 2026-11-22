@@ -20,6 +20,7 @@ namespace HrmsApi.Controllers;
 public class UsersController : ControllerBase
 {
     private static readonly string[] Roles = { "Admin", "Employee", "User" };
+    private const string ParentLoginNote = "This is a parent login. Manage it under School → Parents.";
 
     private readonly HrmsDbContext _db;
     private readonly IAccountService _accounts;
@@ -34,7 +35,8 @@ public class UsersController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var users = await _db.Users.OrderBy(u => u.Username).ToListAsync();
+        // Parent logins (school features) are managed under School → Parents
+        var users = await _db.Users.Where(u => u.Role != SchoolViewer.ParentRole).OrderBy(u => u.Username).ToListAsync();
         var employees = await _db.Employees
             .Select(e => new { e.Id, e.Name, e.EmployeeCode, e.Email, e.IsActive })
             .ToListAsync();
@@ -121,6 +123,7 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> Update(int id, [FromBody] UserUpdateRequest req)
     {
         var user = await _db.Users.FindAsync(id) ?? throw new KeyNotFoundException($"User {id} not found.");
+        if (user.Role == SchoolViewer.ParentRole) return BadRequest(new { message = ParentLoginNote });
         if (!Roles.Contains(req.Role)) return BadRequest(new { message = "Choose a role." });
 
         var username = (req.Username ?? "").Trim();
@@ -169,6 +172,7 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> SendWelcome(int id)
     {
         var user = await _db.Users.FindAsync(id) ?? throw new KeyNotFoundException($"User {id} not found.");
+        if (user.Role == SchoolViewer.ParentRole) return BadRequest(new { message = ParentLoginNote });
         if (!user.IsActive) return BadRequest(new { message = "Activate this login first." });
         var emp = await _db.Employees.FirstOrDefaultAsync(e => e.Email.ToLower() == user.Email.ToLower());
         if (!await _accounts.SendWelcomeAsync(user, emp?.Name ?? user.Username))
@@ -182,6 +186,7 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> Delete(int id)
     {
         var user = await _db.Users.FindAsync(id) ?? throw new KeyNotFoundException($"User {id} not found.");
+        if (user.Role == SchoolViewer.ParentRole) return BadRequest(new { message = ParentLoginNote });
         if (user.Role == "Admin" && user.IsActive && await _db.Users.CountAsync(u => u.Role == "Admin" && u.IsActive) <= 1)
             throw new InvalidOperationException("Cannot delete the last active Admin user.");
 

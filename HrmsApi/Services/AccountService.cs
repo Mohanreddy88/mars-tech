@@ -72,13 +72,14 @@ public class AccountService : IAccountService
 
             var company = await _company.GetAsync();
             var url     = _tenant.FrontendUrl;   // this company's own address
-            var role    = user.Role switch { "Admin" => "administrator", "Employee" => "employee", _ => "user" };
+            var isParent = user.Role == SchoolViewer.ParentRole;
+            var role    = user.Role switch { "Admin" => "administrator", "Employee" => "employee", SchoolViewer.ParentRole => "parent", _ => "user" };
             _emailQueue.Enqueue(new EmailJob
             {
                 ToEmail = user.Email,
-                Subject = $"Your {company.NameForDisplay} HR & Payroll login",
+                Subject = isParent ? $"Your {company.NameForDisplay} parent login" : $"Your {company.NameForDisplay} HR & Payroll login",
                 Body    = AccountEmails.Welcome(company.NameForDisplay, personName, url, user.Username,
-                              AccountEmails.SetPasswordLink(url, token, user.Email), company.BrandColor, role)
+                              AccountEmails.SetPasswordLink(url, token, user.Email), company.BrandColor, role, isParent)
             });
             return true;
         }

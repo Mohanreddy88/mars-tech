@@ -6,12 +6,14 @@ import { RouterModule } from '@angular/router';
 import { SelfServiceService, EmployeeProfile } from '../../../../core/services/self-service.service';
 import { LoadingService } from '../../../../core/services/loading.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { PhoneInputComponent } from '../../../../shared/components/phone-input/phone-input.component';
+import { joinPhone, phoneParts, phoneValueProblem, formatPhone } from '../../../../shared/phone';
 import { environment } from '../../../../../environments/environment';
 
 @Component({
   selector: 'app-my-profile',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule, PhoneInputComponent],
   templateUrl: './my-profile-component.html',
   styleUrl: './my-profile-component.scss'
 })
@@ -21,7 +23,11 @@ export class MyProfileComponent implements OnInit {
   apiUrl = environment.apiUrl;
 
   // Editable fields
+  readonly formatPhone = formatPhone;
+  readonly joinPhone = joinPhone;
+
   editData = {
+    // Code and number in one value ("+60123456789") for the phone box
     phone: '',
     email: '',
     bankId: 0,
@@ -45,7 +51,7 @@ export class MyProfileComponent implements OnInit {
         this.profile = data;
         // Initialize edit data
         this.editData = {
-          phone: data.phone || '',
+          phone: joinPhone(data.phoneCountryCode, data.phone) ?? '',
           email: data.email || '',
           bankId: data.bankId || 0,
           accountNumber: data.accountNumber || ''
@@ -69,7 +75,7 @@ export class MyProfileComponent implements OnInit {
     // Reset to original values
     if (this.profile) {
       this.editData = {
-        phone: this.profile.phone || '',
+        phone: joinPhone(this.profile.phoneCountryCode, this.profile.phone) ?? '',
         email: this.profile.email || '',
         bankId: this.profile.bankId || 0,
         accountNumber: this.profile.accountNumber || ''
@@ -78,8 +84,15 @@ export class MyProfileComponent implements OnInit {
   }
 
   saveProfile(): void {
+    const problem = phoneValueProblem(this.editData.phone);
+    if (problem) { this.toast.warning('Check the phone number', problem); return; }
+    const parts = phoneParts(this.editData.phone);
     this.loadingService.show();
-    this.selfServiceService.updateMyProfile(this.editData).subscribe({
+    this.selfServiceService.updateMyProfile({
+      ...this.editData,
+      phone: parts.number || undefined,
+      phoneCountryCode: parts.number ? parts.code : undefined
+    }).subscribe({
       next: (response) => {
         this.loadingService.hide();
         this.toast.success('Profile Updated', 'Your profile information has been updated successfully!');

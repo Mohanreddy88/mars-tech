@@ -139,6 +139,17 @@
         </section>
 
         <section class="card-section">
+          <h4>School features</h4>
+          <label class="toggle-wrap">
+            <input type="checkbox" [ngModel]="schoolEnabled" (ngModelChange)="setSchool($event)" [disabled]="savingSchool" />
+            <span class="toggle-track" [class.on]="schoolEnabled"></span>
+            <span class="toggle-text">{{ schoolEnabled ? 'On' : 'Off' }}</span>
+          </label>
+          <small class="d-block mt-2">For schools and kindergartens: classes, children, parent logins, announcements and
+            parent ↔ teacher messages. Saved straight away.</small>
+        </section>
+
+        <section class="card-section">
           <h4>Payslip preview</h4>
           <div class="preview">
             <div class="preview-logo">

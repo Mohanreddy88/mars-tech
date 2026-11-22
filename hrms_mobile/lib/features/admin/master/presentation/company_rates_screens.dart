@@ -6,6 +6,7 @@ import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/error_view.dart';
 import '../data/master_models.dart';
 import '../data/master_repository.dart';
+import '../../../school/data/school_repository.dart';
 
 // ── Company settings ──────────────────────────────────────────────────────
 
@@ -71,6 +72,7 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
       children: [
+        const SchoolFeaturesSwitch(),
         heading('Company'),
         field('Legal name', _s.legalName, (v) => _s.legalName = v, caps: TextCapitalization.words),
         field('Display name (short)', _s.displayName, (v) => _s.displayName = v, caps: TextCapitalization.words),
@@ -224,4 +226,58 @@ class StatutoryRatesScreen extends ConsumerWidget {
           Expanded(child: Text(v, textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w600))),
         ]),
       );
+}
+
+
+/// School features on / off for this company (schools only). Saved straight away; the School
+/// section (More tab) appears or disappears at once.
+class SchoolFeaturesSwitch extends ConsumerStatefulWidget {
+  const SchoolFeaturesSwitch({super.key});
+
+  @override
+  ConsumerState<SchoolFeaturesSwitch> createState() => _SchoolFeaturesSwitchState();
+}
+
+class _SchoolFeaturesSwitchState extends ConsumerState<SchoolFeaturesSwitch> {
+  bool _saving = false;
+
+  Future<void> _set(bool on) async {
+    setState(() => _saving = true);
+    try {
+      await ref.read(schoolRepositoryProvider).setEnabled(on);
+      ref.invalidate(schoolMeProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(on ? 'School features are on. See More → School.' : 'School features are off.'),
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(ApiException.from(e).message),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final me = ref.watch(schoolMeProvider);
+    final on = me.valueOrNull?.enabled ?? false;
+    return Card(
+      margin: const EdgeInsets.only(top: 8, bottom: 4),
+      child: SwitchListTile(
+        secondary: const Icon(Icons.school_outlined),
+        title: const Text('School features'),
+        subtitle: const Text('Classes, children, parent logins, attendance, daily reports, messages and fees'),
+        value: on,
+        onChanged: _saving || me.isLoading ? null : _set,
+      ),
+    );
+  }
 }

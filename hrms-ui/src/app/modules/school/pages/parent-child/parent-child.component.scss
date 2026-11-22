@@ -1,0 +1,68 @@
+.back { font-size: 13px; color: #6b7280; text-decoration: none; display: inline-block; margin-bottom: 4px; &:hover { color: #2563eb; } }
+.child-select { padding: 8px 12px; border: 1.5px solid #d1d5db; border-radius: 8px; font-size: 14px; background: white; }
+
+.day-nav {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 16px;
+  strong { font-size: 16px; min-width: 150px; text-align: center; }
+}
+
+.day-grid {
+  display: grid; grid-template-columns: minmax(260px, 1fr) minmax(300px, 1.6fr); gap: 16px;
+  @media (max-width: 860px) { grid-template-columns: 1fr; }
+}
+
+.card-box {
+  background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0, 0, 0, .1); padding: 18px 20px;
+  h5 { font-size: 15px; font-weight: 700; color: #1f2937; margin-bottom: 14px; i { color: #2563eb; margin-right: 6px; } }
+}
+
+.status {
+  display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 8px; font-weight: 600; font-size: 14px;
+  &.bad   { background: #fee2e2; color: #991b1b; }
+  &.muted { background: #f3f4f6; color: #6b7280; font-weight: 500; }
+}
+
+.timeline {
+  display: flex; flex-direction: column; gap: 12px;
+  .step {
+    display: flex; gap: 12px; align-items: flex-start; color: #9ca3af;
+    i { font-size: 20px; width: 34px; height: 34px; border-radius: 50%; background: #f3f4f6; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    div { display: flex; flex-direction: column; }
+    span { font-size: 13px; }
+    &.done { color: #1f2937; i { background: #dcfce7; color: #16a34a; } span { color: #6b7280; } }
+  }
+}
+
+.note {
+  display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; padding: 8px 10px; border-radius: 8px;
+  font-size: 13px; background: #e0f2fe; color: #075985;
+  &.absence { background: #fef3c7; color: #92400e; }
+  .seen { display: block; color: #16a34a; }
+}
+
+.report {
+  .mood { font-size: 18px; margin-bottom: 10px; }
+  dl { display: grid; grid-template-columns: 90px 1fr; gap: 6px 12px; margin: 0 0 10px; font-size: 14px; }
+  dt { color: #6b7280; font-weight: 600; }
+  dd { margin: 0; color: #1f2937; }
+  .pre { white-space: pre-line; }
+  .meal { display: inline-block; margin-right: 12px; }
+  .teacher-note { background: #f5f3ff; color: #4c1d95; border-radius: 8px; padding: 10px 12px; font-size: 14px; margin-bottom: 10px; small { color: #6b7280; } }
+  .photos {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px;
+    img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; cursor: zoom-in; }
+    .photo-loading { aspect-ratio: 1; border-radius: 10px; background: #f3f4f6; display: flex; align-items: center; justify-content: center; }
+  }
+}
+
+.section { font-size: 16px; font-weight: 700; color: #1f2937; margin: 24px 0 10px; }
+
+.recent {
+  display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;
+  .recent-day {
+    flex: 0 0 auto; border: 1.5px solid #e5e7eb; background: white; border-radius: 10px; padding: 6px 12px;
+    display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 13px; cursor: pointer;
+    &.current { border-color: #2563eb; background: #eff6ff; }
+    small { display: flex; gap: 4px; }
+  }
+}

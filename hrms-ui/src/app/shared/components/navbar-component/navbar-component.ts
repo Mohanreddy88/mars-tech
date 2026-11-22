@@ -43,7 +43,11 @@ export class NavbarComponent implements OnInit {
       } else {
         // For employees, fetch and show their name
         const employeeId = user.employeeId;
-        if (employeeId) {
+        if (!employeeId) {
+          // Parent logins (school features) and logins without an employee record
+          this.username = user.username.toUpperCase();
+          this.avatarChar = user.username.charAt(0).toUpperCase();
+        } else {
           this.http.get<any>(`${environment.apiUrl}/employees/${employeeId}`).subscribe({
             next: (employee) => {
               this.username = employee.name.toUpperCase();

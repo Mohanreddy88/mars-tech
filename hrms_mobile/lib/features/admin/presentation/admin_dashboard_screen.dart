@@ -6,10 +6,14 @@ import 'package:intl/intl.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/error_view.dart';
+import '../../../core/widgets/home_tiles.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../notifications/data/notification_repository.dart';
+import '../../assistant/presentation/assistant_screen.dart';
 import '../../notifications/presentation/notifications_screen.dart';
+import '../../school/data/school_repository.dart';
+import '../../school/presentation/messages_screens.dart';
 import '../data/admin_models.dart';
 import '../data/admin_repository.dart';
 
@@ -22,11 +26,13 @@ class AdminDashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboard = ref.watch(adminDashboardProvider);
     final username = ref.watch(authControllerProvider)?.username ?? '';
+    final me = ref.watch(schoolMeProvider).valueOrNull;
+    final school = me != null && me.isStaff;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin'),
-        actions: const [NotificationBell()],
+        actions: const [AssistantButton(), NotificationBell()],
       ),
       body: dashboard.when(
         skipLoadingOnRefresh: true,
@@ -36,58 +42,29 @@ class AdminDashboardScreen extends ConsumerWidget {
         data: (d) => RefreshIndicator(
           onRefresh: () {
             ref.invalidate(unreadCountProvider);
+            ref.invalidate(schoolUnreadProvider);
+            ref.invalidate(staffTodayProvider);
             return ref.refresh(adminDashboardProvider.future);
           },
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            padding: const EdgeInsets.only(bottom: 24),
             children: [
-              _Header(username: username, d: d),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _Tile(
-                      icon: Icons.groups_outlined,
-                      value: '${d.activeEmployees}',
-                      label: 'Active employees',
-                      onTap: () => context.go(Routes.adminEmployees),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _Tile(
-                      icon: Icons.pending_actions_outlined,
-                      value: '${d.pendingApprovals}',
-                      label: 'Pending approvals',
-                      highlight: d.pendingApprovals > 0,
-                      onTap: () => context.go(Routes.adminApprovals),
-                    ),
-                  ),
-                ],
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: _Header(username: username, d: d, schoolName: school ? me.school.name : null),
               ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _Tile(
-                      icon: Icons.beach_access_outlined,
-                      value: '${d.pendingLeaves}',
-                      label: 'Leave to approve',
-                      onTap: () => context.go(Routes.adminApprovals),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _Tile(
-                      icon: Icons.event_available_outlined,
-                      value: '${d.pendingAttendance}',
-                      label: 'Attendance to approve',
-                      onTap: () => context.go('${Routes.adminApprovals}?tab=attendance'),
-                    ),
-                  ),
-                ],
-              ),
+              _NeedsYou(d: d, school: school),
+              const Divider(height: 1),
+              if (school) ...[
+                const HomeSectionTitle('School'),
+                const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: _SchoolTiles()),
+              ],
+              const HomeSectionTitle('HR & payroll'),
+              Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: _HrTiles(d: d)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               _Section('Payroll — ${DateFormat('MMMM yyyy').format(DateTime.now())}'),
               Card(
                 child: d.payrollByStatus.isEmpty
@@ -140,6 +117,8 @@ class AdminDashboardScreen extends ConsumerWidget {
                   ),
                 ),
               ],
+                ]),
+              ),
             ],
           ),
         ),
@@ -148,11 +127,89 @@ class AdminDashboardScreen extends ConsumerWidget {
   }
 }
 
+/// "Needs you" counters: approvals, children checked in today, unread parent messages,
+/// parents' payments to confirm (the last three only with the school features).
+class _NeedsYou extends ConsumerWidget {
+  const _NeedsYou({required this.d, required this.school});
+  final AdminDashboard d;
+  final bool school;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    void open(String r) => Routes.open(GoRouter.of(context), r);
+    if (!school) {
+      return HomeCounters(counters: [
+        HomeCounter('Leave to approve', '${d.pendingLeaves}',
+            highlight: d.pendingLeaves > 0, onTap: () => open(Routes.adminApprovals)),
+        HomeCounter('Attendance to approve', '${d.pendingAttendance}',
+            highlight: d.pendingAttendance > 0, onTap: () => open('${Routes.adminApprovals}?tab=attendance')),
+        HomeCounter('Active employees', '${d.activeEmployees}', onTap: () => open(Routes.adminEmployees)),
+      ]);
+    }
+    final today = ref.watch(staffTodayProvider).valueOrNull;
+    final unread = ref.watch(schoolUnreadProvider).valueOrNull?.messages ?? 0;
+    final claims = today?.feeClaimsPending ?? 0;
+    return HomeCounters(counters: [
+      HomeCounter('To approve', '${d.pendingApprovals}',
+          highlight: d.pendingApprovals > 0, onTap: () => open(Routes.adminApprovals)),
+      HomeCounter('Checked in today', today == null ? '–' : '${today.checkedIn}/${today.children}',
+          onTap: () => open(Routes.schoolAttendance)),
+      HomeCounter('Parent messages', '$unread', highlight: unread > 0, onTap: () => open(Routes.schoolMessages)),
+      HomeCounter('Payments to confirm', '$claims', highlight: claims > 0, onTap: () => open(Routes.schoolFees)),
+    ]);
+  }
+}
+
+/// School tiles for admins: the whole school.
+class _SchoolTiles extends ConsumerWidget {
+  const _SchoolTiles();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    void open(String r) => Routes.open(GoRouter.of(context), r);
+    final unread = ref.watch(schoolUnreadProvider).valueOrNull?.messages ?? 0;
+    final claims = ref.watch(staffTodayProvider).valueOrNull?.feeClaimsPending ?? 0;
+    return HomeTileGrid(tiles: [
+      HomeTile('Attendance', Icons.fact_check_outlined, TileColors.attendance, () => open(Routes.schoolAttendance)),
+      HomeTile('Messages', Icons.forum_outlined, TileColors.messages, () => open(Routes.schoolMessages), badge: unread),
+      HomeTile('New message', Icons.edit_outlined, TileColors.teacher, () => startNewConversation(context, ref)),
+      HomeTile('Announce', Icons.campaign_outlined, TileColors.news, () => open(Routes.schoolAnnouncements)),
+      HomeTile('Fees', Icons.receipt_long_outlined, TileColors.fees, () => open(Routes.schoolFees), badge: claims),
+      HomeTile('Children', Icons.child_care_outlined, TileColors.today, () => open(Routes.schoolChildren)),
+      HomeTile('Parents', Icons.family_restroom_outlined, TileColors.office, () => open(Routes.schoolParents)),
+      HomeTile('Classes', Icons.class_outlined, TileColors.school, () => open(Routes.schoolClasses)),
+    ]);
+  }
+}
+
+/// HR tiles: employees, approvals, payroll, reports, leave, settings, help.
+class _HrTiles extends StatelessWidget {
+  const _HrTiles({required this.d});
+  final AdminDashboard d;
+
+  @override
+  Widget build(BuildContext context) {
+    void open(String r) => Routes.open(GoRouter.of(context), r);
+    return HomeTileGrid(tiles: [
+      HomeTile('Employees', Icons.groups_outlined, TileColors.people, () => open(Routes.adminEmployees)),
+      HomeTile('Approvals', Icons.pending_actions_outlined, TileColors.note, () => open(Routes.adminApprovals),
+          badge: d.pendingApprovals),
+      HomeTile('Payroll', Icons.payments_outlined, TileColors.payroll, () => open(Routes.adminPayroll)),
+      HomeTile('Reports', Icons.bar_chart_outlined, TileColors.reports, () => open(Routes.monthlySummary)),
+      HomeTile('Leave balances', Icons.beach_access_outlined, TileColors.leave, () => open(Routes.leaveBalances)),
+      HomeTile('Holidays', Icons.celebration_outlined, TileColors.today, () => open(Routes.holidaysMaster)),
+      HomeTile('Chatbot', Icons.smart_toy_outlined, TileColors.help, () => open(Routes.chatbotAdmin)),
+      HomeTile('Settings', Icons.settings_outlined, TileColors.settings, () => open(Routes.companySettings)),
+    ]);
+  }
+}
+
 class _Header extends StatelessWidget {
-  const _Header({required this.username, required this.d});
+  const _Header({required this.username, required this.d, this.schoolName});
 
   final String username;
   final AdminDashboard d;
+  final String? schoolName;
 
   @override
   Widget build(BuildContext context) {
@@ -177,57 +234,16 @@ class _Header extends StatelessWidget {
                     style: text.titleLarge
                         ?.copyWith(color: scheme.onPrimary, fontWeight: FontWeight.w600)),
                 Text(
-                  '${d.totalEmployees} employees · ${d.totalDepartments} departments',
+                  [
+                    if (schoolName != null && schoolName!.isNotEmpty) schoolName!,
+                    '${d.totalEmployees} employees · ${d.totalDepartments} departments',
+                  ].join('\n'),
                   style: text.bodyMedium?.copyWith(color: scheme.onPrimary.withValues(alpha: 0.85)),
                 ),
               ],
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _Tile extends StatelessWidget {
-  const _Tile({
-    required this.icon,
-    required this.value,
-    required this.label,
-    this.onTap,
-    this.highlight = false,
-  });
-
-  final IconData icon;
-  final String value;
-  final String label;
-  final VoidCallback? onTap;
-  final bool highlight;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = highlight ? const Color(0xFFB45309) : theme.colorScheme.primary;
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(icon, color: color),
-              const SizedBox(height: 12),
-              Text(value,
-                  style: theme.textTheme.titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w700, color: highlight ? color : null)),
-              Text(label,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-            ],
-          ),
-        ),
       ),
     );
   }

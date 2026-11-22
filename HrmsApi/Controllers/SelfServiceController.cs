@@ -179,11 +179,11 @@ public class SelfServiceController : ControllerBase
         // Allow employees to update only specific fields
         if (!string.IsNullOrWhiteSpace(request.Phone))
         {
-            var phone = System.Text.RegularExpressions.Regex.Replace(request.Phone, @"[\s\-()]", "");
-            if (phone.StartsWith(employee.PhoneCountryCode)) phone = phone[employee.PhoneCountryCode.Length..];
-            if (!System.Text.RegularExpressions.Regex.IsMatch(phone, @"^\d{7,12}$"))
-                return BadRequest(new { message = "Mobile number must be 7–12 digits (numbers only)." });
-            employee.Phone = phone;
+            var (code, phone, phoneError) = PhoneNumbers.Split(
+                string.IsNullOrWhiteSpace(request.PhoneCountryCode) ? employee.PhoneCountryCode : request.PhoneCountryCode, request.Phone);
+            if (phoneError != null) return BadRequest(new { message = phoneError, field = "phone" });
+            employee.PhoneCountryCode = code!;
+            employee.Phone = phone!;
         }
 
         if (!string.IsNullOrWhiteSpace(request.Email))
@@ -1745,6 +1745,8 @@ public class SelfServiceController : ControllerBase
 public class UpdateSelfProfileRequest
 {
     public string? Phone { get; set; }
+    /// <summary>e.g. "+60"; empty keeps the current code.</summary>
+    public string? PhoneCountryCode { get; set; }
     public string? Email { get; set; }
     public int? BankId { get; set; }
     public string? AccountNumber { get; set; }

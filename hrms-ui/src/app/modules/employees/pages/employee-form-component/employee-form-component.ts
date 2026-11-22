@@ -9,14 +9,15 @@ import { BankService } from '../../../../core/services/bank.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { Bank } from '../../../../core/models/bank.model';
 import { IdType } from '../../../../core/models/employee.model';
-import { COUNTRIES_SORTED, DIAL_CODES } from '../../../../core/data/countries';
+import { COUNTRIES_SORTED } from '../../../../core/data/countries';
+import { PhoneInputComponent } from '../../../../shared/components/phone-input/phone-input.component';
+import { joinPhone, phoneParts, phoneValueProblem } from '../../../../shared/phone';
 import { photoUrl } from '../../../../core/utils/photo-url';
 import { MoneyInputDirective } from '../../../../shared/directives/money-input.directive';
 
-/** NRIC: exactly 12 digits. Passport: 8–10 letters or digits. Mobile: 7–12 digits. */
+/** NRIC: exactly 12 digits. Passport: 8–10 letters or digits. Mobile: see shared/phone.ts. */
 const NRIC_PATTERN     = /^\d{12}$/;
 const PASSPORT_PATTERN = /^[A-Za-z0-9]{8,10}$/;
-const MOBILE_PATTERN   = /^\d{7,12}$/;
 const MIN_AGE          = 15;   // minimum working age in Malaysia (same rule as the API)
 
 /** yyyy-mm-dd of a Date in local time, for <input type="date">. */
@@ -60,7 +61,7 @@ function dobFromNric(nric: string): string | null {
 @Component({
   selector: 'app-employee-form-component',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, MoneyInputDirective],
+  imports: [CommonModule, ReactiveFormsModule, MoneyInputDirective, PhoneInputComponent],
   templateUrl: './employee-form-component.html',
   styleUrls: ['./employee-form-component.scss']
 })
@@ -76,7 +77,6 @@ export class EmployeeFormComponent implements OnInit {
   uploading = false;   // true while uploading profile picture
   profilePictureUrl: string | null = null;  // Preview URL for uploaded image
   readonly countries = COUNTRIES_SORTED;   // passport country dropdown
-  readonly dialCodes = DIAL_CODES;         // mobile country code dropdown
 
   constructor(
     private fb: FormBuilder,
@@ -94,8 +94,11 @@ export class EmployeeFormComponent implements OnInit {
     this.form = this.fb.group({
       name:           ['', [Validators.required]],
       email:          ['', [Validators.required, Validators.email]],
-      phoneCountryCode: ['+60', [Validators.required]],
-      phone:          ['', [Validators.required, Validators.pattern(MOBILE_PATTERN)]],
+      // Country code + number in one box ("+60123456789"); saved as phoneCountryCode + phone
+      mobile:         [null as string | null, [Validators.required, (c: AbstractControl): ValidationErrors | null => {
+        const p = phoneValueProblem(c.value);
+        return p ? { phone: p } : null;
+      }]],
       departmentId:   [null, [Validators.required]],  // Changed to departmentId FK
       designation:    ['', [Validators.required]],
       joinDate:       ['', [Validators.required]],
@@ -185,7 +188,7 @@ export class EmployeeFormComponent implements OnInit {
           profilePicture: emp.profilePicture ?? '',
           gender:         emp.gender ?? '',
           idType:         emp.idType || 'NRIC',
-          phoneCountryCode: emp.phoneCountryCode || '+60'
+          mobile:         joinPhone(emp.phoneCountryCode, emp.phone)
         }, { emitEvent: false });
         this.applyIdType(emp.idType || 'NRIC');
         if (emp.idType === 'Passport') this.form.get('idCountry')!.setValue(emp.idCountry ?? '');
@@ -222,8 +225,8 @@ export class EmployeeFormComponent implements OnInit {
     const payload = {
       name:           raw.name,
       email:          raw.email,
-      phone:          raw.phone,
-      phoneCountryCode: raw.phoneCountryCode ?? '+60',
+      phone:          phoneParts(raw.mobile).number,
+      phoneCountryCode: phoneParts(raw.mobile).code,
       idType:         raw.idType,
       idCountry:      raw.idCountry ?? '',
       dateOfBirth:    raw.dateOfBirth || null,
@@ -263,7 +266,8 @@ export class EmployeeFormComponent implements OnInit {
     const onError = (err: any) => {
       this.saving = false;
       // Show the server's field message under that field too
-      const field = err?.error?.field as string | undefined;
+      let field = err?.error?.field as string | undefined;
+      if (field === 'phone' || field === 'phoneCountryCode') field = 'mobile';
       if (field && this.form.get(field)) {
         this.form.get(field)!.setErrors({ server: err.error.message });
         this.form.get(field)!.markAsTouched();
@@ -347,16 +351,6 @@ export class EmployeeFormComponent implements OnInit {
     return c.errors['dob'] ?? 'Enter a valid date';
   }
 
-  /** Typing filter: mobile number keeps digits only (max 12); a pasted "+60 12-345 6789" loses its "+60". */
-  onPhoneInput(): void {
-    const ctrl = this.form.get('phone')!;
-    const v = String(ctrl.value ?? '');
-    const code = String(this.form.get('phoneCountryCode')!.value ?? '');
-    const withoutCode = code && v.trim().startsWith(code) ? v.trim().slice(code.length) : v;
-    const clean = withoutCode.replace(/\D/g, '').slice(0, 12);
-    if (clean !== v) ctrl.setValue(clean);
-  }
-
   /** Inline message under the ID number, or '' when it is valid. */
   get idError(): string {
     const c = this.form.get('icPassport')!;
@@ -371,11 +365,11 @@ export class EmployeeFormComponent implements OnInit {
 
   /** Inline message under the mobile number, or '' when it is valid. */
   get phoneError(): string {
-    const c = this.form.get('phone')!;
+    const c = this.form.get('mobile')!;
     if (!c.errors) return '';
     if (c.errors['server']) return c.errors['server'];
     if (c.errors['required']) return 'Mobile number is required';
-    return 'Mobile number must be 7–12 digits (numbers only)';
+    return c.errors['phone'] ?? 'Enter a valid mobile number';
   }
 
   /** Navigates back to the employee list without saving */

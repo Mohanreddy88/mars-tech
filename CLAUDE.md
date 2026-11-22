@@ -48,6 +48,25 @@ Logins are `Admin` or `Employee` (also legacy `User`). Every endpoint that manag
 `[Authorize(Roles = "Admin")]` (approvals may use `UserAccess.Approvers`); `[Authorize]` alone lets any employee in.
 Employee self-service goes through `/api/selfservice/*`; elsewhere check ownership with `UserAccess`
 (`CurrentEmployeeIdAsync`, `CanAccessEmployeeAsync`) and never trust an `employeeId` sent by a non-admin client.
+School features (per company, `CompanySettings.SchoolFeaturesEnabled`, endpoints carry `[RequiresSchoolFeatures]`):
+classes, children, parents, announcements, parent ↔ teacher/office conversations (many per child, each with a subject;
+parents or staff start them, staff close them, a reply reopens), attendance (check-in/out, parents'
+absence/pickup notes), daily reports with photos, monthly fees (invoices, sibling discount, receipts, parents'
+"I've paid" claims confirmed by the office). School dates use Malaysia time (`SchoolClock`). Phone numbers are
+stored as +60… (`PhoneNumbers`). The mobile app has the parent area and staff school screens. `Parent` logins are managed under
+School → Parents (hidden from Master → Users); class teachers are employees named on a class. Decide access with
+`SchoolViewer` (admin / class teacher / parent) loaded from the database, never from ids the client sends. Live
+updates: SignalR hub `/api/hubs/chat` (groups include the company; nginx `location ^~ /api/hubs/`).
+Help chatbot (`/api/assistant`, `AssistantController`): no AI — keyword matching (`BotMatcher`) over admin-written
+`BotFaqs` (audience All/Parent/Employee; Master → Chatbot on web, More → Chatbot on mobile); unanswered questions are
+logged in `BotUnanswered`. Answer buttons use shared action keys (`BotActions`) that web and mobile map to their pages.
+Optional AI answers (Claude, `Services/AssistantAi.cs` + read-only `AssistantTools` scoped to the asking user): need a
+key — the company's own (Chatbot → Connect AI; tested, stored AES-GCM-encrypted via `SecretBox` with a key derived from
+`Jwt:Key`, so rotating JWT_SECRET_KEY means reconnecting) or the server's `ANTHROPIC_API_KEY` env fallback
+(`Assistant__Model`, `Assistant__DailyLimitPerUser` optional) — **and** the company switch `AssistantAiEnabled`. Clear general FAQ matches stay free; any AI failure
+falls back to the FAQ answer. Usage per question in `BotAiUsage`. Tools must never return another user's data.
+Tools are offered by role (parent / employee / class teacher / admin); `suggest_page` adds a page button (keys in
+`BotActions`, mapped by both clients) and `offer_download` a file button (whitelisted API paths, fetched with the token).
 
 ## Secrets — the repo is PUBLIC
 Never commit `deploy/.env`, `deploy/.env.uat`, `HrmsApi/appsettings.Development.json` or any password/API key.

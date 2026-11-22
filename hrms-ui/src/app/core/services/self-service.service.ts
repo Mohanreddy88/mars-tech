@@ -30,6 +30,8 @@ export interface EmployeeProfile {
 
 export interface UpdateProfileRequest {
   phone?: string;
+  /** e.g. "+60"; left out = keep the current code */
+  phoneCountryCode?: string;
   email?: string;
   bankId?: number;
   accountNumber?: string;

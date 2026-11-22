@@ -3,11 +3,12 @@ import { RouterOutlet, RouterLink } from '@angular/router';
 import { SidebarComponent } from '../../shared/components/sidebar-component/sidebar-component';
 import { NavbarComponent } from '../../shared/components/navbar-component/navbar-component';
 import { ToastComponent } from '../../shared/components/toast-component/toast-component';
+import { AssistantWidgetComponent } from '../../shared/components/assistant-widget/assistant-widget.component';
 
 @Component({
   selector: 'app-admin-layout-component',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, SidebarComponent, NavbarComponent, ToastComponent],
+  imports: [RouterOutlet, RouterLink, SidebarComponent, NavbarComponent, ToastComponent, AssistantWidgetComponent],
   templateUrl: './admin-layout-component.html',
   styleUrl: './admin-layout-component.scss'
 })

@@ -1,0 +1,152 @@
+<div class="school-page">
+
+  <div class="page-header">
+    <div>
+      <a routerLink="/parent" class="back"><i class="bi bi-arrow-left"></i> Home</a>
+      <h3>Fees</h3>
+      <p>Your children's school fees, payments and receipts.</p>
+    </div>
+  </div>
+
+  @if (loading) {
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+  } @else {
+    <div class="due-card" [class.clear]="outstanding <= 0">
+      <div>
+        <span>{{ outstanding > 0 ? 'To pay' : 'All paid' }}</span>
+        <strong>{{ rm(outstanding) }}</strong>
+      </div>
+      <i class="bi" [class.bi-wallet2]="outstanding > 0" [class.bi-check-circle-fill]="outstanding <= 0"></i>
+    </div>
+
+    @if (instructions && outstanding > 0) {
+      <div class="how-to-pay">
+        <h5><i class="bi bi-bank"></i> How to pay</h5>
+        <p>{{ instructions }}</p>
+      </div>
+    }
+
+    @if (invoices.length === 0) {
+      <div class="table-card empty-state">
+        <i class="bi bi-receipt"></i>
+        <h5>No invoices yet</h5>
+        <p>The school's invoices appear here.</p>
+      </div>
+    }
+
+    @for (group of [{ title: 'To pay', list: unpaid }, { title: 'Paid', list: paid }]; track group.title) {
+      @if (group.list.length) {
+        <h4 class="section">{{ group.title }}</h4>
+        @for (i of group.list; track i.id) {
+          <div class="invoice">
+            <button class="inv-top" (click)="toggle(i.id)" [attr.aria-expanded]="open.has(i.id)">
+              <div class="who">
+                <strong>{{ i.monthName }} · {{ i.studentName }}</strong>
+                <span class="cell-sub">{{ i.invoiceNo }} · due {{ i.dueDate | date: 'd MMM yyyy' }}</span>
+              </div>
+              <div class="amt">
+                <strong>{{ rm(i.balance > 0 ? i.balance : i.total) }}</strong>
+                <span class="pay-pill" [ngClass]="i.overdue ? 'overdue' : i.status.toLowerCase()">
+                  {{ i.overdue ? 'Overdue' : i.status === 'Partial' ? 'Part paid' : i.status }}
+                </span>
+              </div>
+              <i class="bi chev" [class.bi-chevron-down]="!open.has(i.id)" [class.bi-chevron-up]="open.has(i.id)"></i>
+            </button>
+
+            @if (pendingClaim(i); as c) {
+              <div class="claim pending">
+                <i class="bi bi-hourglass-split"></i>
+                You reported paying {{ rm(c.amount) }} on {{ c.paidOn | date: 'd MMM' }}. Waiting for the school to confirm.
+              </div>
+            } @else if (rejectedClaim(i); as c) {
+              <div class="claim rejected">
+                <i class="bi bi-exclamation-circle"></i>
+                Your payment of {{ rm(c.amount) }} could not be confirmed: {{ c.rejectReason }}
+              </div>
+            }
+            @if (open.has(i.id)) {
+              <div class="inv-body">
+                <table class="table table-sm mb-2">
+                  <tbody>
+                    @for (l of i.lines; track l.id) {
+                      <tr><td>{{ l.description }}</td><td class="text-end" [class.text-success]="l.amount < 0">{{ rm(l.amount) }}</td></tr>
+                    }
+                    <tr class="total"><td>Total</td><td class="text-end">{{ rm(i.total) }}</td></tr>
+                    @if (i.amountPaid > 0) { <tr><td>Paid</td><td class="text-end">−{{ rm(i.amountPaid) }}</td></tr> }
+                    <tr class="total"><td>Balance</td><td class="text-end">{{ rm(i.balance) }}</td></tr>
+                  </tbody>
+                </table>
+                @if (i.notes) { <p class="cell-sub"><i class="bi bi-info-circle"></i> {{ i.notes }}</p> }
+
+                @for (p of i.payments; track p.id) {
+                  <div class="payment">
+                    <i class="bi bi-check-circle-fill"></i>
+                    <span>{{ rm(p.amount) }} · {{ p.paidOn | date: 'd MMM yyyy' }} · {{ p.method }}</span>
+                    <button class="btn btn-sm btn-link ms-auto" (click)="receipt(p.id)"><i class="bi bi-file-earmark-pdf"></i> Receipt {{ p.receiptNo }}</button>
+                  </div>
+                }
+                <div class="d-flex gap-2 flex-wrap mt-2">
+                  @if (i.balance > 0 && !pendingClaim(i)) {
+                    <button class="btn btn-sm btn-success" (click)="openPay(i)"><i class="bi bi-check2-circle"></i> I've paid</button>
+                  }
+                  <button class="btn btn-sm btn-outline-primary" (click)="pdf(i.id)"><i class="bi bi-file-earmark-pdf"></i> Invoice PDF</button>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      }
+    }
+  }
+</div>
+
+@if (paying) {
+  <div class="modal-overlay" (click)="paying = null">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <h5>I've paid · {{ paying.invoiceNo }}</h5>
+        <button class="btn-close-modal" (click)="paying = null" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="modal-form">
+        @if (payError) { <div class="alert alert-danger py-2">{{ payError }}</div> }
+        <p class="cell-sub mb-3">{{ paying.monthName }} · {{ paying.studentName }} · balance {{ rm(paying.balance) }}.
+          The school checks the payment and then sends your receipt.</p>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="pp-amt">Amount paid (RM)</label>
+            <input id="pp-amt" type="number" step="0.01" min="0" [(ngModel)]="pay.amount" />
+          </div>
+          <div class="form-group">
+            <label for="pp-date">Date paid</label>
+            <input id="pp-date" type="date" [(ngModel)]="pay.paidOn" [max]="today" />
+          </div>
+          <div class="form-group">
+            <label for="pp-method">How</label>
+            <select id="pp-method" [(ngModel)]="pay.method">
+              @for (m of methods; track m) { <option [value]="m">{{ m }}</option> }
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="pp-ref">Reference (optional)</label>
+            <input id="pp-ref" type="text" [(ngModel)]="pay.reference" maxlength="100" placeholder="Bank reference no." />
+          </div>
+          <div class="form-group span-2">
+            <label for="pp-slip">Transfer slip (photo or PDF, recommended)</label>
+            <input id="pp-slip" type="file" class="form-control" accept="image/jpeg,image/png,application/pdf" (change)="pickSlip($any($event.target))" />
+          </div>
+          <div class="form-group span-2">
+            <label for="pp-note">Note (optional)</label>
+            <input id="pp-note" type="text" [(ngModel)]="pay.note" maxlength="500" placeholder="e.g. Paid for both children in one transfer" />
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer-row">
+        <button class="btn btn-secondary" (click)="paying = null">Cancel</button>
+        <button class="btn btn-success" (click)="submitPay()" [disabled]="paySaving">
+          @if (paySaving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+          Send to the school
+        </button>
+      </div>
+    </div>
+  </div>
+}

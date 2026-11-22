@@ -1,0 +1,141 @@
+<div class="school-page">
+
+  <div class="page-header">
+    <div>
+      <h3>Classes</h3>
+      <p>Classes and their class teachers. A class teacher sees the class's children and answers their parents' messages.</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-primary" (click)="openCreate()">
+        <i class="bi bi-plus-lg"></i> Add Class
+      </button>
+    </div>
+  </div>
+
+  @if (loading) {
+    <div class="text-center py-5">
+      <div class="spinner-border text-primary" role="status"></div>
+      <p class="mt-2 text-muted">Loading classes...</p>
+    </div>
+  } @else if (classes.length === 0) {
+    <div class="table-card empty-state">
+      <i class="bi bi-easel2"></i>
+      <h5>No classes yet</h5>
+      <p>Add your classes (for example PG, N1, N2, K1, K2), then add the children.</p>
+      <button class="btn btn-primary" (click)="openCreate()"><i class="bi bi-plus-lg"></i> Add Class</button>
+    </div>
+  } @else {
+    <div class="table-card">
+      <table class="table align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Order</th>
+            <th>Class</th>
+            <th>Class teacher</th>
+            <th>Children</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (c of classes; track c.id) {
+            <tr>
+              <td class="text-muted">{{ c.sortOrder }}</td>
+              <td>
+                <div class="cell-main">
+                  <i class="bi bi-easel2 cell-icon"></i>
+                  <div>
+                    <strong>{{ c.name }}</strong>
+                    @if (c.description) { <div class="cell-sub">{{ c.description }}</div> }
+                  </div>
+                </div>
+              </td>
+              <td>
+                @if (c.classTeacherName) { {{ c.classTeacherName }} }
+                @else { <span class="tag warn">No teacher</span> }
+              </td>
+              <td>
+                <a class="count-badge text-decoration-none" [routerLink]="['/school/students']" [queryParams]="{ classId: c.id }">
+                  <i class="bi bi-people-fill"></i> {{ c.studentCount }}
+                </a>
+              </td>
+              <td>
+                <span class="status-pill" [class.active-pill]="c.isActive" [class.inactive-pill]="!c.isActive">
+                  {{ c.isActive ? 'Active' : 'Inactive' }}
+                </span>
+              </td>
+              <td class="actions-cell">
+                <button class="btn btn-sm btn-warning me-1" (click)="openEdit(c)" title="Edit"><i class="bi bi-pencil"></i></button>
+                <button class="btn btn-sm btn-danger" (click)="confirmDelete = c" title="Delete"><i class="bi bi-trash"></i></button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
+
+@if (showModal) {
+  <div class="modal-overlay" (click)="showModal = false">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <h5>{{ editId ? 'Edit Class' : 'Add Class' }}</h5>
+        <button class="btn-close-modal" (click)="showModal = false" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+
+      <div class="modal-form">
+        @if (modalError) { <div class="alert alert-danger py-2 mb-3">{{ modalError }}</div> }
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="cls-name">Class name</label>
+            <input id="cls-name" type="text" [(ngModel)]="form.name" maxlength="50" placeholder="e.g. N2" />
+          </div>
+          <div class="form-group">
+            <label for="cls-order">Order in lists</label>
+            <input id="cls-order" type="number" [(ngModel)]="form.sortOrder" min="0" />
+          </div>
+          <div class="form-group span-2">
+            <label for="cls-teacher">Class teacher</label>
+            <select id="cls-teacher" [(ngModel)]="form.classTeacherId">
+              <option [ngValue]="null">— Not assigned —</option>
+              @for (t of teachers; track t.id) { <option [ngValue]="t.id">{{ t.name }}</option> }
+            </select>
+            <div class="hint">Any active employee. They see this class's children and parents' messages in their portal.</div>
+          </div>
+          <div class="form-group span-2">
+            <label for="cls-desc">Description (optional)</label>
+            <input id="cls-desc" type="text" [(ngModel)]="form.description" maxlength="200" placeholder="e.g. Nursery, ages 3–4" />
+          </div>
+          <div class="form-group">
+            <label>Status</label>
+            <label class="toggle-wrap">
+              <input type="checkbox" [(ngModel)]="form.isActive" />
+              <span class="toggle-track" [class.on]="form.isActive"></span>
+              <span class="toggle-text">{{ form.isActive ? 'Active' : 'Inactive' }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer-row">
+        <button class="btn btn-secondary" (click)="showModal = false">Cancel</button>
+        <button class="btn btn-primary" (click)="save()" [disabled]="saving || !form.name.trim()">
+          @if (saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+          {{ editId ? 'Save' : 'Add' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<app-confirm-modal
+  [show]="!!confirmDelete"
+  title="Delete Class"
+  [message]="'Delete ' + (confirmDelete?.name ?? '') + '? Only a class without children can be deleted.'"
+  variant="danger"
+  confirmText="Delete"
+  (confirmed)="remove()"
+  (cancelled)="confirmDelete = null">
+</app-confirm-modal>

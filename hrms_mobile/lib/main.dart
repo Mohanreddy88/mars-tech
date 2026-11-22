@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
+import 'core/push/push_notifications.dart';
 import 'core/storage/company_store.dart';
 import 'core/storage/session_storage.dart';
 
@@ -14,13 +15,15 @@ Future<void> main() async {
   final sessionStorage = SessionStorage();
   await Future.wait([companyStore.load(), sessionStorage.load()]);
 
-  runApp(
-    ProviderScope(
-      overrides: [
-        sessionStorageProvider.overrideWithValue(sessionStorage),
-        companyStoreProvider.overrideWithValue(companyStore),
-      ],
-      child: const HrmsApp(),
-    ),
+  final container = ProviderContainer(
+    overrides: [
+      sessionStorageProvider.overrideWithValue(sessionStorage),
+      companyStoreProvider.overrideWithValue(companyStore),
+    ],
   );
+
+  runApp(UncontrolledProviderScope(container: container, child: const HrmsApp()));
+
+  // Phone alerts (Firebase); never delays or blocks the app starting
+  container.read(pushNotificationsProvider).start();
 }

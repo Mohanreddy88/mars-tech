@@ -355,17 +355,22 @@ body {
    ───────────────────────────────────────────────── */
 
 .toggle-wrap {
-  display: flex;
+  // !important: pages style every form label as "display: block" with more specific
+  // (component-scoped) rules, which squashed the switch onto its text
+  display: flex !important;
   align-items: center;
   gap: 12px;
   cursor: pointer;
   user-select: none;
+  width: fit-content;
+  margin-bottom: 0 !important;
 
   input[type="checkbox"] {
     display: none;
   }
 
   .toggle-track {
+    display: inline-block;
     width: 52px;
     height: 28px;
     background: #e5e7eb;
@@ -402,8 +407,11 @@ body {
     font-weight: 600;
     color: #374151;
     min-width: 60px;
-    white-space: nowrap;
+    white-space: normal;
   }
+
+  // Disabled switch (e.g. while saving)
+  &:has(input:disabled) { cursor: default; opacity: .6; }
 }
 // ════════════════════════════════════════════════════════════════════
 // Compact search / filter bar — add class "compact-filters" to any page's

@@ -66,5 +66,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Take photos for leave documents, daily reports, messages and payment slips.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Choose photos for leave documents, daily reports, messages and payment slips.</string>
 </dict>
 </plist>

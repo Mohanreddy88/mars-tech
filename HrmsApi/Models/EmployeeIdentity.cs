@@ -1,3 +1,4 @@
+using HrmsApi.Services;
 using System.Text.RegularExpressions;
 
 namespace HrmsApi.Models;
@@ -6,14 +7,13 @@ namespace HrmsApi.Models;
 /// Rules for an employee's identification and mobile number (same rules as the employee form):
 ///   NRIC     → exactly 12 digits (dashes/spaces are removed first), country is always Malaysia
 ///   Passport → 8–10 letters or digits (stored in capitals), issuing country required
-///   Mobile   → country code like "+60" and 7–12 digits
+///   Mobile   → country code like "+60" and a valid number for it (Malaysia: 012-345 6789, 03-1234 5678 —
+///              see PhoneNumbers); stored without the code and without the leading 0
 /// </summary>
 public static class EmployeeIdentity
 {
     private static readonly Regex Nric       = new(@"^\d{12}$", RegexOptions.Compiled);
     private static readonly Regex Passport   = new(@"^[A-Z0-9]{8,10}$", RegexOptions.Compiled);
-    private static readonly Regex DialCode   = new(@"^\+\d{1,4}$", RegexOptions.Compiled);
-    private static readonly Regex MobileNo   = new(@"^\d{7,12}$", RegexOptions.Compiled);
 
     public record Result(string IdType, string IdNumber, string IdCountry, string PhoneCountryCode, string Phone, DateTime DateOfBirth);
 
@@ -46,11 +46,9 @@ public static class EmployeeIdentity
             if (country.Length > 60) return (null, "idCountry", "Country name is too long.");
         }
 
-        var code = string.IsNullOrWhiteSpace(req.PhoneCountryCode) ? "+60" : req.PhoneCountryCode.Trim();
-        if (!DialCode.IsMatch(code)) return (null, "phoneCountryCode", "Select a valid country code.");
-        var phone = Regex.Replace(req.Phone ?? "", @"[\s\-()]", "");
-        if (phone.StartsWith(code)) phone = phone[code.Length..];        // "+60123456789" typed in full
-        if (!MobileNo.IsMatch(phone)) return (null, "phone", "Mobile number must be 7–12 digits (numbers only).");
+        var (code, phone, phoneError) = PhoneNumbers.Split(req.PhoneCountryCode, req.Phone);
+        if (phoneError != null)
+            return (null, phoneError.StartsWith("Select") ? "phoneCountryCode" : "phone", phoneError);
 
         if (req.DateOfBirth == null) return (null, "dateOfBirth", "Date of birth is required.");
         var dob = DateTime.SpecifyKind(req.DateOfBirth.Value.Date, DateTimeKind.Utc);
@@ -59,7 +57,7 @@ public static class EmployeeIdentity
         if (dob > today.AddYears(-MinimumAge)) return (null, "dateOfBirth", $"Employee must be at least {MinimumAge} years old.");
         if (dob < today.AddYears(-100)) return (null, "dateOfBirth", "Check the date of birth (over 100 years ago).");
 
-        return (new Result(idType, idNumber, country, code, phone, dob), null, null);
+        return (new Result(idType, idNumber, country, code!, phone!, dob), null, null);
     }
 
     /// <summary>Label for documents: "NRIC No." or "Passport No."</summary>

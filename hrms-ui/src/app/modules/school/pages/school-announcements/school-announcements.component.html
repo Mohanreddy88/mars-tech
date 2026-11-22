@@ -1,0 +1,115 @@
+<div class="school-page">
+
+  <div class="page-header">
+    <div>
+      <h3>Announcements</h3>
+      <p>{{ isStaff ? 'Notices to all parents or one class. Parents get a notification.' : 'Notices from the school.' }}</p>
+    </div>
+    @if (isStaff) {
+      <div class="header-actions">
+        <button class="btn btn-primary" (click)="openCompose()"><i class="bi bi-megaphone"></i> New Announcement</button>
+      </div>
+    }
+  </div>
+
+  @if (loading) {
+    <div class="text-center py-5">
+      <div class="spinner-border text-primary" role="status"></div>
+      <p class="mt-2 text-muted">Loading announcements...</p>
+    </div>
+  } @else if (items.length === 0) {
+    <div class="table-card empty-state">
+      <i class="bi bi-megaphone"></i>
+      <h5>No announcements yet</h5>
+      @if (isStaff) { <button class="btn btn-primary" (click)="openCompose()"><i class="bi bi-megaphone"></i> New Announcement</button> }
+    </div>
+  } @else {
+    <div class="announcement-list">
+      @for (a of items; track a.id) {
+        <article class="announcement" [class.unread]="me?.isParent && !a.isRead">
+          <header>
+            <div>
+              <h5>{{ a.title }}</h5>
+              <div class="meta">
+                <span class="tag info">{{ audienceName(a) }}</span>
+                {{ a.createdByName }} · {{ utc(a.createdAt) | date: 'd MMM y, h:mm a' }}
+                @if (me?.isParent && !a.isRead) { <span class="tag warn">New</span> }
+              </div>
+            </div>
+            @if (isStaff) {
+              <div class="stats">
+                @if (a.audienceCount !== null) {
+                  <span class="read-count" [title]="'Parent logins who have opened it'">
+                    <i class="bi bi-eye"></i> {{ a.readCount }} of {{ a.audienceCount }} read
+                  </span>
+                }
+                @if (a.canDelete) {
+                  <button class="btn btn-sm btn-outline-danger" (click)="confirmDelete = a" title="Delete"><i class="bi bi-trash"></i></button>
+                }
+              </div>
+            }
+          </header>
+          <p class="body">{{ a.body }}</p>
+          @if (a.attachment) {
+            <button class="btn btn-sm btn-outline-secondary" (click)="openAttachment(a)">
+              <i class="bi" [class.bi-file-earmark-pdf]="a.attachment.contentType === 'application/pdf'" [class.bi-image]="a.attachment.contentType !== 'application/pdf'"></i>
+              {{ a.attachment.name }}
+            </button>
+          }
+        </article>
+      }
+    </div>
+  }
+</div>
+
+@if (showCompose) {
+  <div class="modal-overlay" (click)="showCompose = false">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <h5>New Announcement</h5>
+        <button class="btn-close-modal" (click)="showCompose = false" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="modal-form">
+        @if (composeError) { <div class="alert alert-danger py-2 mb-3">{{ composeError }}</div> }
+
+        <div class="form-group">
+          <label for="an-to">Send to</label>
+          <select id="an-to" [(ngModel)]="form.classId">
+            @if (me?.isAdmin) { <option [ngValue]="null">All parents</option> }
+            @for (c of classes; track c.id) { <option [ngValue]="c.id">Parents of {{ c.name }}</option> }
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="an-title">Title</label>
+          <input id="an-title" type="text" [(ngModel)]="form.title" maxlength="150" placeholder="e.g. Sports day on Friday" />
+        </div>
+        <div class="form-group">
+          <label for="an-body">Message</label>
+          <textarea id="an-body" [(ngModel)]="form.body" maxlength="4000" rows="6"></textarea>
+          <div class="hint">{{ form.body.length }} / 4000</div>
+        </div>
+        <div class="form-group">
+          <label for="an-file">Photo or PDF (optional, 5 MB)</label>
+          <input id="an-file" type="file" class="form-control" accept="image/jpeg,image/png,application/pdf" (change)="onFile($event)" />
+        </div>
+      </div>
+      <div class="modal-footer-row">
+        <button class="btn btn-secondary" (click)="showCompose = false">Cancel</button>
+        <button class="btn btn-primary" (click)="post()" [disabled]="posting || !form.title.trim() || !form.body.trim()">
+          @if (posting) { <span class="spinner-border spinner-border-sm me-1"></span> }
+          <i class="bi bi-send"></i> Post
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<app-confirm-modal
+  [show]="!!confirmDelete"
+  title="Delete Announcement"
+  [message]="'Delete “' + (confirmDelete?.title ?? '') + '”? Parents will no longer see it.'"
+  variant="danger"
+  confirmText="Delete"
+  (confirmed)="remove()"
+  (cancelled)="confirmDelete = null">
+</app-confirm-modal>

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_exception.dart';
+import '../../../core/push/push_notifications.dart';
 import '../../../core/storage/session_storage.dart';
 import '../data/auth_repository.dart';
 import '../data/session.dart';
@@ -76,6 +77,8 @@ class AuthController extends Notifier<Session?> {
   /// push registration) without waiting on it, then forgets the session.
   Future<void> logout({String? deviceToken}) async {
     _endTimer?.cancel();
+    // This phone stops getting the signed-out user's alerts
+    deviceToken ??= ref.read(pushTokenProvider);
     if (state != null) {
       unawaited(ref.read(authRepositoryProvider).logout(deviceToken: deviceToken));
     }

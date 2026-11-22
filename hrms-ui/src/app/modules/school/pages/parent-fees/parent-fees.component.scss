@@ -1,0 +1,46 @@
+.back { font-size: 13px; color: #6b7280; text-decoration: none; display: inline-block; margin-bottom: 4px; &:hover { color: #2563eb; } }
+
+.due-card {
+  display: flex; justify-content: space-between; align-items: center; max-width: 520px;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; border-radius: 14px; padding: 18px 22px; margin-bottom: 14px;
+  span { display: block; font-size: 13px; opacity: .85; }
+  strong { font-size: 28px; }
+  i { font-size: 34px; opacity: .8; }
+  &.clear { background: linear-gradient(135deg, #16a34a, #15803d); }
+}
+
+.how-to-pay {
+  max-width: 720px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 12px; padding: 14px 16px; margin-bottom: 8px;
+  h5 { font-size: 14px; font-weight: 700; color: #075985; margin-bottom: 6px; }
+  p { margin: 0; white-space: pre-line; color: #0c4a6e; font-size: 14px; }
+}
+
+.section { font-size: 16px; font-weight: 700; color: #1f2937; margin: 22px 0 10px; }
+
+.invoice {
+  max-width: 720px; background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0, 0, 0, .1); margin-bottom: 10px; overflow: hidden;
+  .inv-top {
+    width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: none; border: none; text-align: left; cursor: pointer;
+    .who { flex: 1; display: flex; flex-direction: column; }
+    .amt { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+    .chev { color: #9ca3af; }
+  }
+  .inv-body { padding: 0 16px 14px; border-top: 1px solid #f3f4f6; padding-top: 10px; }
+  .total td { font-weight: 700; }
+  .payment { display: flex; align-items: center; gap: 8px; font-size: 13px; i { color: #16a34a; } }
+}
+
+.pay-pill {
+  display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700;
+  &.paid    { background: #dcfce7; color: #166534; }
+  &.partial { background: #e0f2fe; color: #075985; }
+  &.unpaid  { background: #f3f4f6; color: #374151; }
+  &.overdue { background: #fee2e2; color: #991b1b; }
+}
+
+.claim {
+  max-width: 720px; display: flex; gap: 8px; align-items: flex-start; font-size: 13px;
+  padding: 8px 16px; border-top: 1px solid #f3f4f6;
+  &.pending  { background: #fffbeb; color: #92400e; }
+  &.rejected { background: #fef2f2; color: #991b1b; }
+}

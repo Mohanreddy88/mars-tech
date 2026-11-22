@@ -65,12 +65,8 @@
 
         <div class="info-item">
           <label>Phone</label>
-          <input 
-            *ngIf="isEditMode" 
-            type="text" 
-            [(ngModel)]="editData.phone" 
-            class="form-control">
-          <p *ngIf="!isEditMode">{{ profile.phone ? (profile.phoneCountryCode || '+60') + ' ' + profile.phone : 'N/A' }}</p>
+          <app-phone-input *ngIf="isEditMode" [(ngModel)]="editData.phone"></app-phone-input>
+          <p *ngIf="!isEditMode">{{ profile.phone ? formatPhone(joinPhone(profile.phoneCountryCode, profile.phone)) : 'N/A' }}</p>
         </div>
 
         <div class="info-item">

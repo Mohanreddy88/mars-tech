@@ -7,8 +7,8 @@
     @if (branding?.isConfigured) {
       <div class="brand-company">{{ branding!.displayName }}</div>
     }
-    <h2 class="brand-title">{{ isAdmin ? 'HR Dashboard' : 'My Portal' }}</h2>
-    <p class="brand-subtitle">{{ isAdmin ? 'Manage Employees & Data' : 'Employee Self-Service' }}</p>
+    <h2 class="brand-title">{{ isAdmin ? 'HR Dashboard' : isParent ? 'Parent Portal' : 'My Portal' }}</h2>
+    <p class="brand-subtitle">{{ isAdmin ? 'Manage Employees & Data' : isParent ? 'Your children at school' : 'Employee Self-Service' }}</p>
     @if (isAdmin && branding && !branding.isConfigured) {
       <a class="brand-setup" routerLink="/master/company-settings">
         <i class="bi bi-exclamation-triangle-fill"></i> Set up company details
@@ -34,6 +34,51 @@
         <i class="bi bi-people-fill"></i>
         <span>Employees</span>
       </li>
+
+      <!-- School (only for companies with school features on) -->
+      @if (school) {
+        <li class="menu-parent" [class.open]="schoolMenuOpen" (click)="toggleSchoolMenu($event)">
+          <div class="menu-parent-header">
+            <i class="bi bi-mortarboard-fill"></i>
+            <span>School</span>
+            @if (unreadMessages > 0 && !schoolMenuOpen) { <span class="pending-badge">{{ unreadMessages }}</span> }
+            <i class="bi bi-chevron-down submenu-arrow" [class.rotate]="schoolMenuOpen"></i>
+          </div>
+        </li>
+        @if (schoolMenuOpen) {
+          <ul class="submenu">
+            <li routerLink="/school/classes" routerLinkActive="active-submenu">
+              <i class="bi bi-easel2"></i>
+              <span>Classes</span>
+            </li>
+            <li routerLink="/school/students" routerLinkActive="active-submenu">
+              <i class="bi bi-emoji-smile"></i>
+              <span>Children</span>
+            </li>
+            <li routerLink="/school/parents" routerLinkActive="active-submenu">
+              <i class="bi bi-people"></i>
+              <span>Parents</span>
+            </li>
+            <li routerLink="/school/attendance" routerLinkActive="active-submenu">
+              <i class="bi bi-calendar2-check"></i>
+              <span>Attendance &amp; Reports</span>
+            </li>
+            <li routerLink="/school/announcements" routerLinkActive="active-submenu">
+              <i class="bi bi-megaphone"></i>
+              <span>Announcements</span>
+            </li>
+            <li routerLink="/school/messages" routerLinkActive="active-submenu">
+              <i class="bi bi-chat-dots"></i>
+              <span>Messages</span>
+              @if (unreadMessages > 0) { <span class="pending-badge">{{ unreadMessages }}</span> }
+            </li>
+            <li routerLink="/school/fees" routerLinkActive="active-submenu">
+              <i class="bi bi-cash-coin"></i>
+              <span>Fees</span>
+            </li>
+          </ul>
+        }
+      }
 
       <!-- 4. Attendance -->
       <li class="menu-parent" [class.open]="attendanceMenuOpen" (click)="toggleAttendanceMenu($event)">
@@ -186,6 +231,10 @@
             <i class="bi bi-calendar2-check-fill"></i>
             <span>Public Holidays</span>
           </li>
+          <li routerLink="/master/chatbot" routerLinkActive="active-submenu">
+            <i class="bi bi-robot"></i>
+            <span>Chatbot</span>
+          </li>
         </ul>
       }
     }
@@ -193,13 +242,34 @@
     <!-- ══════════════════════════════════════════════════════
          EMPLOYEE MENU — workflow order
          ══════════════════════════════════════════════════════ -->
-    @if (!isAdmin) {
+    @if (!isAdmin && !isParent) {
 
       <!-- 1. Dashboard -->
       <li routerLink="/self-service/dashboard" routerLinkActive="active-menu">
         <i class="bi bi-speedometer2"></i>
         <span>Dashboard</span>
       </li>
+
+      <!-- Class teachers (school features): their class, its parents' messages, announcements -->
+      @if (school?.isTeacher) {
+        <li routerLink="/school/my-class" routerLinkActive="active-menu">
+          <i class="bi bi-easel2-fill"></i>
+          <span>My Class</span>
+        </li>
+        <li routerLink="/school/attendance" routerLinkActive="active-menu">
+          <i class="bi bi-calendar2-check-fill"></i>
+          <span>Attendance &amp; Reports</span>
+        </li>
+        <li routerLink="/school/messages" routerLinkActive="active-menu">
+          <i class="bi bi-chat-dots-fill"></i>
+          <span>Messages</span>
+          @if (unreadMessages > 0) { <span class="pending-badge">{{ unreadMessages }}</span> }
+        </li>
+        <li routerLink="/school/announcements" routerLinkActive="active-menu">
+          <i class="bi bi-megaphone-fill"></i>
+          <span>Announcements</span>
+        </li>
+      }
 
       <!-- 2. My Profile -->
       <li routerLink="/self-service/my-profile" routerLinkActive="active-menu">
@@ -225,6 +295,38 @@
         <span>My Payslips</span>
       </li>
 
+    }
+
+    <!-- ══════════════════════════════════════════════════════
+         PARENT MENU (school features)
+         ══════════════════════════════════════════════════════ -->
+    @if (isParent) {
+      <li routerLink="/parent" routerLinkActive="active-menu" [routerLinkActiveOptions]="{exact:true}">
+        <i class="bi bi-house-heart-fill"></i>
+        <span>Home</span>
+      </li>
+      <li [routerLink]="['/parent/child', school?.children?.[0]?.id ?? 0]" routerLinkActive="active-menu">
+        <i class="bi bi-journal-heart"></i>
+        <span>{{ (school?.children?.length ?? 0) > 1 ? 'My Children' : 'My Child' }}</span>
+      </li>
+      <li routerLink="/parent/messages" routerLinkActive="active-menu">
+        <i class="bi bi-chat-dots-fill"></i>
+        <span>Messages</span>
+        @if (unreadMessages > 0) { <span class="pending-badge">{{ unreadMessages }}</span> }
+      </li>
+      <li routerLink="/parent/announcements" routerLinkActive="active-menu">
+        <i class="bi bi-megaphone-fill"></i>
+        <span>Announcements</span>
+        @if (unreadAnnouncements > 0) { <span class="pending-badge">{{ unreadAnnouncements }}</span> }
+      </li>
+      <li routerLink="/parent/fees" routerLinkActive="active-menu">
+        <i class="bi bi-cash-coin"></i>
+        <span>Fees</span>
+      </li>
+      <li routerLink="/self-service/change-password" routerLinkActive="active-menu">
+        <i class="bi bi-key-fill"></i>
+        <span>Change Password</span>
+      </li>
     }
 
   </ul>
