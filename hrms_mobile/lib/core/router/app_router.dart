@@ -175,6 +175,8 @@ class Routes {
       return c != null ? '$schoolChat/$c' : (s.isParent ? parentMessages : schoolMessages);
     }
     if (uri.path == '/school/attendance') return s.isParent ? null : '$schoolAttendance${date != null ? '?date=$date' : ''}';
+    // "Chatbot AI answers stopped / work again" (admins)
+    if (uri.path == '/master/chatbot') return s.isAdmin ? chatbotAdmin : null;
     return null;
   }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -135,6 +137,22 @@ class _AiCard extends ConsumerStatefulWidget {
 
 class _AiCardState extends ConsumerState<_AiCard> {
   bool _busy = false;
+  /// Re-reads the AI status every minute, so "AI isn't working" shows up without pulling to refresh.
+  Timer? _refresh;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) ref.invalidate(botAiStatusProvider);
+    });
+  }
+
+  @override
+  void dispose() {
+    _refresh?.cancel();
+    super.dispose();
+  }
 
   Future<void> _run(Future<void> Function() action, String done) async {
     setState(() => _busy = true);

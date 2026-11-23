@@ -37,6 +37,17 @@
 
 .bot-body { flex: 1; overflow-y: auto; padding: 12px; background: #f8fafc; }
 
+/* AI answers stopped / failed (under the header) */
+.bot-notice {
+  display: flex; gap: 8px; align-items: flex-start; padding: 8px 12px; font-size: 13px; line-height: 1.4;
+  border-bottom: 1px solid transparent;
+  i.bi { margin-top: 2px; }
+  a { font-weight: 600; white-space: nowrap; }
+  &.info { background: #fefce8; color: #713f12; border-color: #fde68a; }
+  &.warning { background: #fff7ed; color: #9a3412; border-color: #fed7aa; }
+  &.error { background: #fef2f2; color: #991b1b; border-color: #fecaca; a { color: #b91c1c; } }
+}
+
 .bot-loading { text-align: center; color: #6b7280; font-size: 13px; padding: 16px 0; }
 
 .line {

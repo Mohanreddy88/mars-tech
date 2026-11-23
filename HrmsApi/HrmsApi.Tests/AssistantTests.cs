@@ -285,6 +285,61 @@ public class AssistantTests
         Json(await admin.AiStatus()).GetProperty("problem").ValueKind.Should().Be(JsonValueKind.Null);
     }
 
+    [Fact]
+    public async Task When_credit_runs_out_the_chat_says_so_pauses_the_AI_and_tells_the_admins_once()
+    {
+        var db = Setup();
+        TurnAiOn(db);
+        var ai = new FakeAi { Error = AiErrors.NoCredit };
+        var parent = Controller(db, ParentUser, SchoolViewer.ParentRole, ai);
+
+        // First failure: the parent gets a calm note, not billing details
+        var first = Json(await parent.Ask(new AskRequest { Text = "how much do I owe" }));
+        var note = first.GetProperty("aiNotice");
+        note.GetProperty("level").GetString().Should().Be("info");
+        note.GetProperty("message").GetString().Should().Contain("paused").And.NotContain("credit");
+        ai.Calls.Should().Be(1);
+
+        // Paused: the next questions don't call Anthropic, and still carry the note
+        Json(await parent.Ask(new AskRequest { Text = "how much do I owe" })).GetProperty("aiNotice").ValueKind.Should().Be(JsonValueKind.Object);
+        ai.Calls.Should().Be(1, "the AI is paused for a while after a no-credit error");
+
+        // The chat shows it as soon as it opens; the admin sees the reason and the Console link
+        Json(await parent.Start()).GetProperty("aiNotice").GetProperty("level").GetString().Should().Be("info");
+        var adminNote = Json(await Controller(db, AdminUser, "Admin", ai).Start()).GetProperty("aiNotice");
+        adminNote.GetProperty("level").GetString().Should().Be("error");
+        adminNote.GetProperty("message").GetString().Should().Contain("credit has run out");
+        adminNote.GetProperty("link").GetString().Should().Be(AiErrors.ConsoleUrl);
+
+        // Admins were told once (bell)
+        db.Notifications.Count(n => n.Type == "assistant_ai_down").Should().Be(db.Users.Count(u => u.Role == "Admin" && u.IsActive));
+
+        // After the pause the AI is tried again; with credit it works, the note goes, admins hear it's back
+        foreach (var u in db.BotAiUsageLog) u.AskedAt = u.AskedAt.AddMinutes(-11);
+        db.SaveChanges();
+        ai.Error = null;
+        var ok = Json(await parent.Ask(new AskRequest { Text = "how much do I owe" }));
+        ok.GetProperty("source").GetString().Should().Be("ai");
+        Json(await parent.Start()).GetProperty("aiNotice").ValueKind.Should().Be(JsonValueKind.Null);
+        db.Notifications.Any(n => n.Type == "assistant_ai_up").Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task A_one_off_AI_failure_is_noted_but_does_not_pause()
+    {
+        var db = Setup();
+        TurnAiOn(db);
+        var ai = new FakeAi { Error = "Anthropic was busy or had a problem. AI answers resume automatically." };
+        var parent = Controller(db, ParentUser, SchoolViewer.ParentRole, ai);
+
+        Json(await parent.Ask(new AskRequest { Text = "how much do I owe" })).GetProperty("aiNotice")
+            .GetProperty("message").GetString().Should().Contain("didn't work just now");
+        await parent.Ask(new AskRequest { Text = "how much do I owe" });
+        ai.Calls.Should().Be(2, "busy / timeout problems are tried again straight away");
+        Json(await parent.Start()).GetProperty("aiNotice").ValueKind.Should().Be(JsonValueKind.Null);
+        db.Notifications.Any(n => n.Type == "assistant_ai_down").Should().BeFalse();
+    }
+
     [Theory]
     [InlineData("{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API.\"}}", "credit has run out")]
     [InlineData("something unexpected", "Anthropic refused the request: something unexpected")]

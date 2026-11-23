@@ -20,6 +20,19 @@ public static class AiErrors
 {
     public const int MaxLength = 300;
 
+    /// <summary>Where the company signs up, adds credit and creates its key.</summary>
+    public const string ConsoleUrl = "https://console.anthropic.com/";
+
+    public const string NoCredit = "Your Anthropic credit has run out. Add credits in the Anthropic Console (Plans & Billing); AI answers start again straight away.";
+    public const string BadKey = "Anthropic no longer accepts this API key. Connect a new key on this page.";
+    public const string NoPermission = "This API key isn't allowed to use the AI model. Check the key's permissions in the Anthropic Console.";
+
+    /// <summary>
+    /// Problems that won't fix themselves (no credit, bad key): the chat stops asking the AI for a
+    /// while, shows a notice, and the admins are told. Busy / timeout / network problems are one-offs.
+    /// </summary>
+    public static bool IsBlocking(string? error) => error is NoCredit or BadKey or NoPermission;
+
     public static string Describe(Exception ex)
     {
         var name = ex.GetType().Name;
@@ -33,11 +46,11 @@ public static class AiErrors
 
         string result;
         if (lower.Contains("credit balance"))
-            result = "Your Anthropic credit has run out. Add credits in the Anthropic Console (Plans & Billing); AI answers start again straight away.";
+            result = NoCredit;
         else if (name.Contains("Unauthorized") || name.Contains("Authentication") || lower.Contains("invalid x-api-key"))
-            result = "Anthropic no longer accepts this API key. Connect a new key on this page.";
+            result = BadKey;
         else if (name.Contains("PermissionDenied"))
-            result = "This API key isn't allowed to use the AI model. Check the key's permissions in the Anthropic Console.";
+            result = NoPermission;
         else if (name.Contains("RateLimit") || lower.Contains("rate limit"))
             result = "Anthropic's usage limit for this key was reached. AI answers resume automatically; the limit can be raised in the Anthropic Console.";
         else if (name.Contains("Overloaded") || name.Contains("InternalServer") || name.Contains("ServiceUnavailable"))

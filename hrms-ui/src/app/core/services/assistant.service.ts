@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpResponse } from '@angular/common/http';
-import { Observable, map } from 'rxjs';
+import { Observable, Subject, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 // ── Models ────────────────────────────────────────────────────────────────
@@ -25,6 +25,19 @@ export interface BotStart {
   canMessageSchool: boolean;
   /** AI answers are on for this company. */
   ai: boolean;
+  /** Shown at the top of the chat while AI answers are stopped (e.g. no Anthropic credit). */
+  aiNotice?: BotAiNotice | null;
+}
+
+/**
+ * A note about AI answers for the top of the chat. Admins get "error" (stopped, with the fix and
+ * a link) or "warning"; everyone else "info" ("smart answers are paused…", no billing details).
+ */
+export interface BotAiNotice {
+  level: 'error' | 'warning' | 'info';
+  message: string;
+  link: string | null;
+  linkLabel: string | null;
 }
 
 export interface BotAskResult {
@@ -35,6 +48,8 @@ export interface BotAskResult {
   unanswered: boolean;
   /** Who answered: the FAQ list, the AI, or nobody. */
   source: 'faq' | 'ai' | 'none';
+  /** Set when the AI is stopped or just failed; this answer came from the list. */
+  aiNotice?: BotAiNotice | null;
 }
 
 /** An earlier turn of the chat, sent back so the AI can follow up. */
@@ -102,6 +117,9 @@ export interface BotUnanswered { id: number; text: string; audience: 'Parent' | 
 export class AssistantService {
   private http = inject(HttpClient);
   private api = `${environment.apiUrl}/assistant`;
+
+  /** The chat saw AI answers stop or start working again (the Chatbot page refreshes its AI card). */
+  readonly aiChanged = new Subject<void>();
 
   start(): Observable<BotStart> { return this.http.get<BotStart>(`${this.api}/start`); }
   ask(text: string, history: BotTurn[] = []): Observable<BotAskResult> {

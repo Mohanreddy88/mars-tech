@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/router/app_router.dart';
 import '../../../core/utils/file_opener.dart';
@@ -46,6 +47,47 @@ class _Line {
   final String? handoff;
 }
 
+/// Under the app bar while AI answers are stopped or just failed: admins see why and where to fix
+/// it (red, with a link); everyone else a calm yellow note.
+class _NoticeBar extends StatelessWidget {
+  const _NoticeBar({required this.notice});
+  final BotAiNotice notice;
+
+  @override
+  Widget build(BuildContext context) {
+    final (Color bg, Color fg, IconData icon) = switch (notice.level) {
+      'error' => (const Color(0xFFFEF2F2), const Color(0xFF991B1B), Icons.warning_amber_rounded),
+      'warning' => (const Color(0xFFFFF7ED), const Color(0xFF9A3412), Icons.warning_amber_rounded),
+      _ => (const Color(0xFFFEFCE8), const Color(0xFF713F12), Icons.info_outline),
+    };
+    final link = notice.link;
+    return Material(
+      color: bg,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(icon, size: 18, color: fg),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(notice.message, style: TextStyle(color: fg, fontSize: 13)),
+              if (link != null)
+                InkWell(
+                  onTap: () => launchUrl(Uri.parse(link), mode: LaunchMode.externalApplication),
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text('${notice.linkLabel ?? 'Open'} ↗',
+                        style: TextStyle(color: fg, fontWeight: FontWeight.w700, decoration: TextDecoration.underline)),
+                  ),
+                ),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
 /// The help chatbot: pick a topic and a question, or type one. Answers come from the questions
 /// and answers the company's admins wrote; an answer can have a button that opens an app page.
 class AssistantScreen extends ConsumerStatefulWidget {
@@ -68,6 +110,8 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
     if (_history.length > 20) _history.removeRange(0, _history.length - 20);
   }
   BotStart? _start;
+  /// "Smart answers are paused…" (admins: why AI stopped, with a link), shown above the chat.
+  BotAiNotice? _notice;
   bool _loading = true;
   bool _failed = false;
   bool _asking = false;
@@ -97,6 +141,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
       if (!mounted) return;
       setState(() {
         _start = s;
+        _notice = s.aiNotice;
         _loading = false;
         _answers
           ..clear()
@@ -163,6 +208,12 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
       final history = _history.length > 10 ? _history.sublist(_history.length - 10) : List.of(_history);
       final r = await _repo.ask(t, history: history);
       if (!mounted) return;
+      // AI stopped or failed: show why (this answer came from the list); an AI answer clears it
+      if (r.aiNotice != null) {
+        setState(() => _notice = r.aiNotice);
+      } else if (r.source == 'ai' && _notice != null) {
+        setState(() => _notice = null);
+      }
       if (r.answer != null) {
         _remember(t, r.answer!.answer);
         _add([
@@ -269,6 +320,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
         ],
       ),
       body: Column(children: [
+        if (_notice != null) _NoticeBar(notice: _notice!),
         Expanded(
           child: _loading
               ? const Center(child: CircularProgressIndicator())
