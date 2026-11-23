@@ -1,7 +1,7 @@
 import { Component, OnInit, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { SchoolService, ParentRecord, ParentSave, Student, RELATIONSHIPS } from '../../../../core/services/school.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { ConfirmModalComponent } from '../../../../shared/components/confirm-modal/confirm-modal.component';
@@ -25,6 +25,7 @@ export class SchoolParentsComponent implements OnInit {
   private school = inject(SchoolService);
   private toast = inject(ToastService);
   private cdr = inject(ChangeDetectorRef);
+  private router = inject(Router);
 
   readonly relationships = RELATIONSHIPS;
   readonly phone = formatPhone;
@@ -39,7 +40,6 @@ export class SchoolParentsComponent implements OnInit {
   saving = false;
   modalError = '';
   form: ParentSave = this.blank();
-  childSearch = '';
 
   confirmDelete: ParentRecord | null = null;
   inviting: number | null = null;
@@ -52,10 +52,32 @@ export class SchoolParentsComponent implements OnInit {
       || (p.phone ?? '').includes(q) || p.children.some(c => c.fullName.toLowerCase().includes(q)));
   }
 
-  get pickableStudents(): Student[] {
-    const q = this.childSearch.trim().toLowerCase();
-    const list = this.students.filter(s => s.isActive || this.form.studentIds.includes(s.id));
-    return !q ? list : list.filter(s => s.fullName.toLowerCase().includes(q) || (s.className ?? '').toLowerCase().includes(q));
+  /** "Mohan (Father)" — the child's other parents, so a wrong link stands out. */
+  otherNames(c: ParentRecord['children'][number]): string {
+    return (c.otherParents ?? []).map(o => `${o.fullName} (${o.relationship})`).join(', ');
+  }
+
+  withText(c: ParentRecord['children'][number]): string {
+    return c.otherParents?.length ? `with ${this.otherNames(c)}` : 'no other parent';
+  }
+
+  /** After adding a mother or father: "Set up the family now?" (opens Families with them chosen). */
+  familyPrompt: { id: number; name: string; relationship: string } | null = null;
+
+  get familyPromptText(): string {
+    const p = this.familyPrompt;
+    if (!p) return '';
+    const other = p.relationship === 'Mother' ? 'father' : 'mother';
+    return `Choose the ${other} of ${p.name}'s children (or tick "No ${other} on record") and add the children.`;
+  }
+
+  setUpFamily(): void {
+    const p = this.familyPrompt;
+    this.familyPrompt = null;
+    if (!p) return;
+    this.router.navigate(['/school/families'], {
+      queryParams: { add: 1, [p.relationship === 'Mother' ? 'motherId' : 'fatherId']: p.id }
+    });
   }
 
   /** Parents without a login yet, for the "invite all" hint. */
@@ -84,13 +106,12 @@ export class SchoolParentsComponent implements OnInit {
   }
 
   blank(): ParentSave {
-    return { fullName: '', email: null, phone: null, relationship: 'Mother', isActive: true, studentIds: [], createLogin: true };
+    return { fullName: '', email: null, phone: null, relationship: 'Mother', isActive: true, studentIds: null, createLogin: true };
   }
 
   openCreate(): void {
     this.editing = null;
     this.form = this.blank();
-    this.childSearch = '';
     this.modalError = '';
     this.showModal = true;
   }
@@ -99,21 +120,13 @@ export class SchoolParentsComponent implements OnInit {
     this.editing = p;
     this.form = {
       fullName: p.fullName, email: p.email, phone: p.phone, relationship: p.relationship, isActive: p.isActive,
-      studentIds: p.children.map(c => c.id), createLogin: false, password: ''
+      studentIds: null, createLogin: false, password: ''
     };
-    this.childSearch = '';
     this.modalError = '';
     this.showModal = true;
   }
 
-  /** Other parents already linked to this child, e.g. "Mounika (Mother)" — so the office sees it is set up. */
-  linkedTo(s: Student): string {
-    return s.parents.filter(p => p.id !== this.editing?.id).map(p => `${p.fullName} (${p.relationship})`).join(', ');
-  }
 
-  toggleChild(id: number, on: boolean): void {
-    this.form.studentIds = on ? [...this.form.studentIds, id] : this.form.studentIds.filter(x => x !== id);
-  }
 
   save(): void {
     if (!this.form.fullName.trim()) { this.modalError = "Enter the parent's name."; return; }
@@ -136,6 +149,10 @@ export class SchoolParentsComponent implements OnInit {
         this.toast.success(this.editing ? 'Parent Updated' : 'Parent Added', r.message ? `${body.fullName}: ${r.message}.` : body.fullName);
         this.load();
         this.reloadStudents();
+        // A new mother or father: offer to set up the family straight away
+        if (!this.editing && body.relationship !== 'Guardian') {
+          this.familyPrompt = { id: r.id, name: body.fullName, relationship: body.relationship };
+        }
       },
       error: err => {
         this.saving = false;

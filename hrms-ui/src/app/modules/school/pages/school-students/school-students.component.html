@@ -201,24 +201,66 @@
           </div>
 
           <div class="section-title">Parents</div>
-          <div class="form-group span-2">
-            @if (parents.length > 0) {
-              <input type="text" class="mb-2" [(ngModel)]="parentSearch" placeholder="Find a parent" aria-label="Find a parent" />
+          <div class="hint span-2" style="margin-top:-4px">Mother and father are required. For a single parent, tick "No … on record".
+            For brothers and sisters, choose the same parents.</div>
+
+          @for (side of sides; track side.rel) {
+            <div class="form-group">
+              <label [for]="'st-' + side.rel">{{ side.rel }} *</label>
+              @if (!side.none()) {
+                @if (quickAdd === side.rel) {
+                  <!-- New mother / father without leaving the child -->
+                  <div class="quick-add">
+                    <input type="text" [(ngModel)]="quickName" placeholder="Full name" maxlength="150" />
+                    <app-phone-input [inputId]="'qa-' + side.rel" [(ngModel)]="quickPhone" />
+                    <input type="email" [(ngModel)]="quickEmail" placeholder="Email (for the parent app login, optional)" maxlength="150" />
+                    <div>
+                      <button type="button" class="btn btn-sm btn-primary me-1" (click)="saveQuickParent(side.rel)" [disabled]="quickSaving || !quickName.trim()">
+                        @if (quickSaving) { <span class="spinner-border spinner-border-sm me-1"></span> } Add {{ side.rel.toLowerCase() }}
+                      </button>
+                      <button type="button" class="btn btn-sm btn-outline-secondary" (click)="quickAdd = null">Cancel</button>
+                    </div>
+                  </div>
+                } @else {
+                  <select [id]="'st-' + side.rel" [ngModel]="side.id()" (ngModelChange)="side.set($event)" [class.is-invalid]="parentErrors[side.rel]">
+                    <option [ngValue]="null">— Choose the {{ side.rel.toLowerCase() }} —</option>
+                    @for (p of parentsFor(side.rel, side.id()); track p.id) {
+                      <option [ngValue]="p.id">{{ p.fullName }}{{ p.phone ? ' · ' + phone(p.phone) : '' }}{{ p.children.length ? ' · ' + childNames(p) : '' }}</option>
+                    }
+                  </select>
+                  <button type="button" class="btn btn-link btn-sm p-0 mt-1" (click)="startQuickAdd(side.rel)">＋ New {{ side.rel.toLowerCase() }}</button>
+                }
+                @if (parentErrors[side.rel]) { <div class="field-error">{{ parentErrors[side.rel] }}</div> }
+              }
+              <label class="check mt-1">
+                <input type="checkbox" [ngModel]="side.none()" (ngModelChange)="side.setNone($event)" />
+                No {{ side.rel.toLowerCase() }} on record <small class="text-muted">(single {{ side.rel === 'Mother' ? 'father' : 'mother' }})</small>
+              </label>
+            </div>
+          }
+
+          @if (guardianChoices.length > 0) {
+            <div class="form-group span-2">
+              <label>Guardians (optional)</label>
               <div class="pick-list">
-                @for (p of pickableParents; track p.id) {
+                @for (p of guardianChoices; track p.id) {
                   <label>
-                    <input type="checkbox" [checked]="form.parentIds?.includes(p.id)" (change)="toggleParent(p.id, $any($event.target).checked)" />
-                    {{ p.fullName }} <small>{{ p.relationship }}{{ p.phone ? ' · ' + phone(p.phone) : '' }}{{ p.isActive ? '' : ' · inactive' }}</small>
+                    <input type="checkbox" [checked]="guardianIds.includes(p.id)" (change)="toggleGuardian(p.id, $any($event.target).checked)" />
+                    {{ p.fullName }} <small>{{ p.phone ? phone(p.phone) : '' }}</small>
                   </label>
-                } @empty {
-                  <div class="text-muted p-2">No parent matches.</div>
                 }
               </div>
-              <div class="hint">{{ form.parentIds?.length ?? 0 }} selected (one mother, one father, any guardians). Optional — new parents (and their logins) are added under <a routerLink="/school/parents" (click)="showModal = false">School → Parents</a>.</div>
-            } @else {
-              <div class="hint">No parents yet. Add them under <a routerLink="/school/parents" (click)="showModal = false">School → Parents</a> — before or after the children, either way works.</div>
-            }
-          </div>
+            </div>
+          }
+
+          @if (editing?.siblings?.length) {
+            <div class="form-group span-2">
+              <label>Brothers and sisters <small class="text-muted">(from the parents)</small></label>
+              @for (s of editing!.siblings!; track s.id) {
+                <div><i class="bi bi-people"></i> {{ s.fullName }} <span class="cell-sub">{{ s.via }}{{ s.className ? ' · ' + s.className : '' }}</span></div>
+              }
+            </div>
+          }
 
           <div class="form-group">
             <label>Status</label>

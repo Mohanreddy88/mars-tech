@@ -77,9 +77,14 @@ export interface Student {
   notes: string | null;
   isActive: boolean;
   parents: StudentParentInfo[];
+  /** Single parent confirmed by the office: no mother / father to record. */
+  noMotherOnRecord?: boolean;
+  noFatherOnRecord?: boolean;
+  /** Children sharing a parent (admins only). */
+  siblings?: { id: number; fullName: string; className: string | null; isActive: boolean; via: string }[];
 }
 
-export type StudentSave = Omit<Student, 'id' | 'className' | 'classTeacherName' | 'parents'> & {
+export type StudentSave = Omit<Student, 'id' | 'className' | 'classTeacherName' | 'parents' | 'siblings'> & {
   /** Parents to link; null/undefined leaves the links unchanged. */
   parentIds?: number[] | null;
   /** Save even if a child with the same name and date of birth exists. */
@@ -98,7 +103,11 @@ export interface ParentRecord {
   username: string | null;
   loginActive: boolean;
   loginPending: boolean;
-  children: { id: number; fullName: string; isActive: boolean; className: string | null }[];
+  children: {
+    id: number; fullName: string; isActive: boolean; className: string | null;
+    /** The child's other parents ("Rudvik, with Mohan"). */
+    otherParents?: { id: number; fullName: string; relationship: string }[];
+  }[];
 }
 
 export interface ParentSave {
@@ -107,12 +116,65 @@ export interface ParentSave {
   phone: string | null;
   relationship: string;
   isActive: boolean;
-  studentIds: number[];
+  /** Children to link; null = leave unchanged (children are set on the child or under Families). */
+  studentIds: number[] | null;
   createLogin: boolean;
   /** Optional new password for an existing login (changed by the parent at next sign-in). */
   password?: string | null;
 }
 
+
+/** A mother and/or father and the children they share (School → Families). */
+export interface FamilyParent { id: number; fullName: string; phone: string | null; hasLogin: boolean; }
+export interface Family {
+  mother: FamilyParent | null;
+  father: FamilyParent | null;
+  /** Single parent confirmed: no mother / father on record (not a gap to fill). */
+  noMother: boolean;
+  noFather: boolean;
+  children: { id: number; fullName: string; className: string | null; isActive: boolean; guardians: { id: number; fullName: string }[] }[];
+}
+
+export interface FamilySave {
+  motherId: number | null;
+  fatherId: number | null;
+  studentIds: number[];
+  removeStudentIds: number[];
+  noMother: boolean;
+  noFather: boolean;
+}
+
+/** Someone besides the parents who may collect a child; counts once the office approves. */
+export interface PickupPerson {
+  id: number;
+  studentId: number;
+  fullName: string;
+  relationship: string;
+  phone: string | null;
+  note: string | null;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  addedByName: string | null;
+  createdAt: string;
+  decidedAt: string | null;
+  decidedByName: string | null;
+  rejectReason: string | null;
+  /** Office list only. */
+  childName?: string;
+  className?: string | null;
+}
+
+/** The parent's Account page (GET school/account). */
+export interface ParentAccount {
+  parent: { id: number; fullName: string; email: string | null; phone: string | null; relationship: string; username: string | null };
+  children: {
+    id: number; fullName: string; dateOfBirth: string | null; gender: string | null; sessionType: string;
+    joinedOn: string | null; admissionNo: string | null; medicalNotes: string | null;
+    emergencyContactName: string | null; emergencyContactPhone: string | null;
+    className: string | null; classTeacher: string | null;
+    contacts: { id: number; fullName: string; relationship: string; phone: string | null; isMe: boolean }[];
+    pickupPeople: PickupPerson[];
+  }[];
+}
 export interface Announcement {
   id: number;
   title: string;
@@ -356,6 +418,27 @@ export class SchoolService {
   getParents(): Observable<ParentRecord[]> { return this.http.get<ParentRecord[]>(`${this.api}/parents`); }
   createParent(p: ParentSave): Observable<{ id: number; message: string | null }> { return this.http.post<{ id: number; message: string | null }>(`${this.api}/parents`, p); }
   updateParent(id: number, p: ParentSave): Observable<{ id: number; message: string | null }> { return this.http.put<{ id: number; message: string | null }>(`${this.api}/parents/${id}`, p); }
+
+  // Families (a mother and father and their children)
+  getFamilies(): Observable<Family[]> { return this.http.get<Family[]>(`${this.api}/families`); }
+  saveFamily(f: FamilySave): Observable<{ changed: number }> { return this.http.put<{ changed: number }>(`${this.api}/families`, f); }
+
+  // Pick-up people: parents add, the office approves
+  getPickupPeople(status: 'Pending' | 'all' = 'Pending'): Observable<PickupPerson[]> {
+    return this.http.get<PickupPerson[]>(`${this.api}/pickup-people`, { params: { status } });
+  }
+  approvePickupPerson(id: number): Observable<PickupPerson> { return this.http.post<PickupPerson>(`${this.api}/pickup-people/${id}/approve`, {}); }
+  rejectPickupPerson(id: number, reason: string | null): Observable<PickupPerson> {
+    return this.http.post<PickupPerson>(`${this.api}/pickup-people/${id}/reject`, { reason });
+  }
+
+  // Parent: own Account page
+  getAccount(): Observable<ParentAccount> { return this.http.get<ParentAccount>(`${this.api}/account`); }
+  setMyPhone(phone: string): Observable<{ phone: string }> { return this.http.put<{ phone: string }>(`${this.api}/account/phone`, { phone }); }
+  addPickupPerson(p: { studentIds: number[]; fullName: string; relationship: string; phone: string; note: string | null }): Observable<PickupPerson[]> {
+    return this.http.post<PickupPerson[]>(`${this.api}/account/pickup-people`, p);
+  }
+  removePickupPerson(id: number): Observable<void> { return this.http.delete<void>(`${this.api}/account/pickup-people/${id}`); }
   inviteParent(id: number): Observable<{ message: string }> { return this.http.post<{ message: string }>(`${this.api}/parents/${id}/invite`, {}); }
   deleteParent(id: number): Observable<void> { return this.http.delete<void>(`${this.api}/parents/${id}`); }
 

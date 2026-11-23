@@ -51,19 +51,86 @@ export class SchoolStudentsComponent implements OnInit {
 
   /** All parents (admin), to link from the child form. */
   parents: ParentRecord[] = [];
-  parentSearch = '';
 
-  get pickableParents(): ParentRecord[] {
-    const ids = this.form.parentIds ?? [];
-    const q = this.parentSearch.trim().toLowerCase();
-    const list = this.parents.filter(p => p.isActive || ids.includes(p.id));
-    return !q ? list : list.filter(p => p.fullName.toLowerCase().includes(q)
-      || (p.email ?? '').toLowerCase().includes(q) || (p.phone ?? '').includes(q));
+  // One mother, one father (required unless "No … on record" is ticked), any guardians
+  motherId: number | null = null;
+  fatherId: number | null = null;
+  noMother = false;
+  noFather = false;
+  guardianIds: number[] = [];
+  parentErrors: Record<string, string> = {};
+
+  /** The Mother and Father boxes (same markup for both). */
+  readonly sides = [
+    { rel: 'Mother', id: () => this.motherId, set: (v: number | null) => { this.motherId = v; this.parentErrors = {}; },
+      none: () => this.noMother, setNone: (v: boolean) => { this.noMother = v; if (v) this.motherId = null; this.parentErrors = {}; } },
+    { rel: 'Father', id: () => this.fatherId, set: (v: number | null) => { this.fatherId = v; this.parentErrors = {}; },
+      none: () => this.noFather, setNone: (v: boolean) => { this.noFather = v; if (v) this.fatherId = null; this.parentErrors = {}; } }
+  ];
+
+  parentsFor(relationship: string, selected: number | null): ParentRecord[] {
+    return this.parents.filter(p => p.relationship === relationship && (p.isActive || p.id === selected))
+      .sort((a, b) => a.fullName.localeCompare(b.fullName));
   }
 
-  toggleParent(id: number, on: boolean): void {
-    const ids = this.form.parentIds ?? [];
-    this.form.parentIds = on ? [...ids, id] : ids.filter(x => x !== id);
+  get guardianChoices(): ParentRecord[] {
+    return this.parents.filter(p => p.relationship === 'Guardian' && (p.isActive || this.guardianIds.includes(p.id)));
+  }
+
+  toggleGuardian(id: number, on: boolean): void {
+    this.guardianIds = on ? [...this.guardianIds, id] : this.guardianIds.filter(x => x !== id);
+  }
+
+  childNames(p: ParentRecord): string { return p.children.map(c => c.fullName).join(', '); }
+
+  // ── "+ New mother / father" without leaving the child ──
+  quickAdd: string | null = null;
+  quickName = '';
+  quickPhone: string | null = null;
+  quickEmail = '';
+  quickSaving = false;
+
+  startQuickAdd(relationship: string): void {
+    this.quickAdd = relationship;
+    this.quickName = '';
+    this.quickPhone = null;
+    this.quickEmail = '';
+  }
+
+  saveQuickParent(relationship: string): void {
+    const email = this.quickEmail.trim() || null;
+    this.quickSaving = true;
+    this.school.createParent({
+      fullName: this.quickName.trim(), email, phone: this.quickPhone || null, relationship,
+      isActive: true, studentIds: null, createLogin: !!email
+    }).subscribe({
+      next: r => {
+        this.quickSaving = false;
+        this.quickAdd = null;
+        this.school.getParents().subscribe(p => {
+          this.parents = p;
+          if (relationship === 'Mother') this.motherId = r.id; else this.fatherId = r.id;
+          this.cdr.markForCheck();
+        });
+        if (r.message) this.toast.success('Parent Added', r.message);
+      },
+      error: err => {
+        this.quickSaving = false;
+        this.modalError = err?.error?.message ?? 'Could not add the parent.';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private setParentsFrom(s: Student | null): void {
+    const ps = s?.parents ?? [];
+    this.motherId = ps.find(p => p.relationship === 'Mother')?.id ?? null;
+    this.fatherId = ps.find(p => p.relationship === 'Father')?.id ?? null;
+    this.guardianIds = ps.filter(p => p.relationship === 'Guardian').map(p => p.id);
+    this.noMother = !!s?.noMotherOnRecord;
+    this.noFather = !!s?.noFatherOnRecord;
+    this.parentErrors = {};
+    this.quickAdd = null;
   }
 
   get filtered(): Student[] {
@@ -126,7 +193,7 @@ export class SchoolStudentsComponent implements OnInit {
   openCreate(): void {
     this.editing = null;
     this.form = this.blank();
-    this.parentSearch = '';
+    this.setParentsFrom(null);
     this.modalError = '';
     this.duplicateQuestion = '';
     this.showModal = true;
@@ -141,7 +208,7 @@ export class SchoolStudentsComponent implements OnInit {
       emergencyContactPhone: s.emergencyContactPhone, notes: s.notes, isActive: s.isActive,
       parentIds: s.parents.map(p => p.id)
     };
-    this.parentSearch = '';
+    this.setParentsFrom(s);
     this.modalError = '';
     this.duplicateQuestion = '';
     this.showModal = true;
@@ -154,6 +221,11 @@ export class SchoolStudentsComponent implements OnInit {
     const ph = splitPhone(this.form.emergencyContactPhone);
     const problem = phoneProblem(ph.country, ph.national);
     if (problem) { this.modalError = 'Emergency contact phone: ' + problem; return; }
+    // Both parents, unless "No mother / father on record" is ticked (single parent)
+    this.parentErrors = {};
+    if (!this.motherId && !this.noMother) this.parentErrors['Mother'] = 'Choose the mother, or tick "No mother on record".';
+    if (!this.fatherId && !this.noFather) this.parentErrors['Father'] = 'Choose the father, or tick "No father on record".';
+    if (Object.keys(this.parentErrors).length) { this.modalError = 'Please complete the parents.'; return; }
     this.modalError = '';
     this.duplicateQuestion = '';
     this.saving = true;
@@ -163,6 +235,9 @@ export class SchoolStudentsComponent implements OnInit {
       dateOfBirth: this.form.dateOfBirth || null,
       joinedOn: this.form.joinedOn || null,
       classId: this.form.classId || null,
+      parentIds: [...(this.motherId ? [this.motherId] : []), ...(this.fatherId ? [this.fatherId] : []), ...this.guardianIds],
+      noMotherOnRecord: this.noMother,
+      noFatherOnRecord: this.noFather,
       allowDuplicate
     };
     const req = this.editing ? this.school.updateStudent(this.editing.id, body) : this.school.createStudent(body);

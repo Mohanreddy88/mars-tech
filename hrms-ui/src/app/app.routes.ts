@@ -60,6 +60,8 @@ import { parentAreaGuard, parentOnlyGuard } from './core/guards/parent.guard';
 const schoolClasses       = () => import('./modules/school/pages/school-classes/school-classes.component').then(m => m.SchoolClassesComponent);
 const schoolStudents      = () => import('./modules/school/pages/school-students/school-students.component').then(m => m.SchoolStudentsComponent);
 const schoolParents       = () => import('./modules/school/pages/school-parents/school-parents.component').then(m => m.SchoolParentsComponent);
+const schoolFamilies      = () => import('./modules/school/pages/school-families/school-families.component').then(m => m.SchoolFamiliesComponent);
+const schoolPickupPeople  = () => import('./modules/school/pages/school-pickup-people/school-pickup-people.component').then(m => m.SchoolPickupPeopleComponent);
 const schoolAnnouncements = () => import('./modules/school/pages/school-announcements/school-announcements.component').then(m => m.SchoolAnnouncementsComponent);
 const schoolMessages      = () => import('./modules/school/pages/school-messages/school-messages.component').then(m => m.SchoolMessagesComponent);
 const schoolAttendance    = () => import('./modules/school/pages/school-attendance/school-attendance.component').then(m => m.SchoolAttendanceComponent);
@@ -154,6 +156,8 @@ const companyRoutes: Routes = [
       { path: 'school/students',      loadComponent: schoolStudents,      title: 'Children' },
       { path: 'school/my-class',      loadComponent: schoolStudents,      title: 'My Class' },
       { path: 'school/parents',       loadComponent: schoolParents,       canActivate: [adminGuard], title: 'Parents' },
+      { path: 'school/families',      loadComponent: schoolFamilies,      canActivate: [adminGuard], title: 'Families' },
+      { path: 'school/pickup-people', loadComponent: schoolPickupPeople,  canActivate: [adminGuard], title: 'Pick-up People' },
       { path: 'school/announcements', loadComponent: schoolAnnouncements, title: 'Announcements' },
       { path: 'school/messages',      loadComponent: schoolMessages,      title: 'Messages' },
       { path: 'school/attendance',    loadComponent: schoolAttendance,    title: 'Attendance & Daily Reports' },
@@ -167,7 +171,6 @@ const companyRoutes: Routes = [
       { path: 'parent/fees',          loadComponent: parentFees,          canActivate: [parentOnlyGuard], title: 'Fees' },
       // Bell links from the phone app's features (Account page, pick-up approvals): nearest web page for now
       { path: 'parent/account',       redirectTo: 'parent', pathMatch: 'full' },
-      { path: 'school/pickup-people', redirectTo: 'school/parents', pathMatch: 'full' },
 
       // Notifications
       { path: 'notifications', component: NotificationsPageComponent },
