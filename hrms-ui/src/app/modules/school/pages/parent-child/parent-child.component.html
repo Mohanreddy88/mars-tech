@@ -20,18 +20,63 @@
     </div>
   </div>
 
-  <div class="day-nav">
-    <button class="btn btn-sm btn-outline-secondary" (click)="shift(-1)" aria-label="Previous day"><i class="bi bi-chevron-left"></i></button>
-    <strong>{{ isToday ? 'Today, ' : '' }}{{ dayLabel(date) }}</strong>
-    <button class="btn btn-sm btn-outline-secondary" (click)="shift(1)" [disabled]="isToday" aria-label="Next day"><i class="bi bi-chevron-right"></i></button>
-    @if (!isToday) { <button class="btn btn-sm btn-link" (click)="go(today)">Today</button> }
+  <!-- Same four parts as the app's home tiles -->
+  <div class="view-tabs" role="tablist">
+    @for (v of views; track v.key) {
+      <button role="tab" [class.active]="view === v.key" (click)="setView(v.key)"><i class="bi" [ngClass]="v.icon"></i> {{ v.label }}</button>
+    }
   </div>
 
-  @if (loading) {
+  @if (view === 'today' || view === 'report') {
+    <div class="day-nav">
+      <button class="btn btn-sm btn-outline-secondary" (click)="shift(-1)" aria-label="Previous day"><i class="bi bi-chevron-left"></i></button>
+      <strong>{{ isToday ? 'Today, ' : '' }}{{ dayLabel(date) }}</strong>
+      <button class="btn btn-sm btn-outline-secondary" (click)="shift(1)" [disabled]="isToday" aria-label="Next day"><i class="bi bi-chevron-right"></i></button>
+      @if (!isToday) { <button class="btn btn-sm btn-link" (click)="go(today)">Today</button> }
+    </div>
+  }
+
+  @if (view === 'attendance') {
+    <!-- The month: present / absent per day; click a day to open it -->
+    <div class="day-nav">
+      <button class="btn btn-sm btn-outline-secondary" (click)="shiftMonth(-1)" aria-label="Previous month"><i class="bi bi-chevron-left"></i></button>
+      <strong>{{ monthLabel }}</strong>
+      <button class="btn btn-sm btn-outline-secondary" (click)="shiftMonth(1)" [disabled]="isCurrentMonth" aria-label="Next month"><i class="bi bi-chevron-right"></i></button>
+    </div>
+    <div class="card-box month">
+      <div class="month-grid">
+        @for (w of ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']; track w) { <div class="dow">{{ w }}</div> }
+        @for (c of monthGrid; track $index) {
+          @if (c) {
+            <button class="mday" [class.present]="c.status === 'Present'" [class.absent]="c.status === 'Absent'"
+                    [class.dim]="c.future || c.weekend" [class.today]="c.date === today" [disabled]="c.future" (click)="openDay(c.date)">{{ c.day }}</button>
+          } @else { <div></div> }
+        }
+      </div>
+      <div class="mt-2">
+        <span class="tag ok">Present: {{ monthPresent }}</span>
+        <span class="tag" [class.bad]="monthAbsent > 0">Absent: {{ monthAbsent }}</span>
+      </div>
+      <div class="cell-sub mt-1">Click a day to see arrival, pickup and the daily report.</div>
+    </div>
+  }
+
+  @if (view === 'notes') {
+    <div class="d-flex gap-2 mb-3">
+      <button class="btn btn-outline-danger" (click)="openNote('Absence')"><i class="bi bi-thermometer-half"></i> Report absence</button>
+      <button class="btn btn-outline-primary" (click)="openNote('Pickup')"><i class="bi bi-car-front"></i> Other pickup</button>
+    </div>
+    @if (!upcomingNotes.length && !earlierNotes.length) {
+      <p class="text-muted">No notes yet. Use the buttons above to tell the school your child will be absent, or that someone else will pick them up.</p>
+    }
+  }
+
+  @if (loading && (view === 'today' || view === 'report')) {
     <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
-  } @else if (data) {
-    <div class="day-grid">
+  } @else if (data && (view === 'today' || view === 'report')) {
+    <div class="day-grid" [class.single]="view === 'report'">
       <!-- Attendance -->
+      @if (view === 'today') {
       <div class="card-box">
         <h5><i class="bi bi-calendar-check"></i> At school</h5>
         @if (data.attendance?.status === 'Absent') {
@@ -40,12 +85,13 @@
           <div class="timeline">
             <div class="step done">
               <i class="bi bi-box-arrow-in-right"></i>
-              <div><strong>Arrived {{ data.attendance?.checkIn }}</strong><span>Checked in by {{ data.attendance?.checkInBy }}</span></div>
+              <div><strong>Arrived {{ data.attendance?.checkIn }}{{ data.attendance?.isLate ? ' · late' : '' }}</strong><span>Checked in by {{ data.attendance?.checkInBy }}</span></div>
             </div>
             <div class="step" [class.done]="data.attendance?.checkOut">
               <i class="bi bi-house-door"></i>
               @if (data.attendance?.checkOut) {
-                <div><strong>Went home {{ data.attendance?.checkOut }}</strong><span>Picked up by {{ data.attendance?.pickedUpBy }}</span></div>
+                <div><strong>Went home {{ data.attendance?.checkOut }}</strong>
+                  <span>{{ data.attendance?.autoCheckOut ? 'End of the day (checked out automatically)' : 'Picked up by ' + data.attendance?.pickedUpBy }}</span></div>
               } @else {
                 <div><strong>Still at school</strong><span>You'll be told when your child is picked up.</span></div>
               }
@@ -65,6 +111,7 @@
           </div>
         }
       </div>
+      }
 
       <!-- Daily report -->
       <div class="card-box report">
@@ -103,9 +150,10 @@
     </div>
 
     @if (recent.length) {
-      <h4 class="section">Recent days</h4>
+      <h4 class="section">{{ view === 'report' ? 'Recent reports' : 'Recent days' }}</h4>
       <div class="recent">
         @for (d of recent; track d.date) {
+          @if (view !== 'report' || d.report) {
           <button class="recent-day" [class.current]="d.date === date" (click)="go(d.date)">
             <span>{{ dayLabel(d.date) }}</span>
             <small>
@@ -114,12 +162,15 @@
               @if (d.report) { <i class="bi bi-journal-check text-primary"></i> }
             </small>
           </button>
+          }
         }
       </div>
     }
+  }
 
-    @if (upcomingNotes.length) {
-      <h4 class="section">Your notes to the school</h4>
+  @if (upcomingNotes.length && (view === 'today' || view === 'notes')) {
+    <div>
+      <h4 class="section">{{ view === 'notes' ? 'Upcoming' : 'Your notes to the school' }}</h4>
       <div class="table-card">
         <table class="table align-middle mb-0">
           <tbody>
@@ -138,7 +189,25 @@
           </tbody>
         </table>
       </div>
-    }
+    </div>
+  }
+
+  @if (view === 'notes' && earlierNotes.length) {
+    <h4 class="section">Earlier and withdrawn</h4>
+    <div class="table-card">
+      <table class="table align-middle mb-0">
+        <tbody>
+          @for (n of earlierNotes; track n.id) {
+            <tr>
+              <td><span class="tag muted">{{ n.kind === 'Absence' ? 'Absence' : 'Pickup' }}</span></td>
+              <td>{{ noteWhen(n) }}</td>
+              <td>@if (n.kind === 'Pickup') { {{ n.pickupName }} } @if (n.message) { <div class="cell-sub">{{ n.message }}</div> }</td>
+              <td>{{ n.cancelled ? 'Withdrawn' : (n.seenByName ? 'Seen by ' + n.seenByName : 'Sent') }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
   }
 </div>
 
@@ -152,6 +221,10 @@
       <div class="modal-form">
         @if (noteError) { <div class="alert alert-danger py-2">{{ noteError }}</div> }
         <p class="cell-sub mb-3">For {{ data?.child?.fullName ?? child?.fullName }}. The class teacher and the office are told straight away.</p>
+        @if (absentOnPickupDay; as a) {
+          <div class="alert alert-warning py-2">You reported your child absent on that day ({{ noteWhen(a) }}), so no pickup is needed.
+            Choose another day, or withdraw the absence first.</div>
+        }
         <div class="form-grid">
           <div class="form-group" [class.span-2]="noteKind === 'Pickup'">
             <label for="nt-from">{{ noteKind === 'Absence' ? 'First day' : 'Day' }}</label>
@@ -185,7 +258,7 @@
       </div>
       <div class="modal-footer-row">
         <button class="btn btn-secondary" (click)="noteKind = null">Cancel</button>
-        <button class="btn btn-primary" (click)="saveNote()" [disabled]="noteSaving">
+        <button class="btn btn-primary" (click)="saveNote()" [disabled]="noteSaving || !!absentOnPickupDay">
           @if (noteSaving) { <span class="spinner-border spinner-border-sm me-1"></span> }
           Send to the school
         </button>

@@ -24,6 +24,10 @@
         <i class="bi bi-megaphone-fill"></i>
         <div><strong>Announcements</strong><span>Notices from the school</span></div>
       </a>
+      <a class="quick-card" routerLink="/parent/account">
+        <i class="bi bi-person-vcard-fill"></i>
+        <div><strong>My account</strong><span>Your details, contacts and pick-up people</span></div>
+      </a>
       <a class="quick-card" routerLink="/parent/fees">
         <i class="bi bi-cash-coin"></i>
         <div><strong>Fees</strong><span>Invoices, payments and receipts</span></div>
@@ -55,8 +59,14 @@
               <dt>Class teacher</dt><dd>{{ c.classTeacherName ?? '—' }}</dd>
               <dt>Session</dt><dd>{{ c.sessionType }}</dd>
             </dl>
+            <!-- Same four as the app's home tiles -->
             <div class="child-actions">
-              <a class="btn btn-success btn-sm" [routerLink]="['/parent/child', c.id]"><i class="bi bi-journal-heart"></i> Today at school</a>
+              <a class="btn btn-success btn-sm" [routerLink]="['/parent/child', c.id]"><i class="bi bi-sun"></i> Today</a>
+              <a class="btn btn-outline-success btn-sm" [routerLink]="['/parent/child', c.id]" [queryParams]="{ view: 'report' }"><i class="bi bi-journal-heart"></i> Daily report</a>
+              <a class="btn btn-outline-success btn-sm" [routerLink]="['/parent/child', c.id]" [queryParams]="{ view: 'attendance' }"><i class="bi bi-calendar-check"></i> Attendance</a>
+              <a class="btn btn-outline-danger btn-sm" [routerLink]="['/parent/child', c.id]" [queryParams]="{ view: 'notes' }"><i class="bi bi-pencil-square"></i> Absence / pickup</a>
+            </div>
+            <div class="child-actions">
               <button class="btn btn-primary btn-sm" (click)="message(c, 'Teacher')" [disabled]="opening !== null">
                 @if (opening === c.id + '-Teacher') { <span class="spinner-border spinner-border-sm"></span> }
                 <i class="bi bi-person-workspace"></i> Message teacher

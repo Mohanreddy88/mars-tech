@@ -69,6 +69,7 @@ const schoolFees          = () => import('./modules/school/pages/school-fees/sch
 const parentChild         = () => import('./modules/school/pages/parent-child/parent-child.component').then(m => m.ParentChildComponent);
 const parentFees          = () => import('./modules/school/pages/parent-fees/parent-fees.component').then(m => m.ParentFeesComponent);
 const parentHome          = () => import('./modules/school/pages/parent-home/parent-home.component').then(m => m.ParentHomeComponent);
+const parentAccount       = () => import('./modules/school/pages/parent-account/parent-account.component').then(m => m.ParentAccountComponent);
 
 /** A company's own site (esync.marshrms.com …). */
 const companyRoutes: Routes = [
@@ -169,8 +170,7 @@ const companyRoutes: Routes = [
       { path: 'parent/messages',      loadComponent: schoolMessages,      canActivate: [parentOnlyGuard], title: 'Messages' },
       { path: 'parent/child/:id',     loadComponent: parentChild,         canActivate: [parentOnlyGuard], title: 'My Child' },
       { path: 'parent/fees',          loadComponent: parentFees,          canActivate: [parentOnlyGuard], title: 'Fees' },
-      // Bell links from the phone app's features (Account page, pick-up approvals): nearest web page for now
-      { path: 'parent/account',       redirectTo: 'parent', pathMatch: 'full' },
+      { path: 'parent/account',       loadComponent: parentAccount,       canActivate: [parentOnlyGuard], title: 'My Account' },
 
       // Notifications
       { path: 'notifications', component: NotificationsPageComponent },

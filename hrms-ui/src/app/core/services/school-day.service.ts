@@ -171,9 +171,15 @@ export class SchoolDayService {
   getDay(studentId: number, date: string): Observable<ChildDay> {
     return this.http.get<ChildDay>(`${this.api}/children/${studentId}/day`, { params: { date } });
   }
-  getDays(studentId: number): Observable<{ date: string; status: string | null; report: boolean }[]> {
-    return this.http.get<{ date: string; status: string | null; report: boolean }[]>(`${this.api}/children/${studentId}/days`);
+  /** Days with attendance or a sent report; default the last 30 days (at most 62 days). */
+  getDays(studentId: number, from?: string, to?: string): Observable<{ date: string; status: string | null; report: boolean }[]> {
+    let p = new HttpParams();
+    if (from) p = p.set('from', from);
+    if (to) p = p.set('to', to);
+    return this.http.get<{ date: string; status: string | null; report: boolean }[]>(`${this.api}/children/${studentId}/days`, { params: p });
   }
+
+
   saveReport(studentId: number, date: string, r: DailyReportSave): Observable<DailyReportInfo> {
     return this.http.put<DailyReportInfo>(`${this.api}/reports/${studentId}`, r, { params: { date } });
   }
