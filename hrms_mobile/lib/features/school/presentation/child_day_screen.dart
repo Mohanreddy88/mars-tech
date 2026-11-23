@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/error_view.dart';
@@ -13,12 +14,38 @@ final _dayProvider = FutureProvider.autoDispose.family<ChildDay, (int, String)>(
 final _childNotesProvider = FutureProvider.autoDispose.family<List<ParentNote>, int>(
     (ref, id) => ref.watch(schoolRepositoryProvider).notes(studentId: id));
 
+/// (child, from, to) → days with attendance or a sent report.
+final _daysProvider = FutureProvider.autoDispose.family<List<ChildDayMark>, (int, String, String)>(
+    (ref, k) => ref.watch(schoolRepositoryProvider).days(k.$1, k.$2, k.$3));
+
+/// Which part of the child's day a home tile opens.
+enum ChildDayView {
+  /// Arrival / home time and the report for one day (default).
+  today('Today'),
+
+  /// The daily report, with the recent days that have one.
+  report('Daily report'),
+
+  /// The month at a glance: present / absent.
+  attendance('Attendance'),
+
+  /// Report an absence or another pickup, and the notes already sent.
+  notes('Absence / pickup');
+
+  const ChildDayView(this.title);
+  final String title;
+
+  static ChildDayView parse(String? v) =>
+      ChildDayView.values.firstWhere((e) => e.name == v, orElse: () => ChildDayView.today);
+}
+
 /// One child's day: arrival and home time (who picked up), the daily report with photos,
-/// and (parents) absence / pickup notes to the school.
+/// and (parents) absence / pickup notes to the school. [view] picks the part to show.
 class ChildDayScreen extends ConsumerStatefulWidget {
-  const ChildDayScreen({super.key, required this.childId, this.date});
+  const ChildDayScreen({super.key, required this.childId, this.date, this.view = ChildDayView.today});
   final int childId;
   final String? date;
+  final ChildDayView view;
 
   @override
   ConsumerState<ChildDayScreen> createState() => _ChildDayScreenState();
@@ -26,18 +53,49 @@ class ChildDayScreen extends ConsumerStatefulWidget {
 
 class _ChildDayScreenState extends ConsumerState<ChildDayScreen> {
   late String _date = widget.date ?? schoolToday();
+  late ChildDayView _view = widget.view;
 
   @override
   Widget build(BuildContext context) {
     final day = ref.watch(_dayProvider((widget.childId, _date)));
     final isParent = ref.watch(schoolMeProvider).valueOrNull?.isParent ?? false;
     final data = day.valueOrNull;
+    final today = data?.today ?? schoolToday();
+
+    final List<Widget> content = switch (_view) {
+      ChildDayView.today => [
+          DayBar(date: _date, today: today, onChanged: (d) => setState(() => _date = d)),
+          if (isParent) _noteButtons(),
+          _dayCards(day, attendance: true, report: true),
+          if (isParent) _MyNotes(childId: widget.childId),
+        ],
+      ChildDayView.report => [
+          DayBar(date: _date, today: today, onChanged: (d) => setState(() => _date = d)),
+          _dayCards(day, attendance: false, report: true),
+          _RecentReports(childId: widget.childId, selected: _date, onPick: (d) => setState(() => _date = d)),
+        ],
+      ChildDayView.attendance => [
+          _AttendanceMonth(
+            childId: widget.childId,
+            onPick: (d) => setState(() {
+              _date = d;
+              _view = ChildDayView.today;
+            }),
+          ),
+        ],
+      ChildDayView.notes => [
+          if (isParent) _noteButtons(),
+          _MyNotes(childId: widget.childId, all: true),
+        ],
+    };
 
     return Scaffold(
       appBar: AppBar(
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(data?.childName ?? 'My child'),
-          if (data?.className != null)
+          Text(_view == ChildDayView.today ? (data?.childName ?? 'My child') : _view.title),
+          if (_view != ChildDayView.today && data != null)
+            Text(data.childName, style: Theme.of(context).textTheme.bodySmall)
+          else if (data?.className != null)
             Text('Class ${data!.className}${data.teacher != null ? ' · ${data.teacher}' : ''}',
                 style: Theme.of(context).textTheme.bodySmall),
         ]),
@@ -45,51 +103,50 @@ class _ChildDayScreenState extends ConsumerState<ChildDayScreen> {
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(_childNotesProvider(widget.childId));
+          ref.invalidate(_daysProvider);
           ref.invalidate(_dayProvider((widget.childId, _date)));
           await ref.read(_dayProvider((widget.childId, _date)).future);
         },
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
-          children: [
-            DayBar(date: _date, today: data?.today ?? schoolToday(), onChanged: (d) => setState(() => _date = d)),
-            if (isParent)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _note('Absence'),
-                      icon: const Icon(Icons.sick_outlined, size: 18),
-                      label: const Text('Report absence'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _note('Pickup'),
-                      icon: const Icon(Icons.directions_car_outlined, size: 18),
-                      label: const Text('Other pickup'),
-                    ),
-                  ),
-                ]),
-              ),
-            day.when(
-              skipLoadingOnRefresh: true,
-              loading: () => const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator())),
-              error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(_dayProvider((widget.childId, _date)))),
-              data: (d) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                _AttendanceCard(day: d),
-                const SizedBox(height: 10),
-                _ReportCard(day: d),
-              ]),
-            ),
-            if (isParent) _MyNotes(childId: widget.childId),
-          ],
+          children: content,
         ),
       ),
     );
   }
+
+  Widget _noteButtons() => Padding(
+        padding: const EdgeInsets.only(bottom: 8, top: 4),
+        child: Row(children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () => _note('Absence'),
+              icon: const Icon(Icons.sick_outlined, size: 18),
+              label: const Text('Report absence'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () => _note('Pickup'),
+              icon: const Icon(Icons.directions_car_outlined, size: 18),
+              label: const Text('Other pickup'),
+            ),
+          ),
+        ]),
+      );
+
+  Widget _dayCards(AsyncValue<ChildDay> day, {required bool attendance, required bool report}) => day.when(
+        skipLoadingOnRefresh: true,
+        loading: () => const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator())),
+        error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(_dayProvider((widget.childId, _date)))),
+        data: (d) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          if (attendance) _AttendanceCard(day: d),
+          if (attendance && report) const SizedBox(height: 10),
+          if (report) _ReportCard(day: d),
+        ]),
+      );
 
   Future<void> _note(String kind) async {
     final sent = await showModalBottomSheet<bool>(
@@ -102,6 +159,151 @@ class _ChildDayScreenState extends ConsumerState<ChildDayScreen> {
       ref.invalidate(_childNotesProvider(widget.childId));
       ref.invalidate(_dayProvider((widget.childId, _date)));
     }
+  }
+}
+
+/// Recent days with a sent daily report (last 30 days); tap one to open its report.
+class _RecentReports extends ConsumerWidget {
+  const _RecentReports({required this.childId, required this.selected, required this.onPick});
+  final int childId;
+  final String selected;
+  final ValueChanged<String> onPick;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final today = schoolToday();
+    final days = ref.watch(_daysProvider((childId, addDays(today, -30), today))).valueOrNull;
+    final withReport = (days ?? const <ChildDayMark>[]).where((d) => d.report).toList();
+    if (withReport.isEmpty) return const SizedBox.shrink();
+    final f = DateFormat('EEE d MMM');
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Recent reports', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 6),
+        Wrap(spacing: 6, runSpacing: 6, children: [
+          for (final d in withReport)
+            ChoiceChip(
+              label: Text(f.format(ymdToDate(d.date))),
+              selected: d.date == selected,
+              onSelected: (_) => onPick(d.date),
+            ),
+        ]),
+      ]),
+    );
+  }
+}
+
+/// A month of attendance: present / absent per day, with totals. Tap a day to open it.
+class _AttendanceMonth extends ConsumerStatefulWidget {
+  const _AttendanceMonth({required this.childId, required this.onPick});
+  final int childId;
+  final ValueChanged<String> onPick;
+
+  @override
+  ConsumerState<_AttendanceMonth> createState() => _AttendanceMonthState();
+}
+
+class _AttendanceMonthState extends ConsumerState<_AttendanceMonth> {
+  late DateTime _month = () {
+    final t = ymdToDate(schoolToday());
+    return DateTime(t.year, t.month);
+  }();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final today = schoolToday();
+    final t = ymdToDate(today);
+    final first = _month;
+    final last = DateTime(first.year, first.month + 1, 0);
+    final to = dateToYmd(last).compareTo(today) > 0 ? today : dateToYmd(last);
+    final isCurrent = first.year == t.year && first.month == t.month;
+    final async = ref.watch(_daysProvider((widget.childId, dateToYmd(first), to)));
+    final byDate = {for (final d in async.valueOrNull ?? const <ChildDayMark>[]) d.date: d};
+    final present = byDate.values.where((d) => d.present).length;
+    final absent = byDate.values.where((d) => d.absent).length;
+
+    Widget cell(DateTime d) {
+      final ymd = dateToYmd(d);
+      final mark = byDate[ymd];
+      final future = ymd.compareTo(today) > 0;
+      final weekend = d.weekday >= DateTime.saturday;
+      final (Color bg, Color fg) = mark?.present == true
+          ? (const Color(0xFFDCFCE7), const Color(0xFF166534))
+          : mark?.absent == true
+              ? (theme.colorScheme.errorContainer, theme.colorScheme.onErrorContainer)
+              : (Colors.transparent, future || weekend ? theme.disabledColor : theme.colorScheme.onSurface);
+      return InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: future ? null : () => widget.onPick(ymd),
+        child: Container(
+          margin: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(8),
+            border: ymd == today ? Border.all(color: theme.colorScheme.primary, width: 1.5) : null,
+          ),
+          alignment: Alignment.center,
+          child: Text('${d.day}', style: TextStyle(color: fg, fontWeight: mark != null ? FontWeight.w700 : null)),
+        ),
+      );
+    }
+
+    final lead = first.weekday - 1; // weeks start on Monday
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Row(children: [
+        IconButton(
+          icon: const Icon(Icons.chevron_left),
+          tooltip: 'Previous month',
+          onPressed: () => setState(() => _month = DateTime(_month.year, _month.month - 1)),
+        ),
+        Expanded(
+          child: Text(DateFormat('MMMM yyyy').format(first),
+              textAlign: TextAlign.center, style: theme.textTheme.titleMedium),
+        ),
+        IconButton(
+          icon: const Icon(Icons.chevron_right),
+          tooltip: 'Next month',
+          onPressed: isCurrent ? null : () => setState(() => _month = DateTime(_month.year, _month.month + 1)),
+        ),
+      ]),
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Column(children: [
+            Row(children: [
+              for (final w in const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'])
+                Expanded(child: Text(w, textAlign: TextAlign.center, style: theme.textTheme.labelSmall)),
+            ]),
+            const SizedBox(height: 4),
+            GridView.count(
+              crossAxisCount: 7,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                for (var i = 0; i < lead; i++) const SizedBox.shrink(),
+                for (var d = 1; d <= last.day; d++) cell(DateTime(first.year, first.month, d)),
+              ],
+            ),
+            if (async.isLoading) const LinearProgressIndicator(minHeight: 2),
+            if (async.hasError)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(ApiException.from(async.error!).message, style: TextStyle(color: theme.colorScheme.error)),
+              ),
+          ]),
+        ),
+      ),
+      const SizedBox(height: 8),
+      Wrap(spacing: 8, runSpacing: 6, children: [
+        Pill('Present: $present', tone: PillTone.good),
+        Pill('Absent: $absent', tone: absent > 0 ? PillTone.bad : PillTone.neutral),
+      ]),
+      const SizedBox(height: 6),
+      Text('Tap a day to see arrival, pickup and the daily report.',
+          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+    ]);
   }
 }
 
@@ -227,23 +429,37 @@ class _ReportCard extends StatelessWidget {
   }
 }
 
+/// The parent's notes to the school. Normally the upcoming ones; with [all], also the last
+/// 30 days and withdrawn ones (the Absence / pickup page).
 class _MyNotes extends ConsumerWidget {
-  const _MyNotes({required this.childId});
+  const _MyNotes({required this.childId, this.all = false});
   final int childId;
+  final bool all;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final today = schoolToday();
-    final notes = (ref.watch(_childNotesProvider(childId)).valueOrNull ?? const [])
-        .where((n) => !n.cancelled && n.toDate.compareTo(today) >= 0)
-        .toList();
-    if (notes.isEmpty) return const SizedBox.shrink();
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const SizedBox(height: 16),
-      Text('Your notes to the school', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-      const SizedBox(height: 6),
-      for (final n in notes)
-        Card(
+    final async = ref.watch(_childNotesProvider(childId));
+    final list = async.valueOrNull ?? const <ParentNote>[];
+    final upcoming = list.where((n) => !n.cancelled && n.toDate.compareTo(today) >= 0).toList()
+      ..sort((a, b) => a.fromDate.compareTo(b.fromDate));
+    final past = all ? list.where((n) => n.cancelled || n.toDate.compareTo(today) < 0).toList() : const <ParentNote>[];
+    final titleStyle = Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700);
+
+    if (all && async.isLoading && list.isEmpty) {
+      return const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator()));
+    }
+    if (upcoming.isEmpty && past.isEmpty) {
+      return all
+          ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Text('No notes yet. Use the buttons above to tell the school your child will be absent, '
+                  'or that someone else will pick them up.'),
+            )
+          : const SizedBox.shrink();
+    }
+
+    Widget card(ParentNote n, {required bool canWithdraw}) => Card(
           child: ListTile(
             leading: Icon(n.isAbsence ? Icons.sick_outlined : Icons.directions_car_outlined),
             title: Text(n.isAbsence
@@ -251,18 +467,35 @@ class _MyNotes extends ConsumerWidget {
                 : '${n.pickupName} picks up · ${noteWhen(n)}${n.pickupTime != null ? ' at ${n.pickupTime}' : ''}'),
             subtitle: Text([
               if (n.message != null) n.message!,
-              n.seenByName != null ? 'Seen by ${n.seenByName}' : 'Sent',
+              n.cancelled ? 'Withdrawn' : (n.seenByName != null ? 'Seen by ${n.seenByName}' : 'Sent'),
             ].join('\n')),
-            trailing: TextButton(
-              onPressed: () async {
-                if (await attempt(context, () => ref.read(schoolRepositoryProvider).cancelNote(n.id), done: 'Note withdrawn')) {
-                  ref.invalidate(_childNotesProvider(childId));
-                }
-              },
-              child: const Text('Withdraw'),
-            ),
+            trailing: canWithdraw
+                ? TextButton(
+                    onPressed: () async {
+                      if (await attempt(context, () => ref.read(schoolRepositoryProvider).cancelNote(n.id),
+                          done: 'Note withdrawn')) {
+                        ref.invalidate(_childNotesProvider(childId));
+                      }
+                    },
+                    child: const Text('Withdraw'),
+                  )
+                : null,
           ),
-        ),
+        );
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      if (upcoming.isNotEmpty) ...[
+        const SizedBox(height: 16),
+        Text(all ? 'Upcoming' : 'Your notes to the school', style: titleStyle),
+        const SizedBox(height: 6),
+        for (final n in upcoming) card(n, canWithdraw: true),
+      ],
+      if (past.isNotEmpty) ...[
+        const SizedBox(height: 16),
+        Text('Earlier and withdrawn', style: titleStyle),
+        const SizedBox(height: 6),
+        for (final n in past) card(n, canWithdraw: false),
+      ],
     ]);
   }
 }
@@ -343,6 +576,12 @@ class _NoteSheetState extends ConsumerState<_NoteSheet> {
   @override
   Widget build(BuildContext context) {
     String label(String ymd) => MaterialLocalizations.of(context).formatMediumDate(ymdToDate(ymd));
+    // Another pickup only makes sense on a day the child is at school
+    final absentNote = _absence
+        ? null
+        : (ref.watch(_childNotesProvider(widget.childId)).valueOrNull ?? const <ParentNote>[])
+            .where((n) => n.isAbsence && !n.cancelled && n.fromDate.compareTo(_from) <= 0 && n.toDate.compareTo(_from) >= 0)
+            .firstOrNull;
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 0, 16, MediaQuery.viewInsetsOf(context).bottom + 16),
       child: SingleChildScrollView(
@@ -351,6 +590,15 @@ class _NoteSheetState extends ConsumerState<_NoteSheet> {
               style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 4),
           const Text('The class teacher and the office are told straight away.'),
+          if (absentNote != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(8)),
+              child: Text('You reported your child absent on ${label(_from)} (${noteWhen(absentNote)}), so no pickup '
+                  'is needed. Choose another day, or withdraw the absence first.'),
+            ),
+          ],
           if (_error != null) ...[
             const SizedBox(height: 8),
             Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
@@ -405,7 +653,7 @@ class _NoteSheetState extends ConsumerState<_NoteSheet> {
           ),
           const SizedBox(height: 8),
           FilledButton(
-            onPressed: _saving ? null : _save,
+            onPressed: _saving || absentNote != null ? null : _save,
             child: _saving
                 ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Text('Send to the school'),

@@ -498,6 +498,24 @@ class ChildDay {
   }
 }
 
+/// One day in a child's history (GET school/children/{id}/days): attendance and whether a report was sent.
+class ChildDayMark {
+  const ChildDayMark({required this.date, this.status, required this.report});
+  final String date;
+  /// "Present", "Absent" or null (not marked).
+  final String? status;
+  final bool report;
+
+  bool get present => status == 'Present';
+  bool get absent => status == 'Absent';
+
+  factory ChildDayMark.fromJson(Map<String, dynamic> j) => ChildDayMark(
+        date: j['date'] as String? ?? '',
+        status: _s(j['status']),
+        report: j['report'] == true,
+      );
+}
+
 class AttendanceRow {
   const AttendanceRow({required this.studentId, required this.fullName, this.className, required this.sessionType,
       this.medicalNotes, required this.parents, this.attendance, required this.notes, this.reportPublished,

@@ -260,6 +260,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => ChildDayScreen(
           childId: int.parse(state.pathParameters['id']!),
           date: state.uri.queryParameters['date'],
+          view: ChildDayView.parse(state.uri.queryParameters['view']),
         ),
       ),
       GoRoute(path: Routes.assistant, builder: (context, state) => const AssistantScreen()),

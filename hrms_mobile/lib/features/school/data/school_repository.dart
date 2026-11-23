@@ -172,6 +172,13 @@ class SchoolRepository {
         return ChildDay.fromJson(r.data!);
       });
 
+  /// Days with attendance or a sent report between [from] and [to] (yyyy-MM-dd, at most 62 days).
+  Future<List<ChildDayMark>> days(int studentId, String from, String to) => _call(() async {
+        final r = await _dio.get<List<dynamic>>('school/children/$studentId/days',
+            queryParameters: {'from': from, 'to': to});
+        return (r.data ?? const []).map((e) => ChildDayMark.fromJson(e as Map<String, dynamic>)).toList();
+      });
+
   Future<List<ParentNote>> notes({int? studentId}) => _call(() async {
         final r = await _dio.get<List<dynamic>>('school/notes',
             queryParameters: {if (studentId != null) 'studentId': studentId});
