@@ -16,7 +16,14 @@ class AdminHomeShell extends ConsumerWidget {
     final pending = (ref.watch(pendingLeavesProvider).valueOrNull?.length ?? 0) +
         (ref.watch(pendingAttendanceProvider).valueOrNull?.length ?? 0);
 
-    return Scaffold(
+    // The phone's back button on Approvals / Employees / Payroll / More returns to Home
+    // (instead of closing the app); on Home it behaves as usual.
+    return PopScope(
+      canPop: navigationShell.currentIndex == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) navigationShell.goBranch(0);
+      },
+      child: Scaffold(
       body: navigationShell,
       bottomNavigationBar: NavigationBar(
         selectedIndex: navigationShell.currentIndex,
@@ -59,6 +66,7 @@ class AdminHomeShell extends ConsumerWidget {
             label: 'More',
           ),
         ],
+      ),
       ),
     );
   }

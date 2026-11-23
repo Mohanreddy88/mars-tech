@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/router/app_router.dart';
+import '../../../../core/widgets/back_to_home.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/error_view.dart';
 import '../../../../core/widgets/status_chip.dart';
@@ -42,6 +43,7 @@ class _PayrollScreenState extends ConsumerState<PayrollScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: const BackToHomeButton(),
         title: const Text('Payroll'),
         actions: [
           IconButton(
