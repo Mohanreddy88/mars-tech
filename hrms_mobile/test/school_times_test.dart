@@ -4,7 +4,7 @@ import 'package:hrms_mobile/features/school/data/school_models.dart';
 void main() {
   test('attendance shows late / automatic and suggests the session end for check-out', () {
     final day = AttendanceDay.fromJson({
-      'date': '2026-11-23', 'today': '2026-11-23', 'rows': [], 'summary': {},
+      'date': '2026-11-23', 'today': '2026-11-23', 'rows': <dynamic>[], 'summary': <String, dynamic>{},
       'times': {'halfDayEnd': '12:30', 'fullDayEnd': '16:30', 'daycareEnd': '18:30', 'lateAfter': '09:00'},
     });
     expect(day.sessionEnd('Half day'), '12:30');
