@@ -7,6 +7,7 @@ import '../../../../core/widgets/error_view.dart';
 import '../data/master_models.dart';
 import '../data/master_repository.dart';
 import '../../../school/data/school_repository.dart';
+import '../../../school/presentation/school_times_screen.dart';
 
 // ── Company settings ──────────────────────────────────────────────────────
 
@@ -271,13 +272,25 @@ class _SchoolFeaturesSwitchState extends ConsumerState<SchoolFeaturesSwitch> {
     final on = me.valueOrNull?.enabled ?? false;
     return Card(
       margin: const EdgeInsets.only(top: 8, bottom: 4),
-      child: SwitchListTile(
-        secondary: const Icon(Icons.school_outlined),
-        title: const Text('School features'),
-        subtitle: const Text('Classes, children, parent logins, attendance, daily reports, messages and fees'),
-        value: on,
-        onChanged: _saving || me.isLoading ? null : _set,
-      ),
+      child: Column(children: [
+        SwitchListTile(
+          secondary: const Icon(Icons.school_outlined),
+          title: const Text('School features'),
+          subtitle: const Text('Classes, children, parent logins, attendance, daily reports, messages and fees'),
+          value: on,
+          onChanged: _saving || me.isLoading ? null : _set,
+        ),
+        if (on) ...[
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.access_time),
+            title: const Text('School day timings'),
+            subtitle: const Text('Start, late, automatic absent and check-out'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SchoolTimesScreen())),
+          ),
+        ],
+      ]),
     );
   }
 }

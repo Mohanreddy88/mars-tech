@@ -342,9 +342,10 @@ class _AttendanceCard extends StatelessWidget {
               child: Pill('Absent${a.absenceReason != null ? ': ${a.absenceReason}' : ''}', tone: PillTone.bad),
             )
           else ...[
-            step(Icons.login, 'Arrived ${a.checkIn}', 'Checked in by ${a.checkInBy ?? ''}', true),
+            step(Icons.login, 'Arrived ${a.checkIn}${a.isLate ? ' · late' : ''}', 'Checked in by ${a.checkInBy ?? ''}', true),
             a.checkOut != null
-                ? step(Icons.home_outlined, 'Went home ${a.checkOut}', 'Picked up by ${a.pickedUpBy ?? ''}', true)
+                ? step(Icons.home_outlined, 'Went home ${a.checkOut}',
+                    a.autoCheckOut ? 'End of the day (checked out automatically)' : 'Picked up by ${a.pickedUpBy ?? ''}', true)
                 : step(Icons.home_outlined, 'Still at school', 'You\'ll be told when your child is picked up.', false),
           ],
           for (final n in day.notes)

@@ -363,7 +363,8 @@ class MessagePage {
 
 class AttendanceInfo {
   const AttendanceInfo({required this.status, this.checkIn, this.checkInBy, this.checkOut,
-      this.checkOutBy, this.pickedUpBy, this.absenceReason});
+      this.checkOutBy, this.pickedUpBy, this.absenceReason, this.isLate = false, this.autoAbsent = false,
+      this.autoCheckOut = false});
   final String status; // Present | Absent
   final String? checkIn; // "08:05"
   final String? checkInBy;
@@ -371,6 +372,13 @@ class AttendanceInfo {
   final String? checkOutBy;
   final String? pickedUpBy;
   final String? absenceReason;
+
+  /// Checked in after the "late after" time.
+  final bool isLate;
+  /// Marked absent automatically (not in by the "absent after" time).
+  final bool autoAbsent;
+  /// Checked out automatically in the evening (the teacher didn't).
+  final bool autoCheckOut;
 
   bool get absent => status == 'Absent';
 
@@ -384,6 +392,9 @@ class AttendanceInfo {
       checkOutBy: _s(v['checkOutBy']),
       pickedUpBy: _s(v['pickedUpBy']),
       absenceReason: _s(v['absenceReason']),
+      isLate: v['isLate'] == true,
+      autoAbsent: v['autoAbsent'] == true,
+      autoCheckOut: v['autoCheckOut'] == true,
     );
   }
 }
@@ -556,7 +567,8 @@ class AttendanceRow {
 
 class AttendanceDay {
   const AttendanceDay({required this.date, required this.today, required this.rows, required this.present,
-      required this.absent, required this.goneHome, required this.notMarked, required this.reportsSent});
+      required this.absent, required this.goneHome, required this.notMarked, required this.reportsSent,
+      this.times = const {}});
   final String date;
   final String today;
   final List<AttendanceRow> rows;
@@ -565,6 +577,15 @@ class AttendanceDay {
   final int goneHome;
   final int notMarked;
   final int reportsSent;
+  /// School timings ("HH:mm"): start, lateAfter, absentAfter, halfDayEnd, fullDayEnd, daycareEnd, autoCheckOutAt.
+  final Map<String, dynamic> times;
+
+  /// When this session ends ("16:30"), for the check-out time suggestion.
+  String? sessionEnd(String sessionType) => switch (sessionType) {
+        'Half day' => times['halfDayEnd'] as String?,
+        'Daycare' => times['daycareEnd'] as String?,
+        _ => times['fullDayEnd'] as String?,
+      };
 
   factory AttendanceDay.fromJson(Map<String, dynamic> j) {
     final s = j['summary'] as Map<String, dynamic>? ?? const {};
@@ -577,6 +598,7 @@ class AttendanceDay {
       goneHome: _i(s['checkedOut']),
       notMarked: _i(s['notMarked']),
       reportsSent: _i(s['reportsPublished']),
+      times: j['times'] is Map<String, dynamic> ? Map<String, dynamic>.from(j['times'] as Map) : const {},
     );
   }
 }

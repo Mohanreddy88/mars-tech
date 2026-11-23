@@ -53,6 +53,18 @@ class SchoolRepository {
   Future<void> setEnabled(bool enabled) =>
       _call(() => _dio.put<void>('school/settings', data: {'enabled': enabled}));
 
+  /// School day timings ("HH:mm" values: start, lateAfter, absentAfter, halfDayEnd, fullDayEnd,
+  /// daycareEnd, autoCheckOutAt) and whether the automatic steps run ('auto').
+  Future<Map<String, dynamic>> schoolTimes() => _call(() async {
+        final r = await _dio.get<Map<String, dynamic>>('school/times');
+        return r.data ?? const {};
+      });
+
+  Future<Map<String, dynamic>> saveSchoolTimes(Map<String, dynamic> times) => _call(() async {
+        final r = await _dio.put<Map<String, dynamic>>('school/times', data: times);
+        return r.data ?? times;
+      });
+
   Future<List<StudentInfo>> students({int? classId}) => _call(() async {
         final r = await _dio.get<List<dynamic>>('school/students',
             queryParameters: {if (classId != null) 'classId': classId});
