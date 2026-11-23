@@ -47,6 +47,24 @@ public class CompanySettings
     /// <summary>Classes, children, parents, announcements and parent messages (schools only).</summary>
     public bool SchoolFeaturesEnabled { get; set; }
 
+    // School day timings ("HH:mm", school local time) — see HrmsApi.Services.SchoolTimes
+    [MaxLength(5)] public string SchoolStart      { get; set; } = "08:30";
+    /// <summary>Checked in after this = "Late"; parents of children not in yet are asked.</summary>
+    [MaxLength(5)] public string SchoolLateAfter  { get; set; } = "09:00";
+    /// <summary>Not checked in by this = marked absent automatically.</summary>
+    [MaxLength(5)] public string SchoolAbsentAfter { get; set; } = "09:30";
+    [MaxLength(5)] public string SchoolHalfDayEnd { get; set; } = "12:30";
+    [MaxLength(5)] public string SchoolFullDayEnd { get; set; } = "16:30";
+    [MaxLength(5)] public string SchoolDaycareEnd { get; set; } = "18:30";
+    /// <summary>Children still checked in by this time are checked out automatically (at their session's end).</summary>
+    [MaxLength(5)] public string SchoolAutoCheckOutAt { get; set; } = "19:00";
+    /// <summary>The automatic reminder / absent / check-out steps run (school days only).</summary>
+    public bool SchoolAutoAttendance { get; set; } = true;
+    // The day each automatic step last ran (so it runs once a day)
+    public DateTime? SchoolRemindedOn     { get; set; }
+    public DateTime? SchoolAutoAbsentOn   { get; set; }
+    public DateTime? SchoolAutoCheckOutOn { get; set; }
+
     /// <summary>
     /// Help chatbot answers with AI (Claude) when the server has an API key: personal questions
     /// ("how much do I owe?") and anything the FAQ list can't answer. Off = FAQ answers only.

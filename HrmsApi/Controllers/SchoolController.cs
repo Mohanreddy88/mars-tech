@@ -120,6 +120,51 @@ public class SchoolController : ControllerBase
         return Ok(new { enabled = settings.SchoolFeaturesEnabled });
     }
 
+    /// <summary>GET /api/school/times — the school day's timings (staff: check-in/out defaults).</summary>
+    [HttpGet("times")]
+    public async Task<IActionResult> GetTimes() => Ok(SchoolTimes.From(await _settings.GetAsync()).ToDto());
+
+    /// <summary>
+    /// PUT /api/school/times — start, late after, absent after, each session's end, the evening
+    /// automatic check-out, and whether the automatic steps run.
+    /// </summary>
+    [HttpPut("times")]
+    [Authorize(Roles = UserAccess.Admin)]
+    public async Task<IActionResult> UpdateTimes([FromBody] SchoolTimesRequest req)
+    {
+        var fields = new (string? value, string field, string label)[]
+        {
+            (req.Start, "start", "School starts"), (req.LateAfter, "lateAfter", "Late after"),
+            (req.AbsentAfter, "absentAfter", "Absent if not in by"), (req.HalfDayEnd, "halfDayEnd", "Half day ends"),
+            (req.FullDayEnd, "fullDayEnd", "Full day ends"), (req.DaycareEnd, "daycareEnd", "Daycare ends"),
+            (req.AutoCheckOutAt, "autoCheckOutAt", "Automatic check-out")
+        };
+        foreach (var (value, field, label) in fields)
+            if (!SchoolTimes.IsValid(value)) return BadRequest(new { message = $"{label}: enter a time like 08:30.", field });
+
+        TimeOnly T(string? v) => SchoolTimes.Parse(v, default);
+        if (T(req.LateAfter) < T(req.Start))
+            return BadRequest(new { message = "\"Late after\" can't be before the school starts.", field = "lateAfter" });
+        if (T(req.AbsentAfter) < T(req.LateAfter))
+            return BadRequest(new { message = "\"Absent if not in by\" must be on or after \"Late after\".", field = "absentAfter" });
+        var latestEnd = new[] { T(req.HalfDayEnd), T(req.FullDayEnd), T(req.DaycareEnd) }.Max();
+        if (new[] { T(req.HalfDayEnd), T(req.FullDayEnd), T(req.DaycareEnd) }.Any(e => e <= T(req.Start)))
+            return BadRequest(new { message = "Each session must end after the school starts.", field = "fullDayEnd" });
+        if (T(req.AutoCheckOutAt) <= latestEnd)
+            return BadRequest(new { message = "The automatic check-out must be after the last session ends.", field = "autoCheckOutAt" });
+
+        var s = await _settings.GetAsync();
+        s.SchoolStart = req.Start!.Trim(); s.SchoolLateAfter = req.LateAfter!.Trim(); s.SchoolAbsentAfter = req.AbsentAfter!.Trim();
+        s.SchoolHalfDayEnd = req.HalfDayEnd!.Trim(); s.SchoolFullDayEnd = req.FullDayEnd!.Trim(); s.SchoolDaycareEnd = req.DaycareEnd!.Trim();
+        s.SchoolAutoCheckOutAt = req.AutoCheckOutAt!.Trim(); s.SchoolAutoAttendance = req.Auto;
+        s.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        await Audit("Updated", "CompanySettings", "1",
+            $"School timings: {s.SchoolStart}, late after {s.SchoolLateAfter}, absent after {s.SchoolAbsentAfter}, " +
+            $"ends {s.SchoolHalfDayEnd}/{s.SchoolFullDayEnd}/{s.SchoolDaycareEnd}, auto check-out {s.SchoolAutoCheckOutAt}, automatic steps {(req.Auto ? "on" : "off")}");
+        return Ok(SchoolTimes.From(s).ToDto());
+    }
+
     // ── Classes ─────────────────────────────────────────────────────
 
     /// <summary>GET /api/school/classes — admins: all classes; class teachers: their own.</summary>
@@ -475,6 +520,19 @@ public class SchoolController : ControllerBase
         _audit.LogAsync(action, entity, id, description, User.Identity?.Name ?? "unknown",
             int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var uid) ? uid : null,
             null, null, HttpContext.Connection.RemoteIpAddress?.ToString());
+}
+
+public class SchoolTimesRequest
+{
+    public string? Start { get; set; }
+    public string? LateAfter { get; set; }
+    public string? AbsentAfter { get; set; }
+    public string? HalfDayEnd { get; set; }
+    public string? FullDayEnd { get; set; }
+    public string? DaycareEnd { get; set; }
+    public string? AutoCheckOutAt { get; set; }
+    /// <summary>Run the automatic reminder / absent / check-out steps.</summary>
+    public bool Auto { get; set; } = true;
 }
 
 public class SchoolSettingsRequest

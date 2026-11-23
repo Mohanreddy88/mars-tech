@@ -23,6 +23,12 @@ public class StudentAttendance
     public string?   PickedUpBy    { get; set; }
     public string?   AbsenceReason { get; set; }
     public DateTime  UpdatedAt     { get; set; } = DateTime.UtcNow;
+    /// <summary>Checked in after the "late after" time.</summary>
+    public bool      IsLate        { get; set; }
+    /// <summary>Marked absent automatically (not checked in by the "absent after" time).</summary>
+    public bool      AutoAbsent    { get; set; }
+    /// <summary>Checked out automatically in the evening (the teacher didn't), at the session's end time.</summary>
+    public bool      AutoCheckOut  { get; set; }
 
     public Student Student { get; set; } = null!;
 }

@@ -96,6 +96,8 @@ public class SchoolDayController : ControllerBase
         {
             date = day.ToString("yyyy-MM-dd"),
             today = SchoolClock.Today.ToString("yyyy-MM-dd"),
+            // Check-out suggests the session's end time; "late after" / "absent after" for the list
+            times = SchoolTimes.From(await _db.CompanySettings.AsNoTracking().FirstOrDefaultAsync() ?? new CompanySettings()).ToDto(),
             rows,
             summary = new
             {
@@ -104,6 +106,7 @@ public class SchoolDayController : ControllerBase
                 checkedOut = attendance.Count(a => a.CheckOutAt != null),
                 absent     = attendance.Count(a => a.Status == StudentAttendance.Absent),
                 notMarked  = rows.Count - attendance.Count,
+                late       = attendance.Count(a => a.IsLate),
                 reportsPublished = reports.Count(r => r.PublishedAt != null)
             }
         });
@@ -124,6 +127,10 @@ public class SchoolDayController : ControllerBase
         a.CheckInAt     = at;
         a.CheckInBy     = me!.Name;
         if (a.CheckOutAt != null && a.CheckOutAt < at) { a.CheckOutAt = null; a.CheckOutBy = null; a.PickedUpBy = null; }
+        // Late when in after the "late after" time; an automatic absence is undone (the child came after all)
+        var times = SchoolTimes.From(await _db.CompanySettings.AsNoTracking().FirstOrDefaultAsync() ?? new CompanySettings());
+        a.IsLate     = SchoolTimes.LocalTimeOf(at) > times.LateAfter;
+        a.AutoAbsent = false;
         a.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
@@ -152,6 +159,7 @@ public class SchoolDayController : ControllerBase
         a.CheckOutAt = at;
         a.CheckOutBy = me!.Name;
         a.PickedUpBy = by.Length > 150 ? by[..150] : by;
+        a.AutoCheckOut = false;
         a.UpdatedAt  = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
@@ -174,6 +182,7 @@ public class SchoolDayController : ControllerBase
         a.Status        = StudentAttendance.Absent;
         a.AbsenceReason = string.IsNullOrWhiteSpace(req.Reason) ? null : req.Reason.Trim();
         a.CheckInAt = null; a.CheckInBy = null; a.CheckOutAt = null; a.CheckOutBy = null; a.PickedUpBy = null;
+        a.IsLate = false; a.AutoAbsent = false; a.AutoCheckOut = false;   // marked by staff
         a.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return Ok(AttendanceDto(a));
@@ -569,7 +578,9 @@ public class SchoolDayController : ControllerBase
         checkIn    = a.CheckInAt == null ? null : SchoolClock.LocalTime(a.CheckInAt.Value),
         a.CheckInBy,
         checkOut   = a.CheckOutAt == null ? null : SchoolClock.LocalTime(a.CheckOutAt.Value),
-        a.CheckOutBy, a.PickedUpBy, a.AbsenceReason
+        a.CheckOutBy, a.PickedUpBy, a.AbsenceReason,
+        // "Late", "Absent (automatic)", "Home (automatic — not checked out by the teacher)"
+        a.IsLate, a.AutoAbsent, a.AutoCheckOut
     };
 
     private static object NoteDto(ParentNote n) => new

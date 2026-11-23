@@ -584,8 +584,55 @@ namespace HrmsApi.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<string>("SchoolAbsentAfter")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<DateTime?>("SchoolAutoAbsentOn")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("SchoolAutoAttendance")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("SchoolAutoCheckOutAt")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<DateTime?>("SchoolAutoCheckOutOn")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("SchoolDaycareEnd")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
                     b.Property<bool>("SchoolFeaturesEnabled")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("SchoolFullDayEnd")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<string>("SchoolHalfDayEnd")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<string>("SchoolLateAfter")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<DateTime?>("SchoolRemindedOn")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("SchoolStart")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
 
                     b.Property<decimal>("SiblingDiscountPercent")
                         .HasPrecision(5, 2)
@@ -2135,6 +2182,12 @@ namespace HrmsApi.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
+                    b.Property<bool>("AutoAbsent")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("AutoCheckOut")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime?>("CheckInAt")
                         .HasColumnType("timestamp without time zone");
 
@@ -2151,6 +2204,9 @@ namespace HrmsApi.Migrations
 
                     b.Property<DateTime>("Date")
                         .HasColumnType("date");
+
+                    b.Property<bool>("IsLate")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("PickedUpBy")
                         .HasMaxLength(150)
