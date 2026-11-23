@@ -91,6 +91,7 @@ class AdminMoreScreen extends ConsumerWidget {
                 HomeTile('Children', Icons.child_care_outlined, TileColors.today, () => open(Routes.schoolChildren)),
                 HomeTile('Parents', Icons.family_restroom_outlined, TileColors.office, () => open(Routes.schoolParents)),
                 HomeTile('Families', Icons.diversity_3_outlined, TileColors.teacher, () => open(Routes.schoolFamilies)),
+                HomeTile('Pick-up people', Icons.how_to_reg_outlined, TileColors.note, () => open(Routes.schoolPickupPeople)),
                 HomeTile('Attendance', Icons.fact_check_outlined, TileColors.attendance, () => open(Routes.schoolAttendance)),
                 HomeTile('Messages', Icons.forum_outlined, TileColors.messages, () => open(Routes.schoolMessages),
                     badge: unread),

@@ -45,6 +45,7 @@ import '../../features/profile/presentation/edit_profile_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/school/presentation/admin_setup_screens.dart';
 import '../../features/school/presentation/families_screen.dart';
+import '../../features/school/presentation/pickup_people_screen.dart';
 import '../../features/school/presentation/announcements_screen.dart';
 import '../../features/school/presentation/child_day_screen.dart';
 import '../../features/assistant/presentation/assistant_screen.dart';
@@ -54,6 +55,7 @@ import '../../features/school/presentation/fees_screens.dart';
 import '../../features/school/presentation/messages_screens.dart';
 import '../../features/school/presentation/parent_home_screen.dart';
 import '../../features/school/presentation/parent_screens.dart';
+import '../../features/school/presentation/parent_account_screen.dart';
 import '../../features/school/presentation/staff_screens.dart';
 
 class Routes {
@@ -127,6 +129,7 @@ class Routes {
   static const schoolChildren = '/school/children';
   static const schoolParents = '/school/parents';
   static const schoolFamilies = '/school/families';
+  static const schoolPickupPeople = '/school/pickup-people';
 
   static const _employeeOnly = [dashboard, payslips, leave, attendance, profile,
       applyLeave, attendancePeriod, editProfile];
@@ -155,7 +158,7 @@ class Routes {
 
   /// Pages a parent login may open.
   static const _parentPages = [parentHome, schoolChat, schoolChild, notifications, changePassword, assistant];
-  static const _adminSchool = [schoolFees, schoolInvoice, schoolClasses, schoolChildren, schoolParents, schoolFamilies];
+  static const _adminSchool = [schoolFees, schoolInvoice, schoolClasses, schoolChildren, schoolParents, schoolFamilies, schoolPickupPeople];
 
   /// The app screen for a page link from a notification (web paths, e.g. "/parent/fees",
   /// "/parent/child/5?date=2026-11-21", "/school/messages?c=12"). Null = no matching screen.
@@ -177,6 +180,9 @@ class Routes {
     if (uri.path == '/school/attendance') return s.isParent ? null : '$schoolAttendance${date != null ? '?date=$date' : ''}';
     // "Chatbot AI answers stopped / work again" (admins)
     if (uri.path == '/master/chatbot') return s.isAdmin ? chatbotAdmin : null;
+    // Pick-up people: the office approves, the parent hears back
+    if (uri.path == '/school/pickup-people') return s.isAdmin ? schoolPickupPeople : null;
+    if (uri.path == '/parent/account') return s.isParent ? parentAccount : null;
     return null;
   }
 
@@ -281,6 +287,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.schoolChildren, builder: (context, state) => const ChildrenScreen()),
       GoRoute(path: Routes.schoolParents, builder: (context, state) => const ParentsScreen()),
       GoRoute(path: Routes.schoolFamilies, builder: (context, state) => const FamiliesScreen()),
+      GoRoute(path: Routes.schoolPickupPeople, builder: (context, state) => const PickupPeopleScreen()),
       GoRoute(
         path: '${Routes.schoolInvoice}/:id',
         builder: (context, state) => InvoiceScreen(invoiceId: int.parse(state.pathParameters['id']!)),

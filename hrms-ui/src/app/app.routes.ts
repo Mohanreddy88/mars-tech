@@ -165,6 +165,9 @@ const companyRoutes: Routes = [
       { path: 'parent/messages',      loadComponent: schoolMessages,      canActivate: [parentOnlyGuard], title: 'Messages' },
       { path: 'parent/child/:id',     loadComponent: parentChild,         canActivate: [parentOnlyGuard], title: 'My Child' },
       { path: 'parent/fees',          loadComponent: parentFees,          canActivate: [parentOnlyGuard], title: 'Fees' },
+      // Bell links from the phone app's features (Account page, pick-up approvals): nearest web page for now
+      { path: 'parent/account',       redirectTo: 'parent', pathMatch: 'full' },
+      { path: 'school/pickup-people', redirectTo: 'school/parents', pathMatch: 'full' },
 
       // Notifications
       { path: 'notifications', component: NotificationsPageComponent },

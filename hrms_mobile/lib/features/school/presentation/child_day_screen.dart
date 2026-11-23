@@ -153,7 +153,7 @@ class _ChildDayScreenState extends ConsumerState<ChildDayScreen> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => _NoteSheet(childId: widget.childId, kind: kind),
+      builder: (_) => ParentNoteSheet(childId: widget.childId, kind: kind),
     );
     if (sent == true) {
       ref.invalidate(_childNotesProvider(widget.childId));
@@ -501,16 +501,16 @@ class _MyNotes extends ConsumerWidget {
 }
 
 /// Parent: absence (one or more days) or someone else picking up.
-class _NoteSheet extends ConsumerStatefulWidget {
-  const _NoteSheet({required this.childId, required this.kind});
+class ParentNoteSheet extends ConsumerStatefulWidget {
+  const ParentNoteSheet({super.key, required this.childId, required this.kind});
   final int childId;
   final String kind;
 
   @override
-  ConsumerState<_NoteSheet> createState() => _NoteSheetState();
+  ConsumerState<ParentNoteSheet> createState() => _ParentNoteSheetState();
 }
 
-class _NoteSheetState extends ConsumerState<_NoteSheet> {
+class _ParentNoteSheetState extends ConsumerState<ParentNoteSheet> {
   late String _from = schoolToday();
   late String _to = schoolToday();
   TimeOfDay? _time;
