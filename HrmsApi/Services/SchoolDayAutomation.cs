@@ -42,19 +42,34 @@ public static class SchoolDayAutomation
                         && !await db.PublicHolidays.AnyAsync(h => h.Date.Date == today);
         if (!schoolDay) return;
 
-        if (now >= times.LateAfter && now < times.AbsentAfter && s.SchoolRemindedOn != today)
+        // Only on days the school is taking attendance (someone checked in): otherwise nobody is
+        // reminded or marked absent — e.g. a day the teachers don't use check-in at all.
+        var takingAttendance = await db.StudentAttendance.AnyAsync(a => a.Date == today && a.CheckInAt != null);
+
+        if (now >= times.LateAfter && now < times.AbsentAfter && s.SchoolRemindedOn != today && takingAttendance)
         {
             s.SchoolRemindedOn = today;
             await db.SaveChangesAsync();
             await RemindParentsAsync(db, push, live, times, today, logger);
         }
 
-        if (now >= times.AbsentAfter && now < times.AutoCheckOutAt && s.SchoolAutoAbsentOn != today)
+        if (now >= times.AbsentAfter && s.SchoolAutoAbsentOn != today)
         {
-            s.SchoolAutoAbsentOn = today;
-            s.SchoolRemindedOn ??= today;   // past the reminder time too
-            await db.SaveChangesAsync();
-            await MarkAbsentAsync(db, push, live, times, today, logger);
+            // Never mark a whole day absent after the fact (server started or updated late in the day)
+            var windowEnd = times.AbsentAfter.AddHours(2);
+            if (windowEnd < times.AbsentAfter) windowEnd = new TimeOnly(23, 59);   // past midnight
+            if (now >= windowEnd || now >= times.AutoCheckOutAt)
+            {
+                s.SchoolAutoAbsentOn = today;
+                await db.SaveChangesAsync();
+            }
+            else if (takingAttendance)
+            {
+                s.SchoolAutoAbsentOn = today;
+                s.SchoolRemindedOn ??= today;   // past the reminder time too
+                await db.SaveChangesAsync();
+                await MarkAbsentAsync(db, push, live, times, today, logger);
+            }
         }
     }
 

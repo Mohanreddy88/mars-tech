@@ -85,6 +85,27 @@ public class SchoolDayAutomationTests
     }
 
     [Fact]
+    public async Task No_one_is_marked_absent_after_the_fact_or_on_a_day_nobody_takes_attendance()
+    {
+        // Server updated at 4pm: the 9:30 step is skipped for today, not run late
+        var late = Setup();
+        await Run(late, At(16, 0));
+        late.StudentAttendance.Count(a => a.Status == StudentAttendance.Absent).Should().Be(0);
+        late.Notifications.Should().BeEmpty();
+        await Run(late, At(16, 5));
+        late.StudentAttendance.Count(a => a.Status == StudentAttendance.Absent).Should().Be(0, "today is done");
+
+        // Nobody checked in (attendance not taken today): no reminders, no absences
+        var unused = Setup();
+        unused.StudentAttendance.RemoveRange(unused.StudentAttendance);
+        unused.SaveChanges();
+        await Run(unused, At(9, 5));
+        await Run(unused, At(9, 35));
+        unused.StudentAttendance.Should().BeEmpty();
+        unused.Notifications.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task Nothing_happens_on_weekends_holidays_or_when_switched_off()
     {
         var saturday = Setup();
