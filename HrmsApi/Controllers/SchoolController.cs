@@ -227,9 +227,11 @@ public class SchoolController : ControllerBase
         if (classId != null) q = q.Where(s => s.ClassId == classId);
         if (!includeInactive) q = q.Where(s => s.IsActive);
 
-        return Ok(await q.OrderBy(s => s.Class != null ? s.Class.SortOrder : int.MaxValue)
+        var list = await q.OrderBy(s => s.Class != null ? s.Class.SortOrder : int.MaxValue)
             .ThenBy(s => s.Class != null ? s.Class.Name : "").ThenBy(s => s.FullName)
-            .Select(StudentDetail).ToListAsync());
+            .Select(StudentDetail).ToListAsync();
+        if (me.IsAdmin) await FillSiblingsAsync(list);
+        return Ok(list);
     }
 
     /// <summary>GET /api/school/students/{id} — one child (admin, their class teacher or their parent).</summary>
@@ -241,7 +243,44 @@ public class SchoolController : ControllerBase
         var s = await StudentQuery().Where(x => x.Id == id).Select(StudentDetail).FirstOrDefaultAsync();
         if (s == null) throw new KeyNotFoundException("Child not found.");
         if (me == null || !me.CanSeeStudent(s.Id, s.ClassId)) return Forbid();
+        if (me.IsAdmin) await FillSiblingsAsync(new List<StudentDto> { s });
         return Ok(s);
+    }
+
+    /// <summary>
+    /// Siblings = other children who share a mother, father or guardian (admins only: a parent must
+    /// not see the names of a half-sibling's other family). Worked out from the parent links.
+    /// </summary>
+    private async Task FillSiblingsAsync(List<StudentDto> list)
+    {
+        var parentIds = list.SelectMany(s => s.Parents).Select(p => p.Id).Distinct().ToList();
+        if (parentIds.Count == 0) return;
+        var links = await _db.StudentParents.AsNoTracking().Where(sp => parentIds.Contains(sp.ParentId))
+            .Select(sp => new
+            {
+                sp.StudentId, sp.ParentId, sp.Parent.Relationship, sp.Student.FullName, sp.Student.IsActive,
+                ClassName = sp.Student.Class != null ? sp.Student.Class.Name : null
+            }).ToListAsync();
+
+        foreach (var s in list)
+        {
+            var mine = s.Parents.Select(p => p.Id).ToHashSet();
+            s.Siblings = links.Where(l => l.StudentId != s.Id && mine.Contains(l.ParentId))
+                .GroupBy(l => l.StudentId)
+                .Select(g =>
+                {
+                    var rels = g.Select(l => l.Relationship).ToHashSet();
+                    var f = g.First();
+                    return new SiblingDto
+                    {
+                        Id = f.StudentId, FullName = f.FullName, ClassName = f.ClassName, IsActive = f.IsActive,
+                        Via = rels.Contains("Mother") && rels.Contains("Father") ? "Same parents"
+                            : rels.Contains("Mother") ? "Same mother"
+                            : rels.Contains("Father") ? "Same father" : "Same guardian"
+                    };
+                })
+                .OrderBy(x => x.FullName).ToList();
+        }
     }
 
     [HttpPost("students")]
@@ -473,6 +512,18 @@ public class StudentDto
     public string? Notes { get; set; }
     public bool IsActive { get; set; }
     public List<StudentParentDto> Parents { get; set; } = new();
+    /// <summary>Children sharing a parent (admins only; empty for others).</summary>
+    public List<SiblingDto> Siblings { get; set; } = new();
+}
+
+public class SiblingDto
+{
+    public int Id { get; set; }
+    public string FullName { get; set; } = "";
+    public string? ClassName { get; set; }
+    public bool IsActive { get; set; }
+    /// <summary>"Same parents", "Same mother", "Same father" or "Same guardian".</summary>
+    public string Via { get; set; } = "";
 }
 
 public class StudentParentDto

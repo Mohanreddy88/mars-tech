@@ -1,6 +1,8 @@
 using System.Net;
 using System.Text.RegularExpressions;
+using HrmsApi.Platform;
 using HrmsApi.Services;
+using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -18,10 +20,29 @@ public class PublicController : ControllerBase
     private readonly IEmailQueue? _email;
     private readonly IConfiguration _config;
     private readonly ILogger<PublicController> _logger;
+    private readonly TenantCatalog _catalog;
+    private readonly TenancyOptions _tenancy;
 
-    public PublicController(IConfiguration config, ILogger<PublicController> logger, IEmailQueue? email = null)
+    public PublicController(IConfiguration config, ILogger<PublicController> logger, TenantCatalog catalog,
+        IOptions<TenancyOptions> tenancy, IEmailQueue? email = null)
     {
-        _config = config; _logger = logger; _email = email;
+        _config = config; _logger = logger; _email = email; _catalog = catalog; _tenancy = tenancy.Value;
+    }
+
+    /// <summary>
+    /// GET /api/public/companies — active companies (name and code only) for the mobile app's
+    /// company picker. Each company's address is &lt;code&gt;.marshrms.com (UAT: &lt;code&gt;.uat.marshrms.com).
+    /// Nothing else about a company is shown. Empty when companies are switched off (local dev).
+    /// </summary>
+    [HttpGet("companies")]
+    [ResponseCache(Duration = 60)]
+    public async Task<IActionResult> Companies()
+    {
+        if (!_tenancy.Enabled) return Ok(Array.Empty<object>());
+        var all = await _catalog.AllAsync();
+        return Ok(all.Where(t => t.Status == TenantStatus.Active)
+                     .OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
+                     .Select(t => new { code = t.Slug, name = t.Name }));
     }
 
     private static readonly Regex EmailPattern = new(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.Compiled);

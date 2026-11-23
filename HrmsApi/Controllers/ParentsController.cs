@@ -45,7 +45,11 @@ public class ParentsController : ControllerBase
                 children = p.Children.Select(c => new
                 {
                     id = c.StudentId, fullName = c.Student.FullName, isActive = c.Student.IsActive,
-                    className = c.Student.Class != null ? c.Student.Class.Name : null
+                    className = c.Student.Class != null ? c.Student.Class.Name : null,
+                    // The child's other parents, so a wrong link stands out ("Rudvik, with Mohan")
+                    otherParents = c.Student.Parents.Where(o => o.ParentId != p.Id)
+                        .Select(o => new { id = o.ParentId, fullName = o.Parent.FullName, relationship = o.Parent.Relationship })
+                        .ToList()
                 }).ToList()
             }).ToListAsync());
     }

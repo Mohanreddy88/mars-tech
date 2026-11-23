@@ -307,6 +307,32 @@ public class SchoolDayAndFeesTests
     }
 
     [Fact]
+    public async Task No_different_pickup_on_an_absent_day_and_an_absence_cancels_pickups()
+    {
+        var db = Setup();
+        var (mum, _) = Day(db, MumUser, SchoolViewer.ParentRole);
+        var tomorrow = Today.AddDays(1);
+        ParentNoteRequest Pickup(DateTime d) => new() { StudentId = Ali, Kind = ParentNote.Pickup, FromDate = d, PickupName = "Aunty" };
+
+        // A pickup tomorrow, then an absence covering it: the pickup is cancelled
+        (await mum.CreateNote(Pickup(tomorrow))).Should().BeOfType<OkObjectResult>();
+        (await mum.CreateNote(new ParentNoteRequest { StudentId = Ali, Kind = ParentNote.Absence, FromDate = Today, ToDate = tomorrow }))
+            .Should().BeOfType<OkObjectResult>();
+        db.ParentNotes.Single(n => n.Kind == ParentNote.Pickup).CancelledAt.Should().NotBeNull();
+
+        // And no new pickup while the absence stands
+        Message(await mum.CreateNote(Pickup(tomorrow))).Should().Contain("reported absent");
+
+        // The teacher marked her absent today (no note): no pickup either
+        var (tan, _) = Day(db, TanUser, "Employee");
+        foreach (var n in db.ParentNotes) n.CancelledAt ??= DateTime.UtcNow;
+        db.SaveChanges();
+        await tan.MarkAbsent(Ali, new AbsentRequest());
+        Message(await mum.CreateNote(Pickup(Today))).Should().Contain("marked absent");
+        (await mum.CreateNote(Pickup(tomorrow))).Should().BeOfType<OkObjectResult>("tomorrow she is at school again");
+    }
+
+    [Fact]
     public async Task Parents_see_the_daily_report_only_after_it_is_sent()
     {
         var db = Setup();
