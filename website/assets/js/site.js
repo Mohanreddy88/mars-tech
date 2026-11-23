@@ -133,23 +133,90 @@
     if (kind && form.elements.kind) form.elements.kind.value = kind;
   }
 
-  // ── Sign in: company code → https://<code>.<domain> ──────────────────────
+  // ── Sign in: pick the company → https://<code>.<domain>/login ────────────
+  // The list (name + code of active companies) comes from GET /api/public/companies. The address,
+  // live or UAT, is never shown. If the list can't load, a typed company code still works.
   var signin = document.getElementById('signin-form');
   if (signin) {
-    var suffix = signin.querySelector('[data-domain]');
-    if (suffix) suffix.textContent = '.' + appDomain;
-    var input = signin.querySelector('input[name=code]');
+    var input = signin.querySelector('input[name=company]');
+    var listEl = document.getElementById('company-list');
     var err = signin.querySelector('.form-msg');
-    var saved = '';
-    try { saved = localStorage.getItem('marshrms.code') || ''; } catch (e) { /* private mode */ }
-    if (saved && input && !input.value) input.value = saved;
+    var companies = [], shown = [], active = -1, chosen = null;
+
+    function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); }
+    function close() { listEl.hidden = true; input.setAttribute('aria-expanded', 'false'); active = -1; }
+    function choose(c) {
+      chosen = c; input.value = c.name; close();
+      err.className = 'form-msg'; err.textContent = '';
+    }
+    function render() {
+      var q = input.value.trim().toLowerCase();
+      shown = companies.filter(function (c) { return !q || c.name.toLowerCase().indexOf(q) >= 0 || c.code.indexOf(q) >= 0; });
+      if (!companies.length) { close(); return; }
+      listEl.innerHTML = shown.length
+        ? shown.map(function (c, i) {
+            return '<li role="option" id="co-' + i + '" data-i="' + i + '"' + (i === active ? ' aria-selected="true" class="active"' : '') +
+                   '><span class="co-av">' + esc(c.name.charAt(0).toUpperCase()) + '</span>' + esc(c.name) + '</li>';
+          }).join('')
+        : '<li class="none">No company or school matches "' + esc(input.value.trim()) + '"</li>';
+      listEl.hidden = false;
+      input.setAttribute('aria-expanded', 'true');
+      if (active >= 0) input.setAttribute('aria-activedescendant', 'co-' + active); else input.removeAttribute('aria-activedescendant');
+    }
+
+    fetch('/api/public/companies', { headers: { Accept: 'application/json' } })
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (list) {
+        companies = (list || []).filter(function (c) { return c && c.code; })
+          .map(function (c) { return { code: String(c.code), name: String(c.name || c.code) }; });
+        var saved = '';
+        try { saved = localStorage.getItem('marshrms.code') || ''; } catch (e) { /* private mode */ }
+        var prev = companies.filter(function (c) { return c.code === saved; })[0];
+        if (prev && !input.value) choose(prev);
+        if (document.activeElement === input) render();
+      })
+      .catch(function () { /* no list: a typed code still works */ });
+
+    input.addEventListener('input', function () { chosen = null; active = -1; render(); });
+    input.addEventListener('focus', render);
+    input.addEventListener('click', render);
+    input.addEventListener('keydown', function (ev) {
+      if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+        if (!shown.length) return;
+        ev.preventDefault();
+        active = ev.key === 'ArrowDown' ? Math.min(active + 1, shown.length - 1) : Math.max(active - 1, 0);
+        render();
+      } else if (ev.key === 'Enter' && !listEl.hidden && active >= 0 && shown[active]) {
+        ev.preventDefault();
+        choose(shown[active]);
+      } else if (ev.key === 'Escape') {
+        close();
+      }
+    });
+    listEl.addEventListener('mousedown', function (ev) {
+      var li = ev.target.closest('li[data-i]');
+      if (li) { ev.preventDefault(); choose(shown[+li.getAttribute('data-i')]); }
+    });
+    document.addEventListener('click', function (ev) { if (!signin.contains(ev.target)) close(); });
+
     signin.addEventListener('submit', function (ev) {
       ev.preventDefault();
-      var code = (input.value || '').trim().toLowerCase().replace(/\s+/g, '');
-      code = code.replace(/^https?:\/\//, '').split('.')[0];
-      if (!/^[a-z0-9][a-z0-9-]{1,40}$/.test(code)) {
+      var text = input.value.trim().toLowerCase();
+      // A name typed in full (not clicked) counts as chosen too
+      var c = chosen || companies.filter(function (x) { return x.name.toLowerCase() === text || x.code === text; })[0];
+      if (!c && shown.length === 1 && text) c = shown[0];
+      var code = c ? c.code : '';
+      if (!code && !companies.length) {
+        // The list didn't load: accept a typed company code
+        var typed = text.replace(/\s+/g, '').replace(/^https?:\/\//, '').split('.')[0];
+        if (/^[a-z0-9][a-z0-9-]{1,40}$/.test(typed)) code = typed;
+      }
+      if (!code) {
         err.className = 'form-msg err';
-        err.textContent = 'Enter your company or school code, e.g. "goldenkids". Your administrator can tell you.';
+        err.textContent = companies.length
+          ? 'Choose your company or school from the list. Your administrator can tell you which one.'
+          : 'Enter your company or school code. Your administrator can tell you.';
+        render();
         return;
       }
       try { localStorage.setItem('marshrms.code', code); } catch (e) { /* ignore */ }
