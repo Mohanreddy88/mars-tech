@@ -52,8 +52,8 @@
               </td>
               <td>
                 @if (c.classTeacherName) { {{ c.classTeacherName }} <span class="cell-sub">(lead)</span> }
-                @for (n of c.teacherNames ?? []; track n) { <div class="cell-sub">{{ n }}</div> }
                 @else { <span class="tag warn">No teacher</span> }
+                @for (n of c.teacherNames ?? []; track n) { <div class="cell-sub">{{ n }}</div> }
               </td>
               <td>
                 <a class="count-badge text-decoration-none" [routerLink]="['/school/students']" [queryParams]="{ classId: c.id }">
