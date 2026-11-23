@@ -57,6 +57,33 @@ public class ParentNote
     public Student Student { get; set; } = null!;
 }
 
+/// <summary>
+/// Someone besides the parents who may collect a child regularly (grandparent, driver…). A parent
+/// adds them in the app; they count only once the office approves. One per child.
+/// </summary>
+public class PickupPerson
+{
+    public const string Pending = "Pending", Approved = "Approved", Rejected = "Rejected";
+
+    public int       Id              { get; set; }
+    public int       StudentId       { get; set; }
+    public string    FullName        { get; set; } = string.Empty;
+    /// <summary>"Grandmother", "Driver", "Aunt"…</summary>
+    public string    Relationship    { get; set; } = string.Empty;
+    public string?   Phone           { get; set; }
+    public string?   Note            { get; set; }
+    public string    Status          { get; set; } = Pending;
+    public int       AddedByUserId   { get; set; }
+    public string    AddedByName     { get; set; } = string.Empty;
+    public DateTime  CreatedAt       { get; set; } = DateTime.UtcNow;
+    public DateTime? DecidedAt       { get; set; }
+    public string?   DecidedByName   { get; set; }
+    /// <summary>Why the office said no (shown to the parent).</summary>
+    public string?   RejectReason    { get; set; }
+
+    public Student Student { get; set; } = null!;
+}
+
 /// <summary>The teacher's report on a child's day. Parents see it once published.</summary>
 public class DailyReport
 {

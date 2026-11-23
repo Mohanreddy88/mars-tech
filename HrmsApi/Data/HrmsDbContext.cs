@@ -44,6 +44,7 @@ public class HrmsDbContext : DbContext
     public DbSet<ConversationRead>      ConversationReads     => Set<ConversationRead>();
     public DbSet<StudentAttendance>     StudentAttendance     => Set<StudentAttendance>();
     public DbSet<ParentNote>            ParentNotes           => Set<ParentNote>();
+    public DbSet<PickupPerson>          PickupPeople          => Set<PickupPerson>();
     public DbSet<DailyReport>           DailyReports          => Set<DailyReport>();
     public DbSet<DailyReportPhoto>      DailyReportPhotos     => Set<DailyReportPhoto>();
     public DbSet<FeeItem>               FeeItems              => Set<FeeItem>();
@@ -499,6 +500,22 @@ public class HrmsDbContext : DbContext
             e.Property(x => x.AbsenceReason).HasMaxLength(300);
             e.HasIndex(x => new { x.StudentId, x.Date }).IsUnique();
             e.HasIndex(x => x.Date);
+            e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PickupPerson>(e =>
+        {
+            e.ToTable("PickupPeople");
+            e.Property(x => x.FullName).IsRequired().HasMaxLength(150);
+            e.Property(x => x.Relationship).IsRequired().HasMaxLength(50);
+            e.Property(x => x.Phone).HasMaxLength(30);
+            e.Property(x => x.Note).HasMaxLength(300);
+            e.Property(x => x.Status).IsRequired().HasMaxLength(20);
+            e.Property(x => x.AddedByName).IsRequired().HasMaxLength(150);
+            e.Property(x => x.DecidedByName).HasMaxLength(150);
+            e.Property(x => x.RejectReason).HasMaxLength(300);
+            e.HasIndex(x => new { x.StudentId, x.Status });
+            e.HasIndex(x => x.Status);
             e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
         });
 

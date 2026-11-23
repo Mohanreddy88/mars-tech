@@ -70,6 +70,10 @@ public class SchoolDayController : ControllerBase
         var reports = await _db.DailyReports.AsNoTracking()
             .Where(r => r.Date == day && ids.Contains(r.StudentId))
             .Select(r => new { r.StudentId, r.PublishedAt, photos = r.Photos.Count, r.Mood }).ToListAsync();
+        // People the office approved to collect a child (offered at check-out with the parents)
+        var pickups = await _db.PickupPeople.AsNoTracking()
+            .Where(p => ids.Contains(p.StudentId) && p.Status == PickupPerson.Approved)
+            .Select(p => new { p.StudentId, p.FullName, p.Relationship, p.Phone }).ToListAsync();
 
         var rows = kids.Select(k =>
         {
@@ -77,7 +81,11 @@ public class SchoolDayController : ControllerBase
             var r = reports.FirstOrDefault(x => x.StudentId == k.Id);
             return new
             {
-                studentId = k.Id, k.FullName, k.ClassId, k.className, k.SessionType, k.MedicalNotes, k.parents,
+                studentId = k.Id, k.FullName, k.ClassId, k.className, k.SessionType, k.MedicalNotes,
+                parents = k.parents.Concat(pickups.Where(p => p.StudentId == k.Id).Select(p => new
+                {
+                    p.FullName, Relationship = $"{p.Relationship} · approved pick-up", p.Phone
+                })).ToList(),
                 attendance = a == null ? null : AttendanceDto(a),
                 notes = notes.Where(n => n.StudentId == k.Id).Select(NoteDto).ToList(),
                 report = r == null ? null : new { published = r.PublishedAt != null, r.photos, r.Mood }
