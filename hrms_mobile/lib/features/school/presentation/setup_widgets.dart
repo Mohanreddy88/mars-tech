@@ -202,6 +202,7 @@ class ParentSlot extends StatelessWidget {
     required this.selectedId,
     required this.onChanged,
     required this.onAddNew,
+    this.label,
   });
 
   /// "Mother" or "Father".
@@ -211,6 +212,8 @@ class ParentSlot extends StatelessWidget {
   final ValueChanged<int?> onChanged;
   /// Opens the parent form for a new mother/father; returns the new parent's id.
   final Future<int?> Function() onAddNew;
+  /// Box label (default: the relationship), e.g. "Mother *".
+  final String? label;
 
   @override
   Widget build(BuildContext context) {
@@ -262,7 +265,7 @@ class ParentSlot extends StatelessWidget {
       child: InputDecorator(
         isEmpty: selected == null,
         decoration: InputDecoration(
-          labelText: relationship,
+          labelText: label ?? relationship,
           hintText: 'Not set — tap to choose or add',
           prefixIcon: Icon(relationship == 'Mother' ? Icons.face_3_outlined : Icons.face_6_outlined),
           suffixIcon: const Icon(Icons.arrow_drop_down),
@@ -273,5 +276,65 @@ class ParentSlot extends StatelessWidget {
                 overflow: TextOverflow.ellipsis),
       ),
     );
+  }
+}
+
+/// A required parent box ("Mother" / "Father") with "No mother on record" under it for single
+/// parents. Ticking the box hides the picker: the child is saved with only the other parent.
+class RequiredParentSlot extends StatelessWidget {
+  const RequiredParentSlot({
+    super.key,
+    required this.relationship,
+    required this.parents,
+    required this.selectedId,
+    required this.none,
+    required this.onChanged,
+    required this.onNoneChanged,
+    required this.onAddNew,
+    this.error,
+  });
+
+  /// "Mother" or "Father".
+  final String relationship;
+  final List<ParentRecord> parents;
+  final int? selectedId;
+  /// "No mother / father on record" is ticked.
+  final bool none;
+  final ValueChanged<int?> onChanged;
+  final ValueChanged<bool> onNoneChanged;
+  final Future<int?> Function() onAddNew;
+  /// Shown under the picker, e.g. "Choose the father, or tick No father on record".
+  final String? error;
+
+  @override
+  Widget build(BuildContext context) {
+    final lower = relationship.toLowerCase();
+    final other = relationship == 'Mother' ? 'father' : 'mother';
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (!none) ...[
+        ParentSlot(
+          relationship: relationship,
+          label: '$relationship *',
+          parents: parents,
+          selectedId: selectedId,
+          onChanged: onChanged,
+          onAddNew: onAddNew,
+        ),
+        if (error != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+            child: Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12)),
+          ),
+      ],
+      CheckboxListTile(
+        contentPadding: EdgeInsets.zero,
+        dense: true,
+        controlAffinity: ListTileControlAffinity.leading,
+        value: none,
+        title: Text('No $lower on record'),
+        subtitle: Text('Single $other: only the $other is linked'),
+        onChanged: (v) => onNoneChanged(v ?? false),
+      ),
+    ]);
   }
 }

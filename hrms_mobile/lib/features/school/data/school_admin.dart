@@ -69,7 +69,7 @@ class ChildRecord {
   const ChildRecord({required this.id, required this.fullName, this.admissionNo, this.dateOfBirth, this.gender,
       this.classId, this.className, required this.sessionType, this.joinedOn, this.medicalNotes,
       this.emergencyContactName, this.emergencyContactPhone, this.notes, required this.isActive, required this.parents,
-      this.siblings = const []});
+      this.siblings = const [], this.noMotherOnRecord = false, this.noFatherOnRecord = false});
   final int id;
   final String fullName;
   final String? admissionNo;
@@ -86,6 +86,9 @@ class ChildRecord {
   final bool isActive;
   final List<StudentParentRef> parents;
   final List<SiblingRef> siblings;
+  /// Single parent confirmed by the office: no mother / father to record.
+  final bool noMotherOnRecord;
+  final bool noFatherOnRecord;
 
   StudentParentRef? get mother => parents.where((p) => p.relationship == 'Mother').firstOrNull;
   StudentParentRef? get father => parents.where((p) => p.relationship == 'Father').firstOrNull;
@@ -109,6 +112,8 @@ class ChildRecord {
         isActive: j['isActive'] as bool? ?? true,
         parents: _list(j['parents'], StudentParentRef.fromJson),
         siblings: _list(j['siblings'], SiblingRef.fromJson),
+        noMotherOnRecord: j['noMotherOnRecord'] as bool? ?? false,
+        noFatherOnRecord: j['noFatherOnRecord'] as bool? ?? false,
       );
 }
 
@@ -152,7 +157,12 @@ class ParentRecord {
 /// A mother and/or father and the children they share (GET school/families). Both null = children
 /// with no mother or father linked yet.
 class FamilyRecord {
-  const FamilyRecord({this.mother, this.father, required this.children});
+  const FamilyRecord({this.mother, this.father, required this.children, this.noMother = false, this.noFather = false});
+  /// Single parent confirmed by the office ("no mother / father on record"), not a gap to fill.
+  final bool noMother;
+  final bool noFather;
+  /// A mother or father is missing and nobody confirmed it.
+  bool get incomplete => (mother == null && !noMother) || (father == null && !noFather);
   final ({int id, String fullName, String? phone, bool hasLogin})? mother;
   final ({int id, String fullName, String? phone, bool hasLogin})? father;
   final List<({int id, String fullName, String? className, bool isActive, List<String> guardians})> children;
@@ -167,6 +177,8 @@ class FamilyRecord {
   factory FamilyRecord.fromJson(Map<String, dynamic> j) => FamilyRecord(
         mother: _parent(j['mother']),
         father: _parent(j['father']),
+        noMother: j['noMother'] == true,
+        noFather: j['noFather'] == true,
         children: _list(j['children'], (c) {
           dynamic g(String k) => c[k] ?? c[k[0].toUpperCase() + k.substring(1)];
           return (
@@ -304,12 +316,15 @@ class SchoolAdminRepository {
       });
 
   /// Sets [motherId] / [fatherId] for [studentIds]; [removeStudentIds] are taken out of the family.
-  Future<void> saveFamily({int? motherId, int? fatherId, required List<int> studentIds, List<int> removeStudentIds = const []}) =>
+  Future<void> saveFamily({int? motherId, int? fatherId, required List<int> studentIds, List<int> removeStudentIds = const [],
+          bool noMother = false, bool noFather = false}) =>
       _call(() => _dio.put<void>('school/families', data: {
             'motherId': motherId,
             'fatherId': fatherId,
             'studentIds': studentIds,
             'removeStudentIds': removeStudentIds,
+            'noMother': noMother,
+            'noFather': noFather,
           }));
   Future<String> inviteParent(int id) => _call(() async {
         final r = await _dio.post<Map<String, dynamic>>('school/parents/$id/invite');

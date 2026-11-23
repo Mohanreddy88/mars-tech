@@ -108,6 +108,56 @@ public class FamiliesTests
             .Should().Contain("at least one child");
     }
 
+    private SchoolController School(HrmsDbContext db) =>
+        new(db, new Settings(db), new NoAudit()) { ControllerContext = AdminContext() };
+
+    [Fact]
+    public async Task A_new_child_needs_a_mother_and_a_father_unless_single_parent_is_ticked()
+    {
+        var db = Setup();
+        StudentRequest Child(List<int> parents, bool noMother = false, bool noFather = false) => new()
+        {
+            FullName = "Meera", ParentIds = parents, NoMotherOnRecord = noMother, NoFatherOnRecord = noFather
+        };
+
+        Message(await School(db).CreateStudent(Child(new() { Mounika }))).Should().Contain("No father on record");
+        Message(await School(db).CreateStudent(Child(new() { Mohan }))).Should().Contain("No mother on record");
+
+        // Single mother: ticked, so no father is needed, and it's remembered
+        (await School(db).CreateStudent(Child(new() { Mounika }, noFather: true))).Should().BeOfType<OkObjectResult>();
+        var meera = db.Students.AsNoTracking().Single(s => s.FullName == "Meera");
+        meera.NoFatherOnRecord.Should().BeTrue();
+
+        // A father linked later clears "no father on record"
+        await Families(db).Save(new FamilyRequest { MotherId = Mounika, FatherId = Mohan, StudentIds = new() { meera.Id }, NoMother = false, NoFather = false });
+        db.Students.AsNoTracking().Single(s => s.Id == meera.Id).NoFatherOnRecord.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Old_clients_that_dont_send_the_ticks_are_not_blocked()
+    {
+        var db = Setup();
+        (await School(db).CreateStudent(new StudentRequest { FullName = "Web child", ParentIds = new() { Mounika } }))
+            .Should().BeOfType<OkObjectResult>();
+    }
+
+    [Fact]
+    public async Task A_family_marked_no_father_takes_off_a_wrong_father_and_shows_as_single_mother()
+    {
+        var db = Setup();
+        Message(await Families(db).Save(new FamilyRequest { MotherId = Mounika, StudentIds = new() { Arjun }, NoMother = false, NoFather = false }))
+            .Should().Contain("No father on record");
+
+        (await Families(db).Save(new FamilyRequest { MotherId = Mounika, StudentIds = new() { Arjun }, NoMother = false, NoFather = true }))
+            .Should().BeOfType<OkObjectResult>();
+        ParentsOf(db, Arjun).Should().BeEquivalentTo(new[] { Mounika });
+        db.Students.AsNoTracking().Single(s => s.Id == Arjun).NoFatherOnRecord.Should().BeTrue();
+
+        var list = JsonDocument.Parse(JsonSerializer.Serialize(((OkObjectResult)await Families(db).GetAll()).Value)).RootElement;
+        list.EnumerateArray().Should().Contain(f => f.GetProperty("noFather").GetBoolean()
+            && f.GetProperty("children").EnumerateArray().Any(c => c.GetProperty("Id").GetInt32() == Arjun));
+    }
+
     [Fact]
     public async Task Admins_see_siblings_and_how_they_are_related()
     {

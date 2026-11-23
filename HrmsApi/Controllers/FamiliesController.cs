@@ -42,7 +42,7 @@ public class FamiliesController : ControllerBase
         var children = await _db.Students.AsNoTracking()
             .Select(s => new
             {
-                s.Id, s.FullName, s.IsActive,
+                s.Id, s.FullName, s.IsActive, s.NoMotherOnRecord, s.NoFatherOnRecord,
                 className = s.Class != null ? s.Class.Name : null,
                 parents = s.Parents.Select(sp => new { sp.Parent.Id, sp.Parent.FullName, sp.Parent.Relationship,
                                                        sp.Parent.Phone, hasLogin = sp.Parent.UserId != null }).ToList()
@@ -55,11 +55,16 @@ public class FamiliesController : ControllerBase
                 mother = c.parents.FirstOrDefault(p => p.Relationship == "Mother"),
                 father = c.parents.FirstOrDefault(p => p.Relationship == "Father")
             })
-            .GroupBy(x => (motherId: x.mother?.Id, fatherId: x.father?.Id))
+            // "No father on record" (single mother) is its own family, apart from "father not set yet"
+            .GroupBy(x => (motherId: x.mother?.Id, fatherId: x.father?.Id,
+                           noMother: x.mother == null && x.child.NoMotherOnRecord, noFather: x.father == null && x.child.NoFatherOnRecord))
             .Select(g => new
             {
                 mother = g.First().mother,
                 father = g.First().father,
+                // Single parent confirmed by the office (not a mistake to fix)
+                noMother = g.Key.noMother,
+                noFather = g.Key.noFather,
                 children = g.OrderBy(x => x.child.FullName).Select(x => new
                 {
                     x.child.Id, x.child.FullName, x.child.className, x.child.IsActive,
@@ -68,7 +73,7 @@ public class FamiliesController : ControllerBase
                 }).ToList()
             })
             // Families with both parents first, then one parent, then children with none
-            .OrderBy(f => (f.mother == null ? 1 : 0) + (f.father == null ? 1 : 0))
+            .OrderBy(f => (f.mother == null && !f.noMother ? 1 : 0) + (f.father == null && !f.noFather ? 1 : 0))
             .ThenBy(f => f.mother?.FullName ?? f.father?.FullName ?? "")
             .ToList();
 
@@ -89,6 +94,11 @@ public class FamiliesController : ControllerBase
         var remove = (req.RemoveStudentIds ?? new()).Distinct().Where(id => !add.Contains(id)).ToList();
         if (req.MotherId == null && req.FatherId == null)
             return BadRequest(new { message = "Choose the mother, the father or both.", field = "motherId" });
+        // Apps that send NoMother/NoFather: both parents are required unless "no … on record" is ticked
+        if (req.NoMother == false && req.MotherId == null && add.Count > 0)
+            return BadRequest(new { message = "Choose the mother, or tick \"No mother on record\".", field = "motherId" });
+        if (req.NoFather == false && req.FatherId == null && add.Count > 0)
+            return BadRequest(new { message = "Choose the father, or tick \"No father on record\".", field = "fatherId" });
         if (add.Count == 0 && remove.Count == 0)
             return BadRequest(new { message = "Add at least one child to the family.", field = "studentIds" });
 
@@ -111,7 +121,8 @@ public class FamiliesController : ControllerBase
         }
 
         var allIds = add.Concat(remove).ToList();
-        var students = await _db.Students.Where(s => allIds.Contains(s.Id)).Select(s => new { s.Id, s.FullName }).ToListAsync();
+        var kids = await _db.Students.Where(s => allIds.Contains(s.Id)).ToListAsync();
+        var students = kids.Select(s => new { s.Id, s.FullName }).ToList();
         if (students.Count != allIds.Count)
             return BadRequest(new { message = "One of the chosen children no longer exists. Reload the page.", field = "studentIds" });
 
@@ -134,6 +145,20 @@ public class FamiliesController : ControllerBase
                     if (old.Count == 0) changes.Add($"{Name(sid)}: {relationship.ToLower()} {chosen.FullName}");
                 }
             }
+
+            // Single parent: no mother / father on record — any linked one is taken off, and it's recorded
+            var kid = kids.First(k => k.Id == sid);
+            foreach (var (none, relationship) in new[] { (req.NoMother == true && mother == null, "Mother"), (req.NoFather == true && father == null, "Father") })
+            {
+                if (!none) continue;
+                var old = links.Where(l => l.StudentId == sid && l.Parent.Relationship == relationship).ToList();
+                foreach (var l in old) changes.Add($"{Name(sid)}: removed {relationship.ToLower()} {l.Parent.FullName}");
+                _db.StudentParents.RemoveRange(old);
+                if (relationship == "Mother" && !kid.NoMotherOnRecord) { kid.NoMotherOnRecord = true; changes.Add($"{Name(sid)}: no mother on record"); }
+                if (relationship == "Father" && !kid.NoFatherOnRecord) { kid.NoFatherOnRecord = true; changes.Add($"{Name(sid)}: no father on record"); }
+            }
+            if (mother != null) kid.NoMotherOnRecord = false;
+            if (father != null) kid.NoFatherOnRecord = false;
         }
         foreach (var sid in remove)
         {
@@ -161,4 +186,10 @@ public class FamilyRequest
     public List<int>? StudentIds { get; set; }
     /// <summary>Children taken out of the family (unlinked from this mother and father).</summary>
     public List<int>? RemoveStudentIds { get; set; }
+    /// <summary>
+    /// Single parent: true = no mother / father on record for these children (any linked one is
+    /// taken off). Apps that send false require MotherId / FatherId. Null = old client, no check.
+    /// </summary>
+    public bool? NoMother { get; set; }
+    public bool? NoFather { get; set; }
 }

@@ -2036,6 +2036,12 @@ namespace HrmsApi.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
+                    b.Property<bool>("NoFatherOnRecord")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("NoMotherOnRecord")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");

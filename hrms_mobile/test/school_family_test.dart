@@ -21,6 +21,22 @@ void main() {
       expect(f.children.single.guardians, ['Gran']);
     });
 
+    test('a single-mother family is complete; a missing father nobody confirmed is not', () {
+      final single = FamilyRecord.fromJson({
+        'mother': {'id': 1, 'fullName': 'Mounika'}, 'father': null, 'noFather': true,
+        'children': [{'id': 9, 'fullName': 'Arjun'}],
+      });
+      expect(single.noFather, isTrue);
+      expect(single.incomplete, isFalse);
+
+      final gap = FamilyRecord.fromJson({'mother': {'id': 1, 'fullName': 'Mounika'}, 'father': null, 'children': []});
+      expect(gap.incomplete, isTrue);
+
+      final c = ChildRecord.fromJson({'id': 9, 'fullName': 'Arjun', 'noFatherOnRecord': true});
+      expect(c.noFatherOnRecord, isTrue);
+      expect(c.noMotherOnRecord, isFalse);
+    });
+
     test('children with no parents linked have no mother or father', () {
       final f = FamilyRecord.fromJson({'mother': null, 'father': null, 'children': [{'id': 9, 'fullName': 'Arjun'}]});
       expect(f.mother, isNull);

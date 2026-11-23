@@ -58,8 +58,8 @@ class _FamiliesScreenState extends ConsumerState<FamiliesScreen> {
               (f.mother?.fullName.toLowerCase().contains(q) ?? false) ||
               (f.father?.fullName.toLowerCase().contains(q) ?? false) ||
               f.children.any((c) => c.fullName.toLowerCase().contains(q));
-          final incomplete = all.where((f) => f.mother == null || f.father == null).length;
-          final items = all.where((f) => matches(f) && (!_onlyIncomplete || f.mother == null || f.father == null)).toList();
+          final incomplete = all.where((f) => f.incomplete).length;
+          final items = all.where((f) => matches(f) && (!_onlyIncomplete || f.incomplete)).toList();
 
           return RefreshIndicator(
             onRefresh: () => ref.refresh(_familiesProvider.future),
@@ -109,11 +109,13 @@ class _FamilyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final f = family;
-    Widget parent(String role, ({int id, String fullName, String? phone, bool hasLogin})? p) => Row(children: [
+    Widget parent(String role, ({int id, String fullName, String? phone, bool hasLogin})? p, bool none) => Row(children: [
           SizedBox(width: 62, child: Text(role, style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant))),
           Expanded(
             child: p == null
-                ? Text('Not set', style: TextStyle(color: theme.colorScheme.error, fontStyle: FontStyle.italic))
+                ? (none
+                    ? Text('None on record (single parent)', style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontStyle: FontStyle.italic))
+                    : Text('Not set', style: TextStyle(color: theme.colorScheme.error, fontStyle: FontStyle.italic)))
                 : Text(p.phone == null ? p.fullName : '${p.fullName} · ${phoneText(p.phone)}',
                     style: const TextStyle(fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
           ),
@@ -125,9 +127,9 @@ class _FamilyCard extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            parent('Mother', f.mother),
+            parent('Mother', f.mother, f.noMother),
             const SizedBox(height: 4),
-            parent('Father', f.father),
+            parent('Father', f.father, f.noFather),
             const SizedBox(height: 10),
             Wrap(spacing: 6, runSpacing: 6, children: [
               for (final c in f.children)
@@ -147,16 +149,23 @@ class _FamilyCard extends StatelessWidget {
 
 /// Add or edit a family: mother, father and their children.
 class FamilyFormScreen extends ConsumerStatefulWidget {
-  const FamilyFormScreen({super.key, this.family});
+  const FamilyFormScreen({super.key, this.family, this.initialMotherId, this.initialFatherId});
   final FamilyRecord? family;
+  /// New family started from a parent just added ("Set up her family now?").
+  final int? initialMotherId;
+  final int? initialFatherId;
 
   @override
   ConsumerState<FamilyFormScreen> createState() => _FamilyFormScreenState();
 }
 
 class _FamilyFormScreenState extends ConsumerState<FamilyFormScreen> {
-  late int? _motherId = widget.family?.mother?.id;
-  late int? _fatherId = widget.family?.father?.id;
+  late int? _motherId = widget.family?.mother?.id ?? widget.initialMotherId;
+  late int? _fatherId = widget.family?.father?.id ?? widget.initialFatherId;
+  /// Single parent: "No mother / father on record" ticked (then that box isn't required).
+  late bool _noMother = widget.family?.noMother ?? false;
+  late bool _noFather = widget.family?.noFather ?? false;
+  String? _motherError, _fatherError;
   /// Children in the family when the screen opened (to know who was taken out).
   late final Set<int> _original = {...?widget.family?.children.map((c) => c.id)};
   late final List<int> _childIds = [...?widget.family?.children.map((c) => c.id)];
@@ -212,6 +221,8 @@ class _FamilyFormScreenState extends ConsumerState<FamilyFormScreen> {
     }
     side('mother', c.mother, _motherId);
     side('father', c.father, _fatherId);
+    if (_noMother && c.mother != null) parts.add('mother ${c.mother!.fullName} removed');
+    if (_noFather && c.father != null) parts.add('father ${c.father!.fullName} removed');
     return parts.isEmpty ? null : parts.join(', ');
   }
 
@@ -252,8 +263,19 @@ class _FamilyFormScreenState extends ConsumerState<FamilyFormScreen> {
   }
 
   Future<void> _save() async {
+    // Both parents, unless "no mother / father on record" is ticked (single parent)
+    final motherMissing = _motherId == null && !_noMother;
+    final fatherMissing = _fatherId == null && !_noFather;
+    if (motherMissing || fatherMissing) {
+      setState(() {
+        _motherError = motherMissing ? 'Choose the mother, or tick "No mother on record".' : null;
+        _fatherError = fatherMissing ? 'Choose the father, or tick "No father on record".' : null;
+        _error = 'Please complete the parents.';
+      });
+      return;
+    }
     if (_motherId == null && _fatherId == null) {
-      setState(() => _error = 'Choose the mother, the father or both.');
+      setState(() => _error = 'A family needs at least a mother or a father.');
       return;
     }
     if (_childIds.isEmpty && _original.isEmpty) {
@@ -278,6 +300,8 @@ class _FamilyFormScreenState extends ConsumerState<FamilyFormScreen> {
         fatherId: _fatherId,
         studentIds: _childIds,
         removeStudentIds: f != null && f.mother?.id == _motherId && f.father?.id == _fatherId ? removed : const [],
+        noMother: _noMother,
+        noFather: _noFather,
       );
       if (mounted) {
         toast(context, 'Family saved');
@@ -306,24 +330,45 @@ class _FamilyFormScreenState extends ConsumerState<FamilyFormScreen> {
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
                 ),
-              const SectionTitle('Parents', subtitle: 'Choose an existing parent or add a new one.'),
+              const SectionTitle('Parents',
+                  subtitle: 'Mother and father are required: choose an existing parent or add a new one. '
+                      'For a single parent, tick "No … on record".'),
               formGap,
-              ...spaced([
-                ParentSlot(
-                  relationship: 'Mother',
-                  parents: _parents,
-                  selectedId: _motherId,
-                  onChanged: (id) => setState(() => _motherId = id),
-                  onAddNew: () => _addParent('Mother'),
-                ),
-                ParentSlot(
-                  relationship: 'Father',
-                  parents: _parents,
-                  selectedId: _fatherId,
-                  onChanged: (id) => setState(() => _fatherId = id),
-                  onAddNew: () => _addParent('Father'),
-                ),
-              ]),
+              RequiredParentSlot(
+                relationship: 'Mother',
+                parents: _parents,
+                selectedId: _motherId,
+                none: _noMother,
+                error: _motherError,
+                onChanged: (id) => setState(() {
+                  _motherId = id;
+                  _motherError = null;
+                }),
+                onNoneChanged: (v) => setState(() {
+                  _noMother = v;
+                  _motherError = null;
+                  if (v) _motherId = null;
+                }),
+                onAddNew: () => _addParent('Mother'),
+              ),
+              formGap,
+              RequiredParentSlot(
+                relationship: 'Father',
+                parents: _parents,
+                selectedId: _fatherId,
+                none: _noFather,
+                error: _fatherError,
+                onChanged: (id) => setState(() {
+                  _fatherId = id;
+                  _fatherError = null;
+                }),
+                onNoneChanged: (v) => setState(() {
+                  _noFather = v;
+                  _fatherError = null;
+                  if (v) _fatherId = null;
+                }),
+                onAddNew: () => _addParent('Father'),
+              ),
               const SectionTitle('Children', subtitle: 'Brothers and sisters with these parents.'),
               const SizedBox(height: 4),
               if (_childIds.isEmpty)

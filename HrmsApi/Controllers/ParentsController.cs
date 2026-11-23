@@ -243,6 +243,7 @@ public class ParentsController : ControllerBase
         foreach (var sid in wanted.Where(w => links.All(l => l.StudentId != w)))
             _db.StudentParents.Add(new StudentParent { ParentId = p.Id, StudentId = sid });
         await _db.SaveChangesAsync();
+        await SchoolParentFlags.SyncAsync(_db, wanted.ToList());
     }
 
     /// <summary>New "Parent" login with a never-shown password, and the set-password email.</summary>

@@ -6,6 +6,7 @@ import '../../../core/widgets/error_view.dart';
 import '../data/school_admin.dart';
 import '../data/school_models.dart' show ymdToDate, schoolToday;
 import 'school_widgets.dart';
+import 'families_screen.dart' show FamilyFormScreen;
 import 'setup_widgets.dart';
 
 final _classesProvider = FutureProvider.autoDispose<List<ClassItem>>((ref) => ref.watch(schoolAdminProvider).classes());
@@ -291,6 +292,10 @@ class _ChildFormScreenState extends ConsumerState<ChildFormScreen> {
   // One mother, one father, any guardians
   late int? _motherId = c?.mother?.id;
   late int? _fatherId = c?.father?.id;
+  /// Single parent: no mother / father to record (then that box isn't required).
+  late bool _noMother = c?.noMotherOnRecord ?? false;
+  late bool _noFather = c?.noFatherOnRecord ?? false;
+  String? _motherError, _fatherError;
   late final Set<int> _guardianIds = {...?c?.parents.where((p) => p.relationship == 'Guardian').map((p) => p.id)};
   List<ClassItem> _classes = [];
   List<ParentRecord> _parents = [];
@@ -330,6 +335,17 @@ class _ChildFormScreenState extends ConsumerState<ChildFormScreen> {
   String? _t(TextEditingController t) => t.text.trim().isEmpty ? null : t.text.trim();
 
   Future<void> _save({bool allowDuplicate = false}) async {
+    // Both parents, unless "no mother / father on record" is ticked (single parent)
+    final motherMissing = _motherId == null && !_noMother;
+    final fatherMissing = _fatherId == null && !_noFather;
+    if (motherMissing || fatherMissing) {
+      setState(() {
+        _motherError = motherMissing ? 'Choose the mother, or tick "No mother on record".' : null;
+        _fatherError = fatherMissing ? 'Choose the father, or tick "No father on record".' : null;
+        _error = 'Please complete the parents.';
+      });
+      return;
+    }
     setState(() {
       _saving = true;
       _error = null;
@@ -349,6 +365,8 @@ class _ChildFormScreenState extends ConsumerState<ChildFormScreen> {
         'notes': _t(_notes),
         'isActive': _active,
         'parentIds': [if (_motherId != null) _motherId!, if (_fatherId != null) _fatherId!, ..._guardianIds],
+        'noMotherOnRecord': _noMother,
+        'noFatherOnRecord': _noFather,
         'allowDuplicate': allowDuplicate,
       });
       if (mounted) {
@@ -438,24 +456,45 @@ class _ChildFormScreenState extends ConsumerState<ChildFormScreen> {
           ),
           TextField(controller: _adm, maxLength: 30, decoration: boxDecoration('Admission no. (optional)', icon: Icons.tag)),
         ]),
-        const SectionTitle('Parents', subtitle: 'One mother and one father. For brothers and sisters, choose the same parents.'),
+        const SectionTitle('Parents',
+            subtitle: 'Mother and father are required. For a single parent, tick "No … on record". '
+                'For brothers and sisters, choose the same parents.'),
         formGap,
-        ...spaced([
-          ParentSlot(
-            relationship: 'Mother',
-            parents: _parents,
-            selectedId: _motherId,
-            onChanged: (id) => setState(() => _motherId = id),
-            onAddNew: () => _addParent('Mother'),
-          ),
-          ParentSlot(
-            relationship: 'Father',
-            parents: _parents,
-            selectedId: _fatherId,
-            onChanged: (id) => setState(() => _fatherId = id),
-            onAddNew: () => _addParent('Father'),
-          ),
-        ]),
+        RequiredParentSlot(
+          relationship: 'Mother',
+          parents: _parents,
+          selectedId: _motherId,
+          none: _noMother,
+          error: _motherError,
+          onChanged: (id) => setState(() {
+            _motherId = id;
+            _motherError = null;
+          }),
+          onNoneChanged: (v) => setState(() {
+            _noMother = v;
+            _motherError = null;
+            if (v) _motherId = null;
+          }),
+          onAddNew: () => _addParent('Mother'),
+        ),
+        formGap,
+        RequiredParentSlot(
+          relationship: 'Father',
+          parents: _parents,
+          selectedId: _fatherId,
+          none: _noFather,
+          error: _fatherError,
+          onChanged: (id) => setState(() {
+            _fatherId = id;
+            _fatherError = null;
+          }),
+          onNoneChanged: (v) => setState(() {
+            _noFather = v;
+            _fatherError = null;
+            if (v) _fatherId = null;
+          }),
+          onAddNew: () => _addParent('Father'),
+        ),
         if (guardians.isNotEmpty) ...[
           const SizedBox(height: 8),
           Text('Guardians (optional)', style: Theme.of(context).textTheme.labelLarge),
@@ -542,6 +581,23 @@ class _ParentsScreenState extends ConsumerState<ParentsScreen> {
   Future<void> _open(ParentRecord? p) async {
     final saved = await Navigator.of(context).push<Object>(MaterialPageRoute(builder: (_) => ParentFormScreen(parent: p)));
     if (saved != null) ref.invalidate(_parentsProvider);
+
+    // A new mother or father: offer to set up the family straight away, so each child gets both parents
+    if (p != null || saved is! int || !mounted) return;
+    final added = (await ref.read(_parentsProvider.future)).where((x) => x.id == saved).firstOrNull;
+    if (added == null || added.relationship == 'Guardian' || !mounted) return;
+    final isMother = added.relationship == 'Mother';
+    final yes = await _confirm(context, 'Set up the family now?',
+        'Choose the ${isMother ? 'father' : 'mother'} of ${added.fullName}\'s children (or tick '
+        '"No ${isMother ? 'father' : 'mother'} on record") and add the children.',
+        ok: 'Set up family');
+    if (!yes || !mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => FamilyFormScreen(
+              initialMotherId: isMother ? added.id : null,
+              initialFatherId: isMother ? null : added.id,
+            )));
+    ref.invalidate(_parentsProvider);
   }
 
   @override

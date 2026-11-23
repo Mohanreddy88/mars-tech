@@ -42,6 +42,12 @@ public class Student
     public string?   Notes                 { get; set; }
     public bool      IsActive              { get; set; } = true;
     public DateTime  CreatedAt             { get; set; } = DateTime.UtcNow;
+    /// <summary>
+    /// The office confirmed there is no mother / father to record (single parent), so the missing
+    /// parent is not a mistake. Cleared when a mother / father is linked.
+    /// </summary>
+    public bool      NoMotherOnRecord      { get; set; }
+    public bool      NoFatherOnRecord      { get; set; }
 
     public SchoolClass? Class { get; set; }
     public List<StudentParent> Parents { get; set; } = new();

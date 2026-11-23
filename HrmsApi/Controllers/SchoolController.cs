@@ -358,10 +358,23 @@ public class SchoolController : ControllerBase
         req.EmergencyContactPhone = phone;
 
         var parentIds = req.ParentIds?.Distinct().ToList();
+        var chosen = parentIds is { Count: > 0 }
+            ? await _db.Parents.AsNoTracking().Where(p => parentIds.Contains(p.Id))
+                .Select(p => new { p.FullName, p.Relationship }).ToListAsync()
+            : new();
+
+        // Apps that know the rule send NoMother/NoFatherOnRecord: then a mother and a father are
+        // required unless the office ticked "no mother / father on record" (single parent).
+        if (parentIds != null)
+        {
+            if (req.NoMotherOnRecord == false && !chosen.Any(p => p.Relationship == "Mother"))
+                return new { message = "Choose the child's mother, or tick \"No mother on record\".", field = "motherId" };
+            if (req.NoFatherOnRecord == false && !chosen.Any(p => p.Relationship == "Father"))
+                return new { message = "Choose the child's father, or tick \"No father on record\".", field = "fatherId" };
+        }
+
         if (parentIds is { Count: > 0 })
         {
-            var chosen = await _db.Parents.AsNoTracking().Where(p => parentIds.Contains(p.Id))
-                .Select(p => new { p.FullName, p.Relationship }).ToListAsync();
             if (chosen.Count != parentIds.Count)
                 return new { message = "One of the chosen parents no longer exists. Reload the page.", field = "parentIds" };
             // One mother and one father per child (any number of guardians)
@@ -409,6 +422,7 @@ public class SchoolController : ControllerBase
         foreach (var pid in wanted.Where(w => links.All(l => l.ParentId != w)))
             _db.StudentParents.Add(new StudentParent { StudentId = studentId, ParentId = pid });
         await _db.SaveChangesAsync();
+        await SchoolParentFlags.SyncAsync(_db, new[] { studentId });
     }
 
     private static void ApplyStudent(Student s, StudentRequest req)
@@ -426,6 +440,9 @@ public class SchoolController : ControllerBase
         s.EmergencyContactPhone = Clean(req.EmergencyContactPhone);
         s.Notes                 = Clean(req.Notes);
         s.IsActive              = req.IsActive;
+        // Single parent confirmed by the office (only from apps that send it)
+        if (req.NoMotherOnRecord != null) s.NoMotherOnRecord = req.NoMotherOnRecord.Value;
+        if (req.NoFatherOnRecord != null) s.NoFatherOnRecord = req.NoFatherOnRecord.Value;
     }
 
     private IQueryable<Student> StudentQuery() => _db.Students.AsNoTracking();
@@ -437,7 +454,7 @@ public class SchoolController : ControllerBase
         ClassTeacherName = s.Class != null && s.Class.ClassTeacher != null ? s.Class.ClassTeacher.Name : null,
         SessionType = s.SessionType, JoinedOn = s.JoinedOn, MedicalNotes = s.MedicalNotes,
         EmergencyContactName = s.EmergencyContactName, EmergencyContactPhone = s.EmergencyContactPhone,
-        Notes = s.Notes, IsActive = s.IsActive,
+        Notes = s.Notes, IsActive = s.IsActive, NoMotherOnRecord = s.NoMotherOnRecord, NoFatherOnRecord = s.NoFatherOnRecord,
         Parents = s.Parents.Select(sp => new StudentParentDto
         {
             Id = sp.Parent.Id, FullName = sp.Parent.FullName, Relationship = sp.Parent.Relationship,
@@ -490,6 +507,13 @@ public class StudentRequest
     public bool IsActive { get; set; } = true;
     /// <summary>Parents to link (they can also be linked from School → Parents); null = leave unchanged.</summary>
     public List<int>? ParentIds { get; set; }
+    /// <summary>
+    /// Single parent: no mother / father to record. Apps that send these (true or false) must also send
+    /// ParentIds, and then a mother and a father are required unless the matching flag is true.
+    /// Null = old client: no check, flag unchanged.
+    /// </summary>
+    public bool? NoMotherOnRecord { get; set; }
+    public bool? NoFatherOnRecord { get; set; }
     /// <summary>Save even though a child with the same name and date of birth exists (the office confirmed).</summary>
     public bool AllowDuplicate { get; set; }
 }
@@ -511,6 +535,8 @@ public class StudentDto
     public string? EmergencyContactPhone { get; set; }
     public string? Notes { get; set; }
     public bool IsActive { get; set; }
+    public bool NoMotherOnRecord { get; set; }
+    public bool NoFatherOnRecord { get; set; }
     public List<StudentParentDto> Parents { get; set; } = new();
     /// <summary>Children sharing a parent (admins only; empty for others).</summary>
     public List<SiblingDto> Siblings { get; set; } = new();
