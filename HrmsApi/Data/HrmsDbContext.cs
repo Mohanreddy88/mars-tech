@@ -572,6 +572,7 @@ public class HrmsDbContext : DbContext
         {
             e.ToTable("BotAiUsage");
             e.Property(x => x.Model).IsRequired().HasMaxLength(60);
+            e.Property(x => x.Error).HasMaxLength(HrmsApi.Services.AiErrors.MaxLength);
             e.HasIndex(x => new { x.UserId, x.AskedAt });
             e.HasIndex(x => x.AskedAt);
         });

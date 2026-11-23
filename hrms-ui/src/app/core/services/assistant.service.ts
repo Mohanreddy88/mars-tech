@@ -57,6 +57,17 @@ export interface BotAiStatus {
   dailyLimitPerUser: number;
   today: BotAiUsage;
   last30Days: BotAiUsage;
+  /** The latest AI failure (e.g. no Anthropic credit), until an AI answer works again. */
+  problem: BotAiProblem | null;
+}
+
+export interface BotAiProblem {
+  /** What went wrong and how to fix it, e.g. "Your Anthropic credit has run out…". */
+  message: string;
+  /** When it last failed (UTC). */
+  at: string;
+  /** Questions in a row that failed. */
+  failures: number;
 }
 
 export type BotAudience = 'All' | 'Parent' | 'Employee';

@@ -195,7 +195,9 @@ public class AssistantController : ControllerBase
             model = _ai.Model,
             dailyLimitPerUser = _dailyAiLimit,
             today = Sum(rows.Where(r => r.AskedAt >= today)),
-            last30Days = Sum(rows)
+            last30Days = Sum(rows),
+            // The latest AI failure with a reason, unless an AI answer worked after it
+            problem = LatestProblem(rows)
         });
     }
 
@@ -470,10 +472,23 @@ public class AssistantController : ControllerBase
         {
             UserId = me.UserId, AskedAt = DateTime.UtcNow, Model = _ai.Model,
             InputTokens = answer?.InputTokens ?? 0, OutputTokens = answer?.OutputTokens ?? 0,
-            ToolCalls = answer?.ToolCalls ?? 0, Succeeded = answer != null
+            ToolCalls = answer?.ToolCalls ?? 0, Succeeded = answer is { Failed: false },
+            // Why it failed, for the admin's Chatbot page ("credit has run out" …)
+            Error = answer?.Error
         });
         await _db.SaveChangesAsync();
-        return answer;
+        return answer is { Failed: false } ? answer : null;
+    }
+
+    /// <summary>"AI isn't working: …" for the admin: the newest failure that has no success after it.</summary>
+    private static object? LatestProblem(IEnumerable<BotAiUsage> rows)
+    {
+        var newestFirst = rows.OrderByDescending(r => r.AskedAt).ThenByDescending(r => r.Id).ToList();
+        var last = newestFirst.FirstOrDefault();
+        if (last == null || last.Succeeded || last.Error == null) return null;
+        // Failed questions in a row since the last AI answer that worked
+        var failures = newestFirst.TakeWhile(r => !r.Succeeded).Count();
+        return new { message = last.Error, at = DateTime.SpecifyKind(last.AskedAt, DateTimeKind.Utc), failures };
     }
 
     private async Task<bool> UnderDailyAiLimitAsync(Viewer me)

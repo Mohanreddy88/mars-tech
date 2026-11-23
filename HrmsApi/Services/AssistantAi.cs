@@ -4,9 +4,53 @@ using Anthropic.Models.Beta.Messages;
 
 namespace HrmsApi.Services;
 
-/// <summary>An AI answer, with what it cost.</summary>
+/// <summary>
+/// An AI answer, with what it cost. When the AI could not answer because of a problem the admin
+/// can fix (no credit, bad key, limits, unreachable), <see cref="Error"/> says why and there is no text.
+/// </summary>
 public sealed record AiAnswer(string Text, string? SuggestedPage, int InputTokens, int OutputTokens, int ToolCalls,
-    (string Label, string Path)? Download = null);
+    (string Label, string Path)? Download = null, string? Error = null)
+{
+    public bool Failed => Error != null;
+    public static AiAnswer Fail(string error) => new("", null, 0, 0, 0, null, error);
+}
+
+/// <summary>Turns an Anthropic failure into a short explanation for the company admin.</summary>
+public static class AiErrors
+{
+    public const int MaxLength = 300;
+
+    public static string Describe(Exception ex)
+    {
+        var name = ex.GetType().Name;
+        var text = (ex as Anthropic.Exceptions.AnthropicApiException)?.ResponseBody is { Length: > 0 } body
+            ? body
+            : ex.Message ?? "";
+        // The API's own message, e.g. {"type":"error","error":{"type":"...","message":"Your credit balance is too low..."}}
+        var m = System.Text.RegularExpressions.Regex.Match(text, "\"message\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"");
+        var apiMessage = m.Success ? System.Text.RegularExpressions.Regex.Unescape(m.Groups[1].Value) : null;
+        var lower = (apiMessage ?? text).ToLowerInvariant();
+
+        string result;
+        if (lower.Contains("credit balance"))
+            result = "Your Anthropic credit has run out. Add credits in the Anthropic Console (Plans & Billing); AI answers start again straight away.";
+        else if (name.Contains("Unauthorized") || name.Contains("Authentication") || lower.Contains("invalid x-api-key"))
+            result = "Anthropic no longer accepts this API key. Connect a new key on this page.";
+        else if (name.Contains("PermissionDenied"))
+            result = "This API key isn't allowed to use the AI model. Check the key's permissions in the Anthropic Console.";
+        else if (name.Contains("RateLimit") || lower.Contains("rate limit"))
+            result = "Anthropic's usage limit for this key was reached. AI answers resume automatically; the limit can be raised in the Anthropic Console.";
+        else if (name.Contains("Overloaded") || name.Contains("InternalServer") || name.Contains("ServiceUnavailable"))
+            result = "Anthropic was busy or had a problem. AI answers resume automatically.";
+        else if (ex is OperationCanceledException)
+            result = "Anthropic didn't answer in time.";
+        else if (ex is Anthropic.Exceptions.AnthropicApiException)
+            result = "Anthropic refused the request: " + (apiMessage ?? text);
+        else
+            result = "The server couldn't reach Anthropic.";
+        return result.Length > MaxLength ? result[..MaxLength] : result;
+    }
+}
 
 /// <summary>A previous turn of the chat, sent back by the app for context.</summary>
 public sealed record ChatTurn(bool FromUser, string Text);
@@ -203,15 +247,15 @@ public sealed class AssistantAi : IAssistantAi
             _logger.LogWarning("Assistant AI: no answer after {Rounds} rounds", MaxRounds);
             return null;
         }
-        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
         {
             _logger.LogWarning("Assistant AI: timed out");
-            return null;
+            return AiAnswer.Fail(AiErrors.Describe(ex));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex, "Assistant AI request failed");
-            return null;
+            return AiAnswer.Fail(AiErrors.Describe(ex));
         }
     }
 

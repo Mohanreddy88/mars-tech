@@ -320,6 +320,10 @@ namespace HrmsApi.Migrations
                     b.Property<DateTime>("AskedAt")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<string>("Error")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
                     b.Property<int>("InputTokens")
                         .HasColumnType("integer");
 

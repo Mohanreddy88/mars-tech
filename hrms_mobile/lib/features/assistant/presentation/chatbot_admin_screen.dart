@@ -196,8 +196,9 @@ class _AiCardState extends ConsumerState<_AiCard> {
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('AI answers${status.configured ? (status.enabled ? ' · On' : ' · Off') : ' · Not connected'}',
+                Text('AI answers${status.configured ? (status.enabled ? (status.problem != null ? ' · On, not working' : ' · On') : ' · Off') : ' · Not connected'}',
                     style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                if (status.problem != null) _AiProblem(status: status),
                 const SizedBox(height: 2),
                 Text(description, style: text.bodySmall),
                 if (status.keyUnreadable && !status.configured)
@@ -248,6 +249,44 @@ class _AiCardState extends ConsumerState<_AiCard> {
 }
 
 /// Asks for the Anthropic API key, with the steps to get one. Pops with the key.
+/// "AI isn't working: your Anthropic credit has run out…" — shown until an AI answer works again.
+class _AiProblem extends StatelessWidget {
+  const _AiProblem({required this.status});
+  final BotAiStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final at = DateTime.tryParse(status.problemAt ?? '');
+    final when = at == null ? null : DateFormat('d MMM, h:mm a').format(at.toLocal());
+    return Container(
+      margin: const EdgeInsets.only(top: 6, bottom: 4),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: scheme.errorContainer, borderRadius: BorderRadius.circular(8)),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(Icons.warning_amber_rounded, color: scheme.onErrorContainer, size: 20),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text.rich(
+            TextSpan(children: [
+              const TextSpan(text: 'AI isn\'t working: ', style: TextStyle(fontWeight: FontWeight.w700)),
+              TextSpan(text: status.problem),
+              TextSpan(
+                text: [
+                  if (when != null) '\nLast tried $when',
+                  if (status.problemCount > 1) ' · ${status.problemCount} questions in a row',
+                  '. People got answers from the list instead.',
+                ].join(),
+              ),
+            ]),
+            style: TextStyle(color: scheme.onErrorContainer, fontSize: 13),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
 class _ConnectDialog extends StatefulWidget {
   const _ConnectDialog();
 

@@ -52,6 +52,8 @@ public class BotAiUsage
     public int      ToolCalls    { get; set; }
     /// <summary>False when the AI failed and the FAQ answer was used instead.</summary>
     public bool     Succeeded    { get; set; }
+    /// <summary>Why the AI failed, for the admin ("Your Anthropic credit has run out…"); null if it worked.</summary>
+    public string?  Error        { get; set; }
 }
 
 /// <summary>

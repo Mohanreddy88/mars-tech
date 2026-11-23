@@ -91,6 +91,8 @@ public class AssistantTests
         public Task<string?> CheckKeyAsync(string apiKey, CancellationToken ct) => Task.FromResult(CheckResult);
         public string? Answer { get; init; } = "You owe RM 450.";
         public string? Page { get; init; }
+        /// <summary>Fail with this reason (e.g. no credit) instead of answering.</summary>
+        public string? Error { get; set; }
         public int Calls { get; private set; }
         public AssistantTools? LastTools { get; private set; }
         public Task<AiAnswer?> AnswerAsync(string? companyKey, AssistantTools tools, string system, IReadOnlyList<ChatTurn> history,
@@ -99,6 +101,7 @@ public class AssistantTests
             Calls++;
             LastCompanyKey = companyKey;
             LastTools = tools;
+            if (Error != null) return Task.FromResult<AiAnswer?>(AiAnswer.Fail(Error));
             return Task.FromResult(Answer == null ? null : new AiAnswer(Answer, Page, 100, 20, 1));
         }
     }
@@ -254,6 +257,52 @@ public class AssistantTests
         var faq = Json(await Controller(db, StaffUser, "Employee", staffAi).Ask(new AskRequest { Text = "how do I apply for annual leave" }));
         faq.GetProperty("source").GetString().Should().Be("faq");
         staffAi.Calls.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Admin_sees_why_AI_answers_fail_until_one_works_again()
+    {
+        var db = Setup();
+        TurnAiOn(db);
+        var ai = new FakeAi { Error = "Your Anthropic credit has run out." };
+        var admin = Controller(db, AdminUser, "Admin", ai);
+
+        Json(await admin.AiStatus()).GetProperty("problem").ValueKind.Should().Be(JsonValueKind.Null);
+
+        for (var i = 0; i < 2; i++)
+        {
+            var r = Json(await Controller(db, ParentUser, SchoolViewer.ParentRole, ai).Ask(new AskRequest { Text = "how much do I owe" }));
+            r.GetProperty("source").GetString().Should().NotBe("ai", "a failed AI call never reaches the user");
+        }
+        var problem = Json(await admin.AiStatus()).GetProperty("problem");
+        problem.GetProperty("message").GetString().Should().Be("Your Anthropic credit has run out.");
+        problem.GetProperty("failures").GetInt32().Should().Be(2);
+
+        // Credit added: the next answer works and the warning goes away
+        ai.Error = null;
+        Json(await Controller(db, ParentUser, SchoolViewer.ParentRole, ai).Ask(new AskRequest { Text = "how much do I owe" }))
+            .GetProperty("source").GetString().Should().Be("ai");
+        Json(await admin.AiStatus()).GetProperty("problem").ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    [Theory]
+    [InlineData("{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API.\"}}", "credit has run out")]
+    [InlineData("something unexpected", "Anthropic refused the request: something unexpected")]
+    public void Anthropic_errors_are_explained_for_the_admin(string apiError, string expected)
+    {
+        var ex = new Anthropic.Exceptions.AnthropicBadRequestException
+        {
+            StatusCode = System.Net.HttpStatusCode.BadRequest,
+            ResponseBody = apiError
+        };
+        AiErrors.Describe(ex).Should().Contain(expected);
+    }
+
+    [Fact]
+    public void Network_and_timeout_failures_are_explained()
+    {
+        AiErrors.Describe(new HttpRequestException("no route")).Should().Contain("couldn't reach Anthropic");
+        AiErrors.Describe(new TaskCanceledException()).Should().Contain("didn't answer in time");
     }
 
     [Fact]
