@@ -332,6 +332,19 @@ form textarea { min-height: 120px; resize: vertical; }
   text-decoration: none !important;
 }
 .wa-float.show { display: grid; }
+/* Chooser opened by the floating button: one line per WhatsApp number */
+.wa-menu {
+  position: fixed; right: 20px; bottom: 86px; z-index: 41; display: none; flex-direction: column; gap: 4px; padding: 8px;
+  background: #fff; border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 14px 32px rgba(15, 23, 42, .18);
+}
+.wa-menu.open { display: flex; }
+.wa-menu a { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; color: var(--text); text-decoration: none; white-space: nowrap; }
+.wa-menu a:hover { background: #f1f5f9; }
+.wa-menu i { color: #25d366; font-size: 20px; }
+.wa-menu small { color: var(--muted); display: block; font-size: 12px; }
+/* Small WhatsApp link next to a phone number in the contact card */
+.contact-card li .wa-inline { margin-left: 8px; }
+.contact-card li .wa-inline i { color: #25d366; font-size: 16px; }
 
 /* Contact card (contact section) */
 .contact-card { margin-top: 18px; background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 20px; }

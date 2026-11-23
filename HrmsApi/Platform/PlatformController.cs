@@ -72,7 +72,12 @@ public class PlatformController : ControllerBase
     [HttpPost("auth/login")]
     public async Task<IActionResult> Login([FromBody] PlatformLoginRequest req)
     {
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == req.Username.Trim());
+        // Usernames are not case-sensitive; an exact match wins
+        var name  = (req.Username ?? string.Empty).Trim();
+        var lower = name.ToLower();
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == name)
+                   ?? await _db.Users.Where(u => u.Username.ToLower() == lower)
+                                     .OrderBy(u => u.Id).FirstOrDefaultAsync();
         if (user == null || !BCrypt.Net.BCrypt.Verify(req.Password, user.PasswordHash))
         {
             await Audit("Failed login", null, $"username: {req.Username}", actor: "anonymous");

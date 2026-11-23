@@ -5,8 +5,12 @@
   // ── Settings ─────────────────────────────────────────────────────────────
   var SITE = {
     email: 'support@marshrms.com',
-    // WhatsApp in international format without "+" or spaces, e.g. '60123456789'. Empty = buttons hidden.
-    whatsapp: '601111009978',
+    // WhatsApp numbers in international format without "+" or spaces. Empty list = buttons hidden.
+    // An element with data-whatsapp="my" / "in" opens that number; an empty data-whatsapp opens the first.
+    whatsapp: [
+      { key: 'my', number: '60107767618',  label: 'Malaysia', display: '+60 10-776 7618' },
+      { key: 'in', number: '919848872329', label: 'India',    display: '+91 98488 72329' }
+    ],
     whatsappText: 'Hi Mars HRMS, I would like to know more / book a demo.'
   };
 
@@ -51,13 +55,37 @@
     var t = el.querySelector('[data-email-text]');
     if (t) t.textContent = SITE.email;
   });
-  var waUrl = SITE.whatsapp ? 'https://wa.me/' + SITE.whatsapp + '?text=' + encodeURIComponent(SITE.whatsappText) : '';
+  function waUrl(w) { return 'https://wa.me/' + w.number + '?text=' + encodeURIComponent(SITE.whatsappText); }
+  function waFor(key) {
+    for (var i = 0; i < SITE.whatsapp.length; i++) if (SITE.whatsapp[i].key === key) return SITE.whatsapp[i];
+    return SITE.whatsapp[0];
+  }
+  var waMenu = null;
   document.querySelectorAll('[data-whatsapp]').forEach(function (el) {
-    if (!waUrl) { el.style.display = 'none'; return; }
-    el.setAttribute('href', waUrl);
+    if (!SITE.whatsapp.length) { el.style.display = 'none'; return; }
+    if (el.classList.contains('wa-float')) {
+      el.classList.add('show');
+      if (SITE.whatsapp.length > 1) {
+        // Floating button: let the visitor choose the Malaysia or India number
+        waMenu = document.createElement('div');
+        waMenu.className = 'wa-menu';
+        waMenu.setAttribute('role', 'menu');
+        SITE.whatsapp.forEach(function (w) {
+          var a = document.createElement('a');
+          a.href = waUrl(w); a.target = '_blank'; a.rel = 'noopener'; a.setAttribute('role', 'menuitem');
+          a.innerHTML = '<i class="bi bi-whatsapp"></i><span>WhatsApp ' + w.label + '<small>' + w.display + '</small></span>';
+          waMenu.appendChild(a);
+        });
+        document.body.appendChild(waMenu);
+        el.setAttribute('aria-haspopup', 'true');
+        el.addEventListener('click', function (ev) { ev.preventDefault(); ev.stopPropagation(); waMenu.classList.toggle('open'); });
+        document.addEventListener('click', function () { waMenu.classList.remove('open'); });
+        return;
+      }
+    }
+    el.setAttribute('href', waUrl(waFor(el.getAttribute('data-whatsapp'))));
     el.setAttribute('target', '_blank');
     el.setAttribute('rel', 'noopener');
-    if (el.classList.contains('wa-float')) el.classList.add('show');
   });
 
   // ── Contact / book a demo form ───────────────────────────────────────────

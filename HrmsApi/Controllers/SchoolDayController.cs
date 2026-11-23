@@ -234,6 +234,20 @@ public class SchoolDayController : ControllerBase
             if (!string.IsNullOrEmpty(time) && !TimeOnly.TryParseExact(time, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
                 return BadRequest(new { message = "Enter the time like 15:30.", field = "pickupTime" });
             note.PickupTime = string.IsNullOrEmpty(time) ? null : time;
+
+            // Someone else can only collect a child who is at school that day
+            if (await _db.ParentNotes.AnyAsync(n => n.StudentId == child.Id && n.Kind == ParentNote.Absence
+                                                    && n.CancelledAt == null && n.FromDate <= from && n.ToDate >= from))
+                return BadRequest(new { message = $"{child.FullName} is reported absent on {from:ddd d MMM}. Cancel the absence first to arrange a pickup.", field = "fromDate" });
+            if (await _db.StudentAttendance.AnyAsync(a => a.StudentId == child.Id && a.Date == from && a.Status == StudentAttendance.Absent))
+                return BadRequest(new { message = $"{child.FullName} is marked absent on {from:ddd d MMM}, so no pickup is needed.", field = "fromDate" });
+        }
+        else
+        {
+            // An absence replaces any different-pickup notes for the same days
+            var pickups = await _db.ParentNotes.Where(n => n.StudentId == child.Id && n.Kind == ParentNote.Pickup
+                                                           && n.CancelledAt == null && n.FromDate >= from && n.FromDate <= to).ToListAsync();
+            foreach (var p in pickups) p.CancelledAt = DateTime.UtcNow;
         }
 
         _db.ParentNotes.Add(note);
