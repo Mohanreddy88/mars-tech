@@ -69,7 +69,7 @@ class ClassesScreen extends ConsumerWidget {
                       onTap: () => _edit(context, ref, c),
                       leading: CircleAvatar(child: Text(c.name.isEmpty ? '?' : c.name.substring(0, c.name.length.clamp(0, 2)))),
                       title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                      subtitle: Text('${c.classTeacherName ?? 'No teacher'} · ${c.studentCount} child${c.studentCount == 1 ? '' : 'ren'}'),
+                      subtitle: Text('${c.classTeacherName ?? 'No teacher'}${c.teacherNames.isEmpty ? '' : ' + ${c.teacherNames.join(', ')}'} · ${c.studentCount} child${c.studentCount == 1 ? '' : 'ren'}'),
                       trailing: c.isActive ? const Icon(Icons.chevron_right) : const Pill('Inactive'),
                     );
                   },
@@ -103,6 +103,8 @@ class _ClassSheetState extends ConsumerState<_ClassSheet> {
   late final _desc = TextEditingController(text: widget.item?.description ?? '');
   late final _order = TextEditingController(text: '${widget.item?.sortOrder ?? 0}');
   late int? _teacher = widget.item?.classTeacherId;
+  /// Other teachers of the class (besides the lead).
+  late final Set<int> _others = {...?widget.item?.teacherIds};
   late bool _active = widget.item?.isActive ?? true;
   List<EmployeeRef> _teachers = [];
   bool _saving = false;
@@ -134,6 +136,7 @@ class _ClassSheetState extends ConsumerState<_ClassSheet> {
         'name': _name.text.trim(),
         'description': _desc.text.trim().isEmpty ? null : _desc.text.trim(),
         'classTeacherId': _teacher,
+        'teacherIds': _others.where((t) => t != _teacher).toList(),
         'sortOrder': int.tryParse(_order.text.trim()) ?? 0,
         'isActive': _active,
       });
@@ -167,13 +170,27 @@ class _ClassSheetState extends ConsumerState<_ClassSheet> {
           DropdownButtonFormField<int?>(
             value: _teacher != null && !teacherIds.contains(_teacher) && _teachers.isNotEmpty ? null : _teacher,
             isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Class teacher'),
+            decoration: const InputDecoration(labelText: 'Lead teacher', helperText: 'The teacher parents see'),
             items: [
               const DropdownMenuItem<int?>(value: null, child: Text('No teacher yet')),
               for (final t in _teachers) DropdownMenuItem<int?>(value: t.id, child: Text(t.name)),
             ],
             onChanged: (v) => setState(() => _teacher = v),
           ),
+          if (_teacher != null && _teachers.length > 1) ...[
+            const SizedBox(height: 12),
+            Text('Other teachers (optional)', style: Theme.of(context).textTheme.labelLarge),
+            const Text('They see the class\'s children, attendance and reports, and answer its parents too.',
+                style: TextStyle(fontSize: 12)),
+            for (final t in _teachers.where((t) => t.id != _teacher))
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                value: _others.contains(t.id),
+                title: Text(t.name),
+                onChanged: (v) => setState(() => v == true ? _others.add(t.id) : _others.remove(t.id)),
+              ),
+          ],
           TextField(controller: _desc, maxLength: 200, decoration: const InputDecoration(labelText: 'Description (optional)')),
           TextField(controller: _order, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Order in lists')),
           SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Active'), value: _active, onChanged: (v) => setState(() => _active = v)),

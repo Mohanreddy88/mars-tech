@@ -59,7 +59,11 @@ export class SchoolClassesComponent implements OnInit {
     });
   }
 
-  blank() { return { name: '', description: '', classTeacherId: null as number | null, sortOrder: 0, isActive: true }; }
+  blank() { return { name: '', description: '', classTeacherId: null as number | null, teacherIds: [] as number[], sortOrder: 0, isActive: true }; }
+
+  toggleTeacher(id: number, on: boolean): void {
+    this.form.teacherIds = on ? [...this.form.teacherIds, id] : this.form.teacherIds.filter(x => x !== id);
+  }
 
   openCreate(): void {
     this.editId = null;
@@ -71,7 +75,7 @@ export class SchoolClassesComponent implements OnInit {
 
   openEdit(c: SchoolClass): void {
     this.editId = c.id;
-    this.form = { name: c.name, description: c.description ?? '', classTeacherId: c.classTeacherId, sortOrder: c.sortOrder, isActive: c.isActive };
+    this.form = { name: c.name, description: c.description ?? '', classTeacherId: c.classTeacherId, teacherIds: [...(c.teacherIds ?? [])], sortOrder: c.sortOrder, isActive: c.isActive };
     this.modalError = '';
     this.showModal = true;
   }
@@ -79,7 +83,8 @@ export class SchoolClassesComponent implements OnInit {
   save(): void {
     if (!this.form.name.trim()) { this.modalError = 'Enter the class name.'; return; }
     this.saving = true;
-    const body = { ...this.form, name: this.form.name.trim(), classTeacherId: this.form.classTeacherId || null };
+    const body = { ...this.form, name: this.form.name.trim(), classTeacherId: this.form.classTeacherId || null,
+      teacherIds: this.form.teacherIds.filter(t => t !== this.form.classTeacherId) };
     const req = this.editId ? this.school.updateClass(this.editId, body) : this.school.createClass(body);
     req.subscribe({
       next: () => {

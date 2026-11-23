@@ -3,7 +3,7 @@
   <div class="page-header">
     <div>
       <h3>Classes</h3>
-      <p>Classes and their class teachers. A class teacher sees the class's children and answers their parents' messages.</p>
+      <p>Classes and their teachers. Every teacher of a class sees its children and answers its parents' messages; parents see the lead teacher.</p>
     </div>
     <div class="header-actions">
       <button class="btn btn-primary" (click)="openCreate()">
@@ -31,7 +31,7 @@
           <tr>
             <th>Order</th>
             <th>Class</th>
-            <th>Class teacher</th>
+            <th>Teachers</th>
             <th>Children</th>
             <th>Status</th>
             <th>Actions</th>
@@ -51,7 +51,8 @@
                 </div>
               </td>
               <td>
-                @if (c.classTeacherName) { {{ c.classTeacherName }} }
+                @if (c.classTeacherName) { {{ c.classTeacherName }} <span class="cell-sub">(lead)</span> }
+                @for (n of c.teacherNames ?? []; track n) { <div class="cell-sub">{{ n }}</div> }
                 @else { <span class="tag warn">No teacher</span> }
               </td>
               <td>
@@ -97,12 +98,26 @@
             <input id="cls-order" type="number" [(ngModel)]="form.sortOrder" min="0" />
           </div>
           <div class="form-group span-2">
-            <label for="cls-teacher">Class teacher</label>
+            <label for="cls-teacher">Lead teacher</label>
             <select id="cls-teacher" [(ngModel)]="form.classTeacherId">
               <option [ngValue]="null">— Not assigned —</option>
               @for (t of teachers; track t.id) { <option [ngValue]="t.id">{{ t.name }}</option> }
             </select>
-            <div class="hint">Any active employee. They see this class's children and parents' messages in their portal.</div>
+            <div class="hint">The teacher parents see ("Class teacher · Ms Tan").</div>
+          </div>
+          <div class="form-group span-2">
+            <label>Other teachers (optional)</label>
+            <div class="pick-list">
+              @for (t of teachers; track t.id) {
+                @if (t.id !== form.classTeacherId) {
+                  <label>
+                    <input type="checkbox" [checked]="form.teacherIds.includes(t.id)" (change)="toggleTeacher(t.id, $any($event.target).checked)" />
+                    {{ t.name }}
+                  </label>
+                }
+              }
+            </div>
+            <div class="hint">Every teacher of the class sees its children, attendance and daily reports, and receives and answers its parents' messages.</div>
           </div>
           <div class="form-group span-2">
             <label for="cls-desc">Description (optional)</label>

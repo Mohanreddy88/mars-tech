@@ -47,6 +47,9 @@ export interface SchoolClass {
   isActive: boolean;
   classTeacherId: number | null;
   classTeacherName: string | null;
+  /** Other teachers of the class (they see its children and answer its parents too). */
+  teacherIds?: number[];
+  teacherNames?: string[];
   studentCount: number;
 }
 

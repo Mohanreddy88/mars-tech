@@ -19,7 +19,11 @@ const relationships = ['Mother', 'Father', 'Guardian'];
 
 class ClassItem {
   const ClassItem({required this.id, required this.name, this.description, this.classTeacherId,
-      this.classTeacherName, required this.sortOrder, required this.isActive, required this.studentCount});
+      this.classTeacherName, required this.sortOrder, required this.isActive, required this.studentCount,
+      this.teacherIds = const [], this.teacherNames = const []});
+  /// Other teachers of the class (they see its children and answer its parents too).
+  final List<int> teacherIds;
+  final List<String> teacherNames;
   final int id;
   final String name;
   final String? description;
@@ -38,6 +42,8 @@ class ClassItem {
         sortOrder: _i(j['sortOrder']),
         isActive: j['isActive'] as bool? ?? true,
         studentCount: _i(j['studentCount']),
+        teacherIds: [for (final t in (j['teacherIds'] as List<dynamic>? ?? const [])) (t as num).toInt()],
+        teacherNames: [for (final t in (j['teacherNames'] as List<dynamic>? ?? const [])) '$t'],
       );
 }
 
