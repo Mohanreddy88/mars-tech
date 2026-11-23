@@ -65,6 +65,14 @@
             @if (ai.last30Days.questions > ai.last30Days.answered) { · {{ ai.last30Days.questions - ai.last30Days.answered }} fell back to this list }
           </div>
         }
+        <!-- Where the company signs up, adds credit and creates its API key -->
+        <div class="ai-console small mt-2">
+          <i class="bi bi-key"></i>
+          Need an API key or more credit? Sign up at the
+          <a href="https://console.anthropic.com/" target="_blank" rel="noopener">Anthropic Console <i class="bi bi-box-arrow-up-right"></i></a>,
+          add credits under <strong>Plans &amp; Billing</strong>, create a key under <strong>API Keys</strong>, then paste it here with
+          <strong>{{ ai.configured && ai.keySource === 'company' ? 'Replace key' : 'Connect AI' }}</strong>.
+        </div>
       </div>
       <div class="ai-actions">
         @if (!ai.configured || ai.keySource === 'server') {

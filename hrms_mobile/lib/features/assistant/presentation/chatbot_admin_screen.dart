@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/error_view.dart';
@@ -201,6 +202,7 @@ class _AiCardState extends ConsumerState<_AiCard> {
                 if (status.problem != null) _AiProblem(status: status),
                 const SizedBox(height: 2),
                 Text(description, style: text.bodySmall),
+                const _ConsoleLink(),
                 if (status.keyUnreadable && !status.configured)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
@@ -249,6 +251,43 @@ class _AiCardState extends ConsumerState<_AiCard> {
 }
 
 /// Asks for the Anthropic API key, with the steps to get one. Pops with the key.
+/// Anthropic Console, where the company signs up, adds credit and creates its API key.
+const anthropicConsoleUrl = 'https://console.anthropic.com/';
+
+/// "Need an API key? Open the Anthropic Console" — opens it in the browser.
+class _ConsoleLink extends StatelessWidget {
+  const _ConsoleLink();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
+        Text('Need an API key or more credit? ', style: Theme.of(context).textTheme.bodySmall),
+        InkWell(
+          onTap: () async {
+            final ok = await launchUrl(Uri.parse(anthropicConsoleUrl), mode: LaunchMode.externalApplication);
+            if (!ok && context.mounted) {
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(const SnackBar(content: Text('Could not open $anthropicConsoleUrl')));
+            }
+          },
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Text('Open the Anthropic Console',
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    decoration: TextDecoration.underline)),
+            const SizedBox(width: 2),
+            Icon(Icons.open_in_new, size: 14, color: Theme.of(context).colorScheme.primary),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
 /// "AI isn't working: your Anthropic credit has run out…" — shown until an AI answer works again.
 class _AiProblem extends StatelessWidget {
   const _AiProblem({required this.status});
@@ -321,9 +360,10 @@ class _ConnectDialogState extends State<_ConnectDialog> {
       title: const Text('Connect AI (Anthropic Claude)'),
       content: SingleChildScrollView(
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('1. Sign in at console.anthropic.com and add a payment method under Billing.\n'
+          Text('1. Sign up or sign in at the Anthropic Console and add credits under Plans & Billing.\n'
               '2. Under API keys, create a key (e.g. "Mars HRMS") and copy it.\n'
               '3. Paste it here. It is tested before saving.', style: text.bodySmall),
+          const _ConsoleLink(),
           const SizedBox(height: 12),
           TextField(
             controller: _key,
