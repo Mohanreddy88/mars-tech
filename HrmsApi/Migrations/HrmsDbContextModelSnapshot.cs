@@ -2026,6 +2026,21 @@ namespace HrmsApi.Migrations
                     b.ToTable("SchoolClasses");
                 });
 
+            modelBuilder.Entity("HrmsApi.Models.SchoolClassTeacher", b =>
+                {
+                    b.Property<int>("ClassId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("EmployeeId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("ClassId", "EmployeeId");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.ToTable("SchoolClassTeachers", (string)null);
+                });
+
             modelBuilder.Entity("HrmsApi.Models.StatutoryRateSet", b =>
                 {
                     b.Property<int>("Id")
@@ -2765,6 +2780,25 @@ namespace HrmsApi.Migrations
                     b.Navigation("ClassTeacher");
                 });
 
+            modelBuilder.Entity("HrmsApi.Models.SchoolClassTeacher", b =>
+                {
+                    b.HasOne("HrmsApi.Models.SchoolClass", "Class")
+                        .WithMany("Teachers")
+                        .HasForeignKey("ClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HrmsApi.Models.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Class");
+
+                    b.Navigation("Employee");
+                });
+
             modelBuilder.Entity("HrmsApi.Models.Student", b =>
                 {
                     b.HasOne("HrmsApi.Models.SchoolClass", "Class")
@@ -2905,6 +2939,8 @@ namespace HrmsApi.Migrations
             modelBuilder.Entity("HrmsApi.Models.SchoolClass", b =>
                 {
                     b.Navigation("Students");
+
+                    b.Navigation("Teachers");
                 });
 
             modelBuilder.Entity("HrmsApi.Models.Student", b =>

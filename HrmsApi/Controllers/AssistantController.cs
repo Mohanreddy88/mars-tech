@@ -527,7 +527,7 @@ public class AssistantController : ControllerBase
                 .Select(e => new { e.Id, e.Name }).FirstOrDefaultAsync();
             name = employee?.Name ?? user.Username;
             isTeacher = employee != null && settings.SchoolFeaturesEnabled
-                        && await _db.SchoolClasses.AnyAsync(c => c.ClassTeacherId == employee.Id && c.IsActive);
+                        && await _db.SchoolClasses.AnyAsync(c => c.IsActive && (c.ClassTeacherId == employee.Id || c.Teachers.Any(t => t.EmployeeId == employee.Id)));
         }
         return new Viewer(user.Id, name, user.Role == "Admin", isParent, settings.SchoolFeaturesEnabled, isTeacher);
     }

@@ -33,6 +33,7 @@ public class HrmsDbContext : DbContext
 
     // ── School features ──
     public DbSet<SchoolClass>           SchoolClasses         => Set<SchoolClass>();
+    public DbSet<SchoolClassTeacher>    SchoolClassTeachers   => Set<SchoolClassTeacher>();
     public DbSet<Student>               Students              => Set<Student>();
     public DbSet<Parent>                Parents               => Set<Parent>();
     public DbSet<StudentParent>         StudentParents        => Set<StudentParent>();
@@ -391,6 +392,16 @@ public class HrmsDbContext : DbContext
             e.HasIndex(x => x.Name).IsUnique();
             // Deleting a teacher's employee record leaves the class without a teacher
             e.HasOne(x => x.ClassTeacher).WithMany().HasForeignKey(x => x.ClassTeacherId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // Other teachers of a class (the lead is SchoolClass.ClassTeacherId)
+        modelBuilder.Entity<SchoolClassTeacher>(e =>
+        {
+            e.ToTable("SchoolClassTeachers");
+            e.HasKey(x => new { x.ClassId, x.EmployeeId });
+            e.HasOne(x => x.Class).WithMany(c => c.Teachers).HasForeignKey(x => x.ClassId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Employee).WithMany().HasForeignKey(x => x.EmployeeId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => x.EmployeeId);
         });
 
         modelBuilder.Entity<Student>(e =>

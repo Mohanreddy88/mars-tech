@@ -19,6 +19,22 @@ public class SchoolClass
 
     public Employee? ClassTeacher { get; set; }
     public List<Student> Students { get; set; } = new();
+    /// <summary>
+    /// Other teachers of the class (besides the lead, <see cref="ClassTeacherId"/>). They see its
+    /// children, attendance and reports and answer its parents' messages, like the lead; parents
+    /// see only the lead teacher's name.
+    /// </summary>
+    public List<SchoolClassTeacher> Teachers { get; set; } = new();
+}
+
+/// <summary>An extra teacher of a class (any number; the lead is SchoolClass.ClassTeacherId).</summary>
+public class SchoolClassTeacher
+{
+    public int ClassId    { get; set; }
+    public int EmployeeId { get; set; }
+
+    public SchoolClass Class    { get; set; } = null!;
+    public Employee    Employee { get; set; } = null!;
 }
 
 /// <summary>A child at the school.</summary>

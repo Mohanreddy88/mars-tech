@@ -182,6 +182,9 @@ public class SchoolController : ControllerBase
             {
                 c.Id, c.Name, c.Description, c.SortOrder, c.IsActive, c.ClassTeacherId,
                 classTeacherName = c.ClassTeacher != null ? c.ClassTeacher.Name : null,
+                // Other teachers of the class (parents see only the lead, ClassTeacherName)
+                teacherIds   = c.Teachers.Select(t => t.EmployeeId).ToList(),
+                teacherNames = c.Teachers.Select(t => t.Employee.Name).ToList(),
                 studentCount     = c.Students.Count(s => s.IsActive)
             }).ToListAsync());
     }
@@ -198,6 +201,7 @@ public class SchoolController : ControllerBase
         ApplyClass(c, req);
         _db.SchoolClasses.Add(c);
         await _db.SaveChangesAsync();
+        await SetTeachersAsync(c, req.TeacherIds);
         await Audit("Created", "SchoolClass", c.Id.ToString(), $"Created class {c.Name}");
         return Ok(new { c.Id });
     }
@@ -213,6 +217,7 @@ public class SchoolController : ControllerBase
 
         ApplyClass(c, req);
         await _db.SaveChangesAsync();
+        await SetTeachersAsync(c, req.TeacherIds);
         await Audit("Updated", "SchoolClass", c.Id.ToString(), $"Updated class {c.Name}");
         return Ok(new { c.Id });
     }
@@ -242,7 +247,24 @@ public class SchoolController : ControllerBase
             return new { message = $"There is already a class called {name}.", field = "name" };
         if (req.ClassTeacherId != null && !await _db.Employees.AnyAsync(e => e.Id == req.ClassTeacherId && e.IsActive))
             return new { message = "Choose an active employee as class teacher.", field = "classTeacherId" };
+        var others = (req.TeacherIds ?? new()).Distinct().Where(t => t != req.ClassTeacherId).ToList();
+        if (others.Count > 0 && await _db.Employees.CountAsync(e => others.Contains(e.Id) && e.IsActive) != others.Count)
+            return new { message = "One of the other teachers is not an active employee.", field = "teacherIds" };
+        if (others.Count > 0 && req.ClassTeacherId == null)
+            return new { message = "Choose the lead teacher first (the one parents see).", field = "classTeacherId" };
         return null;
+    }
+
+    /// <summary>The class's other teachers become exactly these (the lead is never listed twice); null = unchanged.</summary>
+    private async Task SetTeachersAsync(SchoolClass c, List<int>? teacherIds)
+    {
+        if (teacherIds == null) return;
+        var wanted = teacherIds.Where(t => t != c.ClassTeacherId).ToHashSet();
+        var links = await _db.SchoolClassTeachers.Where(t => t.ClassId == c.Id).ToListAsync();
+        _db.SchoolClassTeachers.RemoveRange(links.Where(l => !wanted.Contains(l.EmployeeId)));
+        foreach (var id in wanted.Where(w => links.All(l => l.EmployeeId != w)))
+            _db.SchoolClassTeachers.Add(new SchoolClassTeacher { ClassId = c.Id, EmployeeId = id });
+        await _db.SaveChangesAsync();
     }
 
     private static void ApplyClass(SchoolClass c, SchoolClassRequest req)
@@ -544,7 +566,10 @@ public class SchoolClassRequest
 {
     [StringLength(50)]  public string? Name { get; set; }
     [StringLength(200)] public string? Description { get; set; }
+    /// <summary>The lead teacher (the one parents see).</summary>
     public int? ClassTeacherId { get; set; }
+    /// <summary>Other teachers of the class (they see its children and answer its parents too); null = unchanged.</summary>
+    public List<int>? TeacherIds { get; set; }
     public int  SortOrder { get; set; }
     public bool IsActive { get; set; } = true;
 }
