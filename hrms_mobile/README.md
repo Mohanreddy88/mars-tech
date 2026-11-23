@@ -19,7 +19,7 @@ release builds use HTTPS.
 |---|---|
 | `flutter run` (debug) | local API from the Android emulator: `http://10.0.2.2:64559/api` |
 | `--dart-define=API_BASE_URL=<url>` | that server only (any build) |
-| release, no `API_BASE_URL` | **asks for the company code** on the login screen → `https://<code>.marshrms.com/api` (empty = `marshrms.com`), remembered on the phone |
+| release, no `API_BASE_URL` | **user picks the company** from the registered list on the login screen (search by name; list from `GET /api/public/companies`, the code can still be typed if it does not load) → `https://<code>.marshrms.com/api` (UAT build: `<code>.uat.marshrms.com`), remembered on the phone |
 | release + `--dart-define=API_DOMAIN=uat.marshrms.com` | same, against UAT (`<code>.uat.marshrms.com`) |
 
 ```bash
@@ -46,7 +46,7 @@ build is signed with the debug key (fine for testing, rejected by Google Play).
 
 ```bash
 # 1. bump version in pubspec.yaml (version: 1.0.1+2 — the +number must increase every upload)
-# 2. build the bundle for Google Play (asks users for their company code)
+# 2. build the bundle for Google Play (users pick their company at login)
 flutter build appbundle --release
 #    -> build/app/outputs/bundle/release/app-release.aab   (upload in Play Console)
 # test build against UAT instead:

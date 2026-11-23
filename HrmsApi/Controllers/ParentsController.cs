@@ -233,9 +233,11 @@ public class ParentsController : ControllerBase
         p.IsActive     = req.IsActive;
     }
 
+    /// <summary>Links the parent to exactly these children; null leaves the links as they are.</summary>
     private async Task SetChildrenAsync(Parent p, List<int>? studentIds)
     {
-        var wanted = studentIds?.Distinct().ToHashSet() ?? new HashSet<int>();
+        if (studentIds == null) return;
+        var wanted = studentIds.Distinct().ToHashSet();
         var links = await _db.StudentParents.Where(sp => sp.ParentId == p.Id).ToListAsync();
         _db.StudentParents.RemoveRange(links.Where(l => !wanted.Contains(l.StudentId)));
         foreach (var sid in wanted.Where(w => links.All(l => l.StudentId != w)))
@@ -275,6 +277,7 @@ public class ParentRequest
     [StringLength(30)]  public string? Phone { get; set; }
     public string Relationship { get; set; } = "Mother";
     public bool IsActive { get; set; } = true;
+    /// <summary>Children to link; null = leave the links unchanged (the app sets children under Families).</summary>
     public List<int>? StudentIds { get; set; }
     /// <summary>Create a login and email the set-password link (needs an email address).</summary>
     public bool CreateLogin { get; set; }

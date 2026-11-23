@@ -175,6 +175,7 @@ class _SchoolTiles extends ConsumerWidget {
       HomeTile('Fees', Icons.receipt_long_outlined, TileColors.fees, () => open(Routes.schoolFees), badge: claims),
       HomeTile('Children', Icons.child_care_outlined, TileColors.today, () => open(Routes.schoolChildren)),
       HomeTile('Parents', Icons.family_restroom_outlined, TileColors.office, () => open(Routes.schoolParents)),
+      HomeTile('Families', Icons.diversity_3_outlined, TileColors.teacher, () => open(Routes.schoolFamilies)),
       HomeTile('Classes', Icons.class_outlined, TileColors.school, () => open(Routes.schoolClasses)),
     ]);
   }

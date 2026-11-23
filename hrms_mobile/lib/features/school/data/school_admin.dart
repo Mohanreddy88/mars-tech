@@ -52,10 +52,24 @@ class StudentParentRef {
         phone: _s(j['phone']));
 }
 
+/// Another child who shares a parent; [via] is "Same parents", "Same mother", "Same father" or "Same guardian".
+class SiblingRef {
+  const SiblingRef({required this.id, required this.fullName, this.className, required this.via, required this.isActive});
+  final int id;
+  final String fullName;
+  final String? className;
+  final String via;
+  final bool isActive;
+  factory SiblingRef.fromJson(Map<String, dynamic> j) => SiblingRef(
+        id: _i(j['id']), fullName: j['fullName'] as String? ?? '', className: _s(j['className']),
+        via: j['via'] as String? ?? '', isActive: j['isActive'] as bool? ?? true);
+}
+
 class ChildRecord {
   const ChildRecord({required this.id, required this.fullName, this.admissionNo, this.dateOfBirth, this.gender,
       this.classId, this.className, required this.sessionType, this.joinedOn, this.medicalNotes,
-      this.emergencyContactName, this.emergencyContactPhone, this.notes, required this.isActive, required this.parents});
+      this.emergencyContactName, this.emergencyContactPhone, this.notes, required this.isActive, required this.parents,
+      this.siblings = const []});
   final int id;
   final String fullName;
   final String? admissionNo;
@@ -71,6 +85,10 @@ class ChildRecord {
   final String? notes;
   final bool isActive;
   final List<StudentParentRef> parents;
+  final List<SiblingRef> siblings;
+
+  StudentParentRef? get mother => parents.where((p) => p.relationship == 'Mother').firstOrNull;
+  StudentParentRef? get father => parents.where((p) => p.relationship == 'Father').firstOrNull;
 
   static String? _day(dynamic v) => v is String && v.length >= 10 ? v.substring(0, 10) : null;
 
@@ -90,6 +108,7 @@ class ChildRecord {
         notes: _s(j['notes']),
         isActive: j['isActive'] as bool? ?? true,
         parents: _list(j['parents'], StudentParentRef.fromJson),
+        siblings: _list(j['siblings'], SiblingRef.fromJson),
       );
 }
 
@@ -107,7 +126,8 @@ class ParentRecord {
   final String? username;
   final bool loginActive;
   final bool loginPending;
-  final List<({int id, String fullName, String? className})> children;
+  /// Linked children, each with its other parents ("Rudvik, with Mohan (Father)").
+  final List<({int id, String fullName, String? className, List<String> others})> children;
 
   factory ParentRecord.fromJson(Map<String, dynamic> j) => ParentRecord(
         id: _i(j['id']),
@@ -120,7 +140,43 @@ class ParentRecord {
         username: _s(j['username']),
         loginActive: j['loginActive'] as bool? ?? false,
         loginPending: j['loginPending'] as bool? ?? false,
-        children: _list(j['children'], (c) => (id: _i(c['id']), fullName: c['fullName'] as String? ?? '', className: _s(c['className']))),
+        children: _list(j['children'], (c) => (
+              id: _i(c['id']),
+              fullName: c['fullName'] as String? ?? '',
+              className: _s(c['className']),
+              others: _list(c['otherParents'], (o) => '${o['fullName'] ?? ''} (${o['relationship'] ?? ''})'),
+            )),
+      );
+}
+
+/// A mother and/or father and the children they share (GET school/families). Both null = children
+/// with no mother or father linked yet.
+class FamilyRecord {
+  const FamilyRecord({this.mother, this.father, required this.children});
+  final ({int id, String fullName, String? phone, bool hasLogin})? mother;
+  final ({int id, String fullName, String? phone, bool hasLogin})? father;
+  final List<({int id, String fullName, String? className, bool isActive, List<String> guardians})> children;
+
+  static ({int id, String fullName, String? phone, bool hasLogin})? _parent(dynamic v) {
+    if (v is! Map<String, dynamic>) return null;
+    // Anonymous objects from the API keep their C# names (Id, FullName…)
+    dynamic g(String k) => v[k] ?? v[k[0].toUpperCase() + k.substring(1)];
+    return (id: _i(g('id')), fullName: g('fullName') as String? ?? '', phone: _s(g('phone')), hasLogin: g('hasLogin') == true);
+  }
+
+  factory FamilyRecord.fromJson(Map<String, dynamic> j) => FamilyRecord(
+        mother: _parent(j['mother']),
+        father: _parent(j['father']),
+        children: _list(j['children'], (c) {
+          dynamic g(String k) => c[k] ?? c[k[0].toUpperCase() + k.substring(1)];
+          return (
+            id: _i(g('id')),
+            fullName: g('fullName') as String? ?? '',
+            className: _s(g('className')),
+            isActive: g('isActive') as bool? ?? true,
+            guardians: _list(g('guardians'), (x) => '${x['fullName'] ?? x['FullName'] ?? ''}'),
+          );
+        }),
       );
 }
 
@@ -210,10 +266,13 @@ class SchoolAdminRepository {
         return (r.data ?? const []).map((e) => ChildRecord.fromJson(e as Map<String, dynamic>)).toList();
       });
 
-  /// Saves a child. Throws [PossibleDuplicate] when the API asks "is this a different child?".
-  Future<void> saveChild(int? id, Map<String, dynamic> body) async {
+  /// Saves a child and returns its id. Throws [PossibleDuplicate] when the API asks "is this a different child?".
+  Future<int> saveChild(int? id, Map<String, dynamic> body) async {
     try {
-      id == null ? await _dio.post<void>('school/students', data: body) : await _dio.put<void>('school/students/$id', data: body);
+      final r = id == null
+          ? await _dio.post<Map<String, dynamic>>('school/students', data: body)
+          : await _dio.put<Map<String, dynamic>>('school/students/$id', data: body);
+      return (r.data?['id'] as num?)?.toInt() ?? id ?? 0;
     } on DioException catch (e) {
       final data = e.response?.data;
       if (data is Map && data['duplicate'] == true) throw PossibleDuplicate(data['message'] as String? ?? '');
@@ -230,12 +289,28 @@ class SchoolAdminRepository {
         final r = await _dio.get<List<dynamic>>('school/parents');
         return (r.data ?? const []).map((e) => ParentRecord.fromJson(e as Map<String, dynamic>)).toList();
       });
-  Future<String?> saveParent(int? id, Map<String, dynamic> body) => _call(() async {
+  /// Saves a parent; returns its id and the API's note (login created, email sent…).
+  Future<({int id, String? message})> saveParent(int? id, Map<String, dynamic> body) => _call(() async {
         final r = id == null
             ? await _dio.post<Map<String, dynamic>>('school/parents', data: body)
             : await _dio.put<Map<String, dynamic>>('school/parents/$id', data: body);
-        return r.data?['message'] as String?;
+        return (id: (r.data?['id'] as num?)?.toInt() ?? id ?? 0, message: r.data?['message'] as String?);
       });
+
+  // ── Families (a mother and/or father and their children) ──
+  Future<List<FamilyRecord>> families() => _call(() async {
+        final r = await _dio.get<List<dynamic>>('school/families');
+        return (r.data ?? const []).map((e) => FamilyRecord.fromJson(e as Map<String, dynamic>)).toList();
+      });
+
+  /// Sets [motherId] / [fatherId] for [studentIds]; [removeStudentIds] are taken out of the family.
+  Future<void> saveFamily({int? motherId, int? fatherId, required List<int> studentIds, List<int> removeStudentIds = const []}) =>
+      _call(() => _dio.put<void>('school/families', data: {
+            'motherId': motherId,
+            'fatherId': fatherId,
+            'studentIds': studentIds,
+            'removeStudentIds': removeStudentIds,
+          }));
   Future<String> inviteParent(int id) => _call(() async {
         final r = await _dio.post<Map<String, dynamic>>('school/parents/$id/invite');
         return r.data?['message'] as String? ?? 'Sent';

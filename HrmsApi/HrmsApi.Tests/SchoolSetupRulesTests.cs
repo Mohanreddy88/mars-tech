@@ -137,6 +137,15 @@ public class SchoolSetupRulesTests
         db.Students.Find(2)!.EmergencyContactPhone.Should().Be("+60312345678");
     }
 
+    [Fact]
+    public async Task Saving_a_parent_without_a_children_list_keeps_their_children()
+    {
+        var db = Setup();
+        var r = await Parents(db).Update(Mum, new ParentRequest { FullName = "Mum Rahman", Relationship = "Mother", StudentIds = null });
+        r.Should().BeOfType<OkObjectResult>();
+        db.StudentParents.Should().Contain(sp => sp.ParentId == Mum && sp.StudentId == Ali);
+    }
+
     private sealed class NoAudit : IAuditService
     {
         public Task LogAsync(string action, string entityType, string? entityId, string description, string username,
