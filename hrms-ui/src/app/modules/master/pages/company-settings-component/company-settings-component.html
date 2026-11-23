@@ -147,6 +147,34 @@
           </label>
           <small class="d-block mt-2">For schools and kindergartens: classes, children, parent logins, announcements and
             parent ↔ teacher messages. Saved straight away.</small>
+
+          @if (schoolEnabled && times) {
+            <!-- School day timings: late arrivals, automatic absent / check-out, check-out time suggestion -->
+            <h5 class="mt-4 mb-2">School day timings</h5>
+            <div class="times-grid">
+              <label>School starts <input type="time" [(ngModel)]="times.start" name="tStart" /></label>
+              <label>Late after <input type="time" [(ngModel)]="times.lateAfter" name="tLate" /></label>
+              <label>Absent if not in by <input type="time" [(ngModel)]="times.absentAfter" name="tAbsent" /></label>
+              <label>Half day ends <input type="time" [(ngModel)]="times.halfDayEnd" name="tHalf" /></label>
+              <label>Full day ends <input type="time" [(ngModel)]="times.fullDayEnd" name="tFull" /></label>
+              <label>Daycare ends <input type="time" [(ngModel)]="times.daycareEnd" name="tDay" /></label>
+              <label>Automatic check-out at <input type="time" [(ngModel)]="times.autoCheckOutAt" name="tAuto" /></label>
+            </div>
+            <label class="d-flex align-items-start gap-2 mt-3">
+              <input type="checkbox" [(ngModel)]="times.auto" name="tAutoOn" class="mt-1" />
+              <span>
+                <strong>Automatic attendance</strong> (school days only — not weekends or public holidays):<br>
+                <small>
+                  At <b>{{ times.lateAfter }}</b> parents of children not checked in are asked if they're coming ·
+                  at <b>{{ times.absentAfter }}</b> those children are marked absent (a teacher can still check them in) ·
+                  at <b>{{ times.autoCheckOutAt }}</b> children not checked out are checked out at their session's end.
+                </small>
+              </span>
+            </label>
+            <button type="button" class="btn btn-primary btn-sm mt-3" (click)="saveTimes()" [disabled]="savingTimes">
+              @if (savingTimes) { <span class="spinner-border spinner-border-sm me-1"></span> } Save timings
+            </button>
+          }
         </section>
 
         <section class="card-section">

@@ -98,9 +98,15 @@
               <td>
                 @if (r.attendance?.status === 'Absent') {
                   <span class="tag bad">Absent</span>
+                  @if (r.attendance?.autoAbsent) { <span class="tag auto" title="Not checked in by {{ data?.times?.absentAfter }}">automatic</span> }
                   @if (r.attendance?.absenceReason) { <div class="cell-sub">{{ r.attendance?.absenceReason }}</div> }
+                  @if (r.attendance?.autoAbsent) {
+                    <!-- Arrived after all: checking in makes the child present (late) -->
+                    <button class="btn btn-sm btn-link p-0" (click)="checkIn(r)" [disabled]="busy === r.studentId">Arrived — check in</button>
+                  }
                 } @else if (r.attendance?.checkIn) {
                   <strong>{{ r.attendance?.checkIn }}</strong>
+                  @if (r.attendance?.isLate) { <span class="tag late" title="After {{ data?.times?.lateAfter }}">Late</span> }
                   <div class="cell-sub">by {{ r.attendance?.checkInBy }}</div>
                 } @else {
                   <div class="btn-group-tight">
@@ -116,6 +122,9 @@
               <td>
                 @if (r.attendance?.checkOut) {
                   <strong>{{ r.attendance?.checkOut }}</strong>
+                  @if (r.attendance?.autoCheckOut) {
+                    <span class="tag auto" title="Not checked out by the teacher: checked out at the session's end">automatic</span>
+                  }
                   <div class="cell-sub">{{ r.attendance?.pickedUpBy }}</div>
                 } @else if (r.attendance?.checkIn) {
                   <button class="btn btn-sm btn-outline-primary" (click)="openDialog('out', r)" [disabled]="busy === r.studentId">

@@ -140,11 +140,23 @@ export class SchoolAttendanceComponent implements OnInit, OnDestroy {
     this.dialog = { kind, row: r };
     this.dialogError = '';
     this.dialogTime = this.isToday ? this.nowTime() : '';
+    // Check-out: suggest the session's end time (4:30 full day…) for a past day, or once it has passed today
+    if (kind === 'out') {
+      const end = this.sessionEnd(r.sessionType);
+      if (end && (!this.isToday || this.dialogTime > end)) this.dialogTime = end;
+    }
     const pickup = r.notes.find(n => n.kind === 'Pickup');
     this.dialogPickup = pickup?.pickupName ? `${pickup.pickupName} (pickup note)` : (r.parents[0] ? this.parentLabel(r.parents[0]) : '');
     this.dialogPickupOther = '';
     const absence = r.notes.find(n => n.kind === 'Absence');
     this.dialogReason = absence?.message ?? (absence ? 'Parent reported absence' : '');
+  }
+
+  /** "16:30" — when this session ends (School timings in Company Settings). */
+  sessionEnd(sessionType: string): string | null {
+    const t = this.data?.times;
+    if (!t) return null;
+    return sessionType === 'Half day' ? t.halfDayEnd : sessionType === 'Daycare' ? t.daycareEnd : t.fullDayEnd;
   }
 
   pickupChoices(r: AttendanceRow): string[] {

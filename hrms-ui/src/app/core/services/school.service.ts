@@ -6,6 +6,15 @@ import type { HubConnection } from '@microsoft/signalr';
 import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
 
+/** School day timings (Company Settings → School features). */
+export interface SchoolTimesSetting {
+  start: string; lateAfter: string; absentAfter: string;
+  halfDayEnd: string; fullDayEnd: string; daycareEnd: string;
+  autoCheckOutAt: string;
+  /** 9:00 reminder to parents, 9:30 automatic absent, evening automatic check-out. */
+  auto: boolean;
+}
+
 // ── Models ────────────────────────────────────────────────────────────────
 
 /** The signed-in user's place in the school features (from GET /school/me). */
@@ -310,6 +319,13 @@ export class SchoolService {
   }
 
   // ── Settings ──
+
+  /** School day timings ("HH:mm"): start, late after, absent after, session ends, automatic check-out. */
+  times(): Observable<SchoolTimesSetting> { return this.http.get<SchoolTimesSetting>(`${this.api}/times`); }
+
+  saveTimes(t: SchoolTimesSetting): Observable<SchoolTimesSetting> {
+    return this.http.put<SchoolTimesSetting>(`${this.api}/times`, t);
+  }
 
   setEnabled(enabled: boolean): Observable<{ enabled: boolean }> {
     return this.http.put<{ enabled: boolean }>(`${this.api}/settings`, { enabled })

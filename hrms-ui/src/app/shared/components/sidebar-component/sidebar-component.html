@@ -250,25 +250,38 @@
         <span>Dashboard</span>
       </li>
 
-      <!-- Class teachers (school features): their class, its parents' messages, announcements -->
+      <!-- Class teachers: one "School" group — only when the company has school features on
+           (Company Settings) and this employee teaches a class -->
       @if (school?.isTeacher) {
-        <li routerLink="/school/my-class" routerLinkActive="active-menu">
-          <i class="bi bi-easel2-fill"></i>
-          <span>My Class</span>
+        <li class="menu-parent" [class.open]="schoolMenuOpen" (click)="toggleSchoolMenu($event)">
+          <div class="menu-parent-header">
+            <i class="bi bi-mortarboard-fill"></i>
+            <span>School</span>
+            @if (unreadMessages > 0 && !schoolMenuOpen) { <span class="pending-badge">{{ unreadMessages }}</span> }
+            <i class="bi bi-chevron-down submenu-arrow" [class.rotate]="schoolMenuOpen"></i>
+          </div>
         </li>
-        <li routerLink="/school/attendance" routerLinkActive="active-menu">
-          <i class="bi bi-calendar2-check-fill"></i>
-          <span>Attendance &amp; Reports</span>
-        </li>
-        <li routerLink="/school/messages" routerLinkActive="active-menu">
-          <i class="bi bi-chat-dots-fill"></i>
-          <span>Messages</span>
-          @if (unreadMessages > 0) { <span class="pending-badge">{{ unreadMessages }}</span> }
-        </li>
-        <li routerLink="/school/announcements" routerLinkActive="active-menu">
-          <i class="bi bi-megaphone-fill"></i>
-          <span>Announcements</span>
-        </li>
+        @if (schoolMenuOpen) {
+          <ul class="submenu">
+            <li routerLink="/school/my-class" routerLinkActive="active-submenu">
+              <i class="bi bi-easel2"></i>
+              <span>My Class</span>
+            </li>
+            <li routerLink="/school/attendance" routerLinkActive="active-submenu">
+              <i class="bi bi-calendar2-check"></i>
+              <span>Attendance &amp; Reports</span>
+            </li>
+            <li routerLink="/school/messages" routerLinkActive="active-submenu">
+              <i class="bi bi-chat-dots"></i>
+              <span>Messages</span>
+              @if (unreadMessages > 0) { <span class="pending-badge">{{ unreadMessages }}</span> }
+            </li>
+            <li routerLink="/school/announcements" routerLinkActive="active-submenu">
+              <i class="bi bi-megaphone"></i>
+              <span>Announcements</span>
+            </li>
+          </ul>
+        }
       }
 
       <!-- 2. My Profile -->

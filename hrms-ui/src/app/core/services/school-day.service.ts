@@ -13,6 +13,12 @@ export interface AttendanceInfo {
   checkOutBy: string | null;
   pickedUpBy: string | null;
   absenceReason: string | null;
+  /** Checked in after the "late after" time. */
+  isLate?: boolean;
+  /** Marked absent automatically (not in by the "absent after" time). */
+  autoAbsent?: boolean;
+  /** Checked out automatically in the evening (the teacher didn't). */
+  autoCheckOut?: boolean;
 }
 
 export interface ParentNoteInfo {
@@ -49,7 +55,15 @@ export interface AttendanceDay {
   date: string;
   today: string;
   rows: AttendanceRow[];
-  summary: { total: number; present: number; checkedOut: number; absent: number; notMarked: number; reportsPublished: number };
+  summary: { total: number; present: number; checkedOut: number; absent: number; notMarked: number; reportsPublished: number; late?: number };
+  /** School timings ("HH:mm"): check-out suggests the session's end. */
+  times?: SchoolTimes;
+}
+
+export interface SchoolTimes {
+  start: string; lateAfter: string; absentAfter: string;
+  halfDayEnd: string; fullDayEnd: string; daycareEnd: string;
+  autoCheckOutAt: string; auto: boolean;
 }
 
 export interface DailyReportInfo {

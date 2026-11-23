@@ -5,7 +5,7 @@ import {
   CompanySettingsService, CompanySettings, CompanySettingsUpdate
 } from '../../../../core/services/company-settings.service';
 import { ToastService } from '../../../../core/services/toast.service';
-import { SchoolService } from '../../../../core/services/school.service';
+import { SchoolService, SchoolTimesSetting } from '../../../../core/services/school.service';
 
 /** Company Settings: the employer's name, logo and statutory numbers used on payslips, EA forms and emails. */
 @Component({
@@ -39,7 +39,11 @@ export class CompanySettingsComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.school.loadMe(true).subscribe(me => { this.schoolEnabled = !!me?.enabled; this.cdr.detectChanges(); });
+    this.school.loadMe(true).subscribe(me => {
+      this.schoolEnabled = !!me?.enabled;
+      if (this.schoolEnabled) this.loadTimes();
+      this.cdr.detectChanges();
+    });
     this.settings.get().subscribe({
       next: s => { this.apply(s); this.loading = false; this.cdr.detectChanges(); },
       error: err => {
@@ -60,12 +64,39 @@ export class CompanySettingsComponent implements OnInit {
     return /^#[0-9A-Fa-f]{6}$/.test(this.form.brandColor);
   }
 
+  /** School day timings (shown while school features are on). */
+  times: SchoolTimesSetting | null = null;
+  savingTimes = false;
+
+  loadTimes(): void {
+    this.school.times().subscribe({ next: t => { this.times = t; this.cdr.detectChanges(); }, error: () => {} });
+  }
+
+  saveTimes(): void {
+    if (!this.times) return;
+    this.savingTimes = true;
+    this.school.saveTimes(this.times).subscribe({
+      next: t => {
+        this.times = t;
+        this.savingTimes = false;
+        this.toast.success('School day timings', 'Saved.');
+        this.cdr.detectChanges();
+      },
+      error: err => {
+        this.savingTimes = false;
+        this.toast.error('School day timings', err?.error?.message ?? 'Could not save the timings.');
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
   /** Switch the school features on or off (the menu updates straight away). */
   setSchool(enabled: boolean): void {
     this.savingSchool = true;
     this.school.setEnabled(enabled).subscribe({
       next: r => {
         this.schoolEnabled = r.enabled;
+        if (r.enabled && !this.times) this.loadTimes();
         this.savingSchool = false;
         this.toast.success('School Features', r.enabled
           ? 'Turned on. Find Classes, Children, Parents and Messages under School in the menu.'
