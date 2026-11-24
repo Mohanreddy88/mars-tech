@@ -363,7 +363,8 @@ class MessagePage {
 
 class AttendanceInfo {
   const AttendanceInfo({required this.status, this.checkIn, this.checkInBy, this.checkOut,
-      this.checkOutBy, this.pickedUpBy, this.absenceReason});
+      this.checkOutBy, this.pickedUpBy, this.absenceReason, this.isLate = false, this.autoAbsent = false,
+      this.autoCheckOut = false});
   final String status; // Present | Absent
   final String? checkIn; // "08:05"
   final String? checkInBy;
@@ -371,6 +372,13 @@ class AttendanceInfo {
   final String? checkOutBy;
   final String? pickedUpBy;
   final String? absenceReason;
+
+  /// Checked in after the "late after" time.
+  final bool isLate;
+  /// Marked absent automatically (not in by the "absent after" time).
+  final bool autoAbsent;
+  /// Checked out automatically in the evening (the teacher didn't).
+  final bool autoCheckOut;
 
   bool get absent => status == 'Absent';
 
@@ -384,6 +392,9 @@ class AttendanceInfo {
       checkOutBy: _s(v['checkOutBy']),
       pickedUpBy: _s(v['pickedUpBy']),
       absenceReason: _s(v['absenceReason']),
+      isLate: v['isLate'] == true,
+      autoAbsent: v['autoAbsent'] == true,
+      autoCheckOut: v['autoCheckOut'] == true,
     );
   }
 }
@@ -498,6 +509,24 @@ class ChildDay {
   }
 }
 
+/// One day in a child's history (GET school/children/{id}/days): attendance and whether a report was sent.
+class ChildDayMark {
+  const ChildDayMark({required this.date, this.status, required this.report});
+  final String date;
+  /// "Present", "Absent" or null (not marked).
+  final String? status;
+  final bool report;
+
+  bool get present => status == 'Present';
+  bool get absent => status == 'Absent';
+
+  factory ChildDayMark.fromJson(Map<String, dynamic> j) => ChildDayMark(
+        date: j['date'] as String? ?? '',
+        status: _s(j['status']),
+        report: j['report'] == true,
+      );
+}
+
 class AttendanceRow {
   const AttendanceRow({required this.studentId, required this.fullName, this.className, required this.sessionType,
       this.medicalNotes, required this.parents, this.attendance, required this.notes, this.reportPublished,
@@ -538,7 +567,8 @@ class AttendanceRow {
 
 class AttendanceDay {
   const AttendanceDay({required this.date, required this.today, required this.rows, required this.present,
-      required this.absent, required this.goneHome, required this.notMarked, required this.reportsSent});
+      required this.absent, required this.goneHome, required this.notMarked, required this.reportsSent,
+      this.times = const {}});
   final String date;
   final String today;
   final List<AttendanceRow> rows;
@@ -547,6 +577,15 @@ class AttendanceDay {
   final int goneHome;
   final int notMarked;
   final int reportsSent;
+  /// School timings ("HH:mm"): start, lateAfter, absentAfter, halfDayEnd, fullDayEnd, daycareEnd, autoCheckOutAt.
+  final Map<String, dynamic> times;
+
+  /// When this session ends ("16:30"), for the check-out time suggestion.
+  String? sessionEnd(String sessionType) => switch (sessionType) {
+        'Half day' => times['halfDayEnd'] as String?,
+        'Daycare' => times['daycareEnd'] as String?,
+        _ => times['fullDayEnd'] as String?,
+      };
 
   factory AttendanceDay.fromJson(Map<String, dynamic> j) {
     final s = j['summary'] as Map<String, dynamic>? ?? const {};
@@ -559,6 +598,7 @@ class AttendanceDay {
       goneHome: _i(s['checkedOut']),
       notMarked: _i(s['notMarked']),
       reportsSent: _i(s['reportsPublished']),
+      times: j['times'] is Map<String, dynamic> ? Map<String, dynamic>.from(j['times'] as Map) : const {},
     );
   }
 }

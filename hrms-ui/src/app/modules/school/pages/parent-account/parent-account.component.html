@@ -1,0 +1,202 @@
+<div class="school-page parent-account">
+
+  <div class="page-header">
+    <div>
+      <a routerLink="/parent" class="back"><i class="bi bi-arrow-left"></i> Home</a>
+      <h3>My Account</h3>
+      <p>Your details, your children, and who may collect them.</p>
+    </div>
+  </div>
+
+  @if (loading) {
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+  } @else if (account) {
+
+    <!-- My profile -->
+    <section class="acc-card">
+      <header>My profile</header>
+      <div class="acc-row">
+        <div class="avatar">{{ account.parent.fullName.charAt(0) }}</div>
+        <div class="grow">
+          <strong>{{ account.parent.fullName }}</strong>
+          <div class="cell-sub">{{ account.parent.relationship }} · {{ account.parent.email ?? 'no email' }}</div>
+        </div>
+      </div>
+      <div class="acc-row">
+        <i class="bi bi-telephone"></i>
+        <div class="grow">
+          <div class="cell-sub">Phone</div>
+          @if (!editingPhone) {
+            <strong>{{ account.parent.phone ? phone(account.parent.phone) : 'Not set' }}</strong>
+          } @else {
+            <div class="d-flex gap-2 align-items-start flex-wrap">
+              <app-phone-input inputId="my-phone" [(ngModel)]="newPhone" />
+              <button class="btn btn-primary btn-sm" (click)="savePhone()" [disabled]="phoneSaving">
+                @if (phoneSaving) { <span class="spinner-border spinner-border-sm me-1"></span> } Save
+              </button>
+              <button class="btn btn-outline-secondary btn-sm" (click)="editingPhone = false">Cancel</button>
+            </div>
+            @if (phoneError) { <div class="field-error">{{ phoneError }}</div> }
+          }
+        </div>
+        @if (!editingPhone) { <button class="btn btn-sm btn-outline-primary" (click)="startPhone()"><i class="bi bi-pencil"></i> Change</button> }
+      </div>
+      <div class="acc-row link" routerLink="/self-service/change-password"><i class="bi bi-key"></i><div class="grow">Change password</div><i class="bi bi-arrow-right"></i></div>
+      <div class="acc-row link" routerLink="/notifications"><i class="bi bi-bell"></i><div class="grow">Notifications</div><i class="bi bi-arrow-right"></i></div>
+      <div class="acc-foot">To change your name or email, please contact the school office.</div>
+    </section>
+
+    <!-- Child details (read only) -->
+    <section class="acc-card">
+      <header>{{ account.children.length === 1 ? 'Child details' : 'Children' }}</header>
+      @for (c of account.children; track c.id) {
+        <div class="acc-row link" (click)="openChild = openChild?.id === c.id ? null : c">
+          <div class="avatar child">{{ c.fullName.charAt(0) }}</div>
+          <div class="grow"><strong>{{ c.fullName }}</strong><div class="cell-sub">{{ c.className ? 'Class ' + c.className : 'No class yet' }} · {{ c.sessionType }}</div></div>
+          <i class="bi" [class.bi-chevron-down]="openChild?.id !== c.id" [class.bi-chevron-up]="openChild?.id === c.id"></i>
+        </div>
+        @if (openChild?.id === c.id) {
+          <dl class="child-details">
+            <dt>Class teacher</dt><dd>{{ c.classTeacher ?? '—' }}</dd>
+            <dt>Date of birth</dt><dd>{{ date(c.dateOfBirth) }}</dd>
+            <dt>Gender</dt><dd>{{ c.gender ?? '—' }}</dd>
+            <dt>Joined on</dt><dd>{{ date(c.joinedOn) }}</dd>
+            @if (c.admissionNo) { <dt>Admission no.</dt><dd>{{ c.admissionNo }}</dd> }
+            <dt>Allergies / medical</dt><dd>{{ c.medicalNotes ?? '—' }}</dd>
+            <dt>Emergency contact</dt><dd>{{ c.emergencyContactName ?? '—' }}{{ c.emergencyContactPhone ? ' · ' + phone(c.emergencyContactPhone) : '' }}</dd>
+          </dl>
+          <div class="acc-foot">Something wrong or changed (allergies, emergency contact)? Please tell the school office.</div>
+        }
+      } @empty { <div class="acc-row">No child linked yet. Please contact the school office.</div> }
+    </section>
+
+    <!-- Contacts: who may collect -->
+    <section class="acc-card">
+      <header>
+        Contacts
+        @if (account.children.length) { <button class="btn btn-sm btn-outline-primary" (click)="startAdd()"><i class="bi bi-person-plus"></i> Add</button> }
+      </header>
+      @for (e of contacts; track e.c.id) {
+        <div class="acc-row">
+          <div class="avatar">{{ e.c.fullName.charAt(0) }}</div>
+          <div class="grow">
+            <strong>{{ e.c.fullName }}{{ e.c.isMe ? ' (you)' : '' }}</strong>
+            <div class="cell-sub">{{ e.c.relationship }}{{ e.c.phone ? ' · ' + phone(e.c.phone) : '' }}{{ many ? ' · ' + e.kids.join(', ') : '' }}</div>
+          </div>
+          <span class="pickup ok">Authorized pick-up</span>
+        </div>
+      }
+      @for (p of people; track p.id) {
+        <div class="acc-row">
+          <div class="avatar" [class.dim]="p.status !== 'Approved'">{{ p.fullName.charAt(0) }}</div>
+          <div class="grow">
+            <strong>{{ p.fullName }}</strong>
+            <div class="cell-sub">{{ p.relationship }}{{ p.phone ? ' · ' + phone(p.phone) : '' }}{{ many ? ' · ' + p.child : '' }}</div>
+            @if (p.status === 'Rejected' && p.rejectReason) { <div class="cell-sub">Office: {{ p.rejectReason }}</div> }
+          </div>
+          <span class="pickup" [class.ok]="p.status === 'Approved'" [class.wait]="p.status === 'Pending'" [class.no]="p.status === 'Rejected'">
+            {{ p.status === 'Approved' ? 'Authorized pick-up' : p.status === 'Pending' ? 'Waiting for approval' : 'Not approved' }}
+          </span>
+          <button class="btn btn-sm btn-link text-danger" (click)="removePerson(p)" title="Remove">{{ p.status === 'Pending' ? 'Withdraw' : 'Remove' }}</button>
+        </div>
+      }
+      <div class="acc-foot">Parents and guardians may always collect your child. Other people you add can collect once the school office approves them.</div>
+    </section>
+
+    <!-- Temporary pickup pass -->
+    <section class="acc-card">
+      <header>
+        Temporary pickup pass
+        @if (account.children.length) { <button class="btn btn-sm btn-outline-primary" (click)="startPass()">Add</button> }
+      </header>
+      @for (n of passes; track n.id) {
+        <div class="acc-row">
+          <i class="bi bi-car-front"></i>
+          <div class="grow">
+            <strong>{{ n.pickupName }}{{ n.pickupTime ? ' · ' + n.pickupTime : '' }}</strong>
+            <div class="cell-sub">{{ dayLabel(n.fromDate) }}{{ many ? ' · ' + childName(n.studentId) : '' }} · {{ n.seenByName ? 'Seen by ' + n.seenByName : 'Sent' }}</div>
+          </div>
+          <button class="btn btn-sm btn-link text-danger" (click)="withdraw(n)">Withdraw</button>
+        </div>
+      } @empty {
+        <div class="acc-foot">Someone else collecting your child on a particular day? Add a pass and the teacher will be told.</div>
+      }
+    </section>
+  }
+</div>
+
+<!-- Add pick-up person -->
+@if (showAdd && account) {
+  <div class="modal-overlay" (click)="showAdd = false">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <h5>Add pick-up person</h5>
+        <button class="btn-close-modal" (click)="showAdd = false" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="modal-form">
+        <p class="cell-sub">Someone who may collect your child regularly. The school office checks and approves them before they can collect.</p>
+        @if (addError) { <div class="alert alert-danger py-2">{{ addError }}</div> }
+        <div class="form-grid">
+          <div class="form-group span-2"><label for="ap-name">Full name *</label><input id="ap-name" type="text" [(ngModel)]="add.fullName" maxlength="150" /></div>
+          <div class="form-group span-2">
+            <label for="ap-rel">Relationship to the child *</label>
+            <input id="ap-rel" type="text" [(ngModel)]="add.relationship" maxlength="50" placeholder="e.g. Grandmother" />
+            <div class="mt-1">@for (s of suggestions; track s) { <button type="button" class="tag chip-btn" (click)="add.relationship = s">{{ s }}</button> }</div>
+          </div>
+          <div class="form-group span-2"><label for="ap-phone">Phone *</label><app-phone-input inputId="ap-phone" [(ngModel)]="add.phone" /></div>
+          <div class="form-group span-2"><label for="ap-note">Note for the office (optional)</label><textarea id="ap-note" rows="2" maxlength="300" [(ngModel)]="add.note" placeholder="e.g. picks up on Tuesdays"></textarea></div>
+          @if (many) {
+            <div class="form-group span-2">
+              <label>May collect</label>
+              @for (c of account.children; track c.id) {
+                <label class="check"><input type="checkbox" [checked]="addKids.includes(c.id)" (change)="toggleKid(c.id, $any($event.target).checked)" /> {{ c.fullName }}</label>
+              }
+            </div>
+          }
+        </div>
+      </div>
+      <div class="modal-footer-row">
+        <button class="btn btn-secondary" (click)="showAdd = false">Cancel</button>
+        <button class="btn btn-primary" (click)="saveAdd()" [disabled]="addSaving || !add.fullName.trim() || !add.relationship.trim()">
+          @if (addSaving) { <span class="spinner-border spinner-border-sm me-1"></span> } Send for approval
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Temporary pickup pass -->
+@if (pass && account) {
+  <div class="modal-overlay" (click)="pass = null">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <h5>Someone else is picking up</h5>
+        <button class="btn-close-modal" (click)="pass = null" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="modal-form">
+        @if (passError) { <div class="alert alert-danger py-2">{{ passError }}</div> }
+        <div class="form-grid">
+          @if (many) {
+            <div class="form-group span-2">
+              <label for="pp-child">Child</label>
+              <select id="pp-child" [(ngModel)]="passChildId">
+                <option [ngValue]="null">— Choose —</option>
+                @for (c of account.children; track c.id) { <option [ngValue]="c.id">{{ c.fullName }}</option> }
+              </select>
+            </div>
+          }
+          <div class="form-group"><label for="pp-day">Day</label><input id="pp-day" type="date" [(ngModel)]="pass.fromDate" /></div>
+          <div class="form-group"><label for="pp-time">Around what time (optional)</label><input id="pp-time" type="time" [(ngModel)]="pass.pickupTime" /></div>
+          <div class="form-group span-2"><label for="pp-name">Who will pick up *</label><input id="pp-name" type="text" maxlength="150" [(ngModel)]="pass.pickupName" placeholder="e.g. Grandma Lim" /></div>
+          <div class="form-group span-2"><label for="pp-phone">Their phone (optional)</label><app-phone-input inputId="pp-phone" [(ngModel)]="pass.pickupPhone" /></div>
+        </div>
+      </div>
+      <div class="modal-footer-row">
+        <button class="btn btn-secondary" (click)="pass = null">Cancel</button>
+        <button class="btn btn-primary" (click)="savePass()" [disabled]="passSaving">
+          @if (passSaving) { <span class="spinner-border spinner-border-sm me-1"></span> } Send to the school
+        </button>
+      </div>
+    </div>
+  </div>
+}

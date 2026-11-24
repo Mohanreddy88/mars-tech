@@ -11,7 +11,6 @@ import '../../notifications/data/notification_repository.dart';
 import '../../assistant/presentation/assistant_screen.dart';
 import '../../notifications/presentation/notifications_screen.dart';
 import '../../school/data/school_repository.dart';
-import '../../school/presentation/messages_screens.dart';
 import '../data/dashboard_models.dart';
 import '../data/dashboard_repository.dart';
 
@@ -87,7 +86,6 @@ class _DashboardBody extends ConsumerWidget {
             HomeTile('Attendance', Icons.fact_check_outlined, TileColors.attendance, () => open(Routes.schoolAttendance)),
             HomeTile('Daily reports', Icons.photo_library_outlined, TileColors.report, () => open(Routes.schoolAttendance)),
             HomeTile('Messages', Icons.forum_outlined, TileColors.messages, () => open(Routes.schoolMessages), badge: unread),
-            HomeTile('New message', Icons.edit_outlined, TileColors.teacher, () => startNewConversation(context, ref)),
             HomeTile('Announce', Icons.campaign_outlined, TileColors.news, () => open(Routes.schoolAnnouncements)),
             HomeTile('My class', Icons.groups_outlined, TileColors.school, () => open(Routes.schoolMyClass)),
           ]),

@@ -1,0 +1,78 @@
+<div class="school-page">
+
+  <div class="page-header">
+    <div>
+      <h3>Pick-up People</h3>
+      <p>People the parents added to collect their children. They can collect only after you approve them.</p>
+    </div>
+  </div>
+
+  <div class="filters-row">
+    <div class="btn-group" role="group">
+      <button class="btn btn-sm" [class.btn-primary]="tab === 'Pending'" [class.btn-outline-primary]="tab !== 'Pending'" (click)="show('Pending')">To approve</button>
+      <button class="btn btn-sm" [class.btn-primary]="tab === 'all'" [class.btn-outline-primary]="tab !== 'all'" (click)="show('all')">All</button>
+    </div>
+    <span class="list-count ms-auto">{{ people.length }}</span>
+  </div>
+
+  @if (loading) {
+    <div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div></div>
+  } @else if (people.length === 0) {
+    <div class="table-card empty-state">
+      <i class="bi bi-person-check"></i>
+      <h5>{{ tab === 'Pending' ? 'Nothing to approve' : 'No pick-up people yet' }}</h5>
+      <p>Parents add them in the parent app or portal (Account → Contacts → Add).</p>
+    </div>
+  } @else {
+    <div class="table-card">
+      <table class="table align-middle mb-0">
+        <thead><tr><th>Person</th><th>For</th><th>Added by</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>
+          @for (p of people; track p.id) {
+            <tr>
+              <td>
+                <strong>{{ p.fullName }}</strong> <span class="cell-sub">· {{ p.relationship }}</span>
+                @if (p.phone) { <div class="cell-sub"><i class="bi bi-telephone"></i> <a [href]="'tel:' + p.phone">{{ phone(p.phone) }}</a></div> }
+                @if (p.note) { <div class="cell-sub">“{{ p.note }}”</div> }
+              </td>
+              <td>{{ p.childName }}@if (p.className) { <span class="cell-sub"> · {{ p.className }}</span> }</td>
+              <td>{{ p.addedByName }}<div class="cell-sub">{{ p.createdAt | date: 'd MMM yyyy' }}</div></td>
+              <td>
+                <span class="tag" [class.ok]="p.status === 'Approved'" [class.warn]="p.status === 'Pending'" [class.bad]="p.status === 'Rejected'">{{ p.status }}</span>
+                @if (p.rejectReason) { <div class="cell-sub">{{ p.rejectReason }}</div> }
+                @if (p.decidedByName) { <div class="cell-sub">by {{ p.decidedByName }}</div> }
+              </td>
+              <td class="actions-cell">
+                @if (p.status === 'Pending') {
+                  <button class="btn btn-sm btn-success me-1" (click)="approve(p)" [disabled]="busy === p.id"><i class="bi bi-check-lg"></i> Approve</button>
+                  <button class="btn btn-sm btn-outline-danger" (click)="startReject(p)" [disabled]="busy === p.id">Reject</button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
+
+@if (rejecting) {
+  <div class="modal-overlay" (click)="rejecting = null">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <h5>Don't approve {{ rejecting.fullName }}?</h5>
+        <button class="btn-close-modal" (click)="rejecting = null" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="modal-form">
+        <div class="form-group">
+          <label for="pp-reason">Reason (the parent sees it)</label>
+          <textarea id="pp-reason" rows="3" maxlength="300" [(ngModel)]="reason" placeholder="e.g. Please bring their IC to the office first"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer-row">
+        <button class="btn btn-secondary" (click)="rejecting = null">Cancel</button>
+        <button class="btn btn-danger" (click)="confirmReject()" [disabled]="busy === rejecting.id">Don't approve</button>
+      </div>
+    </div>
+  </div>
+}

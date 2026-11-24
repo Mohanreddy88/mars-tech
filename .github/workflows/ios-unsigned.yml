@@ -1,10 +1,10 @@
-# Builds the iPhone app (unsigned .ipa) on a free GitHub Mac, for installing on your own iPhone
-# with Sideloadly (your Apple ID signs it; it runs for 7 days, then install again).
+# Builds the phone apps on free GitHub runners: the iPhone app (unsigned .ipa, installed on your own iPhone
+# with Sideloadly; your Apple ID signs it and it runs for 7 days) and the Android app (.apk, debug-signed).
 # Runs when one of these branches is pushed, or by hand (Actions tab → Run workflow):
 #   ios-build       → UAT app      (company code → <code>.uat.marshrms.com)
 #   ios-build-prod  → production   (company code → <code>.marshrms.com)
 # For TestFlight / App Store a paid Apple Developer account and signing are needed instead.
-name: iOS app (unsigned)
+name: Phone apps (iOS ipa + Android apk)
 
 on:
   push:
@@ -54,4 +54,64 @@ jobs:
         with:
           name: ${{ env.IPA_NAME }}-ipa
           path: hrms_mobile/${{ env.IPA_NAME }}.ipa
+          retention-days: 14
+
+  # Android .apk for installing directly on a phone (testing). There is no upload key on GitHub, so
+  # it is signed with a debug key: uninstall a Play Store copy of the app before installing it.
+  # Push notifications need google-services.json, which is not in the repo, so they are off here.
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: hrms_mobile
+    env:
+      PROD: ${{ github.ref_name == 'ios-build-prod' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Android Gradle Plugin 9 / Gradle 9 run on Java 21
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Packages
+        run: |
+          flutter config --jdk-dir="$JAVA_HOME"
+          flutter pub get
+
+      - name: Build APK
+        shell: bash
+        run: |
+          set -o pipefail
+          if [ "$PROD" = "true" ]; then
+            NAME=MarsHRMS
+            flutter build apk --release 2>&1 | tee build.log
+          else
+            NAME=MarsHRMS-UAT
+            flutter build apk --release --dart-define=API_DOMAIN=uat.marshrms.com 2>&1 | tee build.log
+          fi
+          cp build/app/outputs/flutter-apk/app-release.apk "$NAME.apk"
+          ls -lh "$NAME.apk"
+          echo "APK_NAME=$NAME" >> "$GITHUB_ENV"
+
+      # A failed build's error lines as an annotation (readable on the run page without opening the log)
+      - name: Show build errors
+        if: failure()
+        shell: bash
+        run: |
+          msg=$(grep -E -A8 "What went wrong|error:|Error:|FAILURE|Exception" build.log | head -60 | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')
+          [ -z "$msg" ] && msg=$(tail -40 build.log | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')
+          echo "::error title=Android build failed::$msg"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APK_NAME }}-apk
+          path: hrms_mobile/${{ env.APK_NAME }}.apk
           retention-days: 14

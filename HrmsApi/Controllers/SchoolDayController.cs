@@ -70,6 +70,10 @@ public class SchoolDayController : ControllerBase
         var reports = await _db.DailyReports.AsNoTracking()
             .Where(r => r.Date == day && ids.Contains(r.StudentId))
             .Select(r => new { r.StudentId, r.PublishedAt, photos = r.Photos.Count, r.Mood }).ToListAsync();
+        // People the office approved to collect a child (offered at check-out with the parents)
+        var pickups = await _db.PickupPeople.AsNoTracking()
+            .Where(p => ids.Contains(p.StudentId) && p.Status == PickupPerson.Approved)
+            .Select(p => new { p.StudentId, p.FullName, p.Relationship, p.Phone }).ToListAsync();
 
         var rows = kids.Select(k =>
         {
@@ -77,7 +81,11 @@ public class SchoolDayController : ControllerBase
             var r = reports.FirstOrDefault(x => x.StudentId == k.Id);
             return new
             {
-                studentId = k.Id, k.FullName, k.ClassId, k.className, k.SessionType, k.MedicalNotes, k.parents,
+                studentId = k.Id, k.FullName, k.ClassId, k.className, k.SessionType, k.MedicalNotes,
+                parents = k.parents.Concat(pickups.Where(p => p.StudentId == k.Id).Select(p => new
+                {
+                    p.FullName, Relationship = $"{p.Relationship} · approved pick-up", p.Phone
+                })).ToList(),
                 attendance = a == null ? null : AttendanceDto(a),
                 notes = notes.Where(n => n.StudentId == k.Id).Select(NoteDto).ToList(),
                 report = r == null ? null : new { published = r.PublishedAt != null, r.photos, r.Mood }
@@ -88,6 +96,8 @@ public class SchoolDayController : ControllerBase
         {
             date = day.ToString("yyyy-MM-dd"),
             today = SchoolClock.Today.ToString("yyyy-MM-dd"),
+            // Check-out suggests the session's end time; "late after" / "absent after" for the list
+            times = SchoolTimes.From(await _db.CompanySettings.AsNoTracking().FirstOrDefaultAsync() ?? new CompanySettings()).ToDto(),
             rows,
             summary = new
             {
@@ -96,6 +106,7 @@ public class SchoolDayController : ControllerBase
                 checkedOut = attendance.Count(a => a.CheckOutAt != null),
                 absent     = attendance.Count(a => a.Status == StudentAttendance.Absent),
                 notMarked  = rows.Count - attendance.Count,
+                late       = attendance.Count(a => a.IsLate),
                 reportsPublished = reports.Count(r => r.PublishedAt != null)
             }
         });
@@ -116,6 +127,10 @@ public class SchoolDayController : ControllerBase
         a.CheckInAt     = at;
         a.CheckInBy     = me!.Name;
         if (a.CheckOutAt != null && a.CheckOutAt < at) { a.CheckOutAt = null; a.CheckOutBy = null; a.PickedUpBy = null; }
+        // Late when in after the "late after" time; an automatic absence is undone (the child came after all)
+        var times = SchoolTimes.From(await _db.CompanySettings.AsNoTracking().FirstOrDefaultAsync() ?? new CompanySettings());
+        a.IsLate     = SchoolTimes.LocalTimeOf(at) > times.LateAfter;
+        a.AutoAbsent = false;
         a.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
@@ -144,6 +159,7 @@ public class SchoolDayController : ControllerBase
         a.CheckOutAt = at;
         a.CheckOutBy = me!.Name;
         a.PickedUpBy = by.Length > 150 ? by[..150] : by;
+        a.AutoCheckOut = false;
         a.UpdatedAt  = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
@@ -166,6 +182,7 @@ public class SchoolDayController : ControllerBase
         a.Status        = StudentAttendance.Absent;
         a.AbsenceReason = string.IsNullOrWhiteSpace(req.Reason) ? null : req.Reason.Trim();
         a.CheckInAt = null; a.CheckInBy = null; a.CheckOutAt = null; a.CheckOutBy = null; a.PickedUpBy = null;
+        a.IsLate = false; a.AutoAbsent = false; a.AutoCheckOut = false;   // marked by staff
         a.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return Ok(AttendanceDto(a));
@@ -234,6 +251,20 @@ public class SchoolDayController : ControllerBase
             if (!string.IsNullOrEmpty(time) && !TimeOnly.TryParseExact(time, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
                 return BadRequest(new { message = "Enter the time like 15:30.", field = "pickupTime" });
             note.PickupTime = string.IsNullOrEmpty(time) ? null : time;
+
+            // Someone else can only collect a child who is at school that day
+            if (await _db.ParentNotes.AnyAsync(n => n.StudentId == child.Id && n.Kind == ParentNote.Absence
+                                                    && n.CancelledAt == null && n.FromDate <= from && n.ToDate >= from))
+                return BadRequest(new { message = $"{child.FullName} is reported absent on {from:ddd d MMM}. Cancel the absence first to arrange a pickup.", field = "fromDate" });
+            if (await _db.StudentAttendance.AnyAsync(a => a.StudentId == child.Id && a.Date == from && a.Status == StudentAttendance.Absent))
+                return BadRequest(new { message = $"{child.FullName} is marked absent on {from:ddd d MMM}, so no pickup is needed.", field = "fromDate" });
+        }
+        else
+        {
+            // An absence replaces any different-pickup notes for the same days
+            var pickups = await _db.ParentNotes.Where(n => n.StudentId == child.Id && n.Kind == ParentNote.Pickup
+                                                           && n.CancelledAt == null && n.FromDate >= from && n.FromDate <= to).ToListAsync();
+            foreach (var p in pickups) p.CancelledAt = DateTime.UtcNow;
         }
 
         _db.ParentNotes.Add(note);
@@ -547,7 +578,9 @@ public class SchoolDayController : ControllerBase
         checkIn    = a.CheckInAt == null ? null : SchoolClock.LocalTime(a.CheckInAt.Value),
         a.CheckInBy,
         checkOut   = a.CheckOutAt == null ? null : SchoolClock.LocalTime(a.CheckOutAt.Value),
-        a.CheckOutBy, a.PickedUpBy, a.AbsenceReason
+        a.CheckOutBy, a.PickedUpBy, a.AbsenceReason,
+        // "Late", "Absent (automatic)", "Home (automatic — not checked out by the teacher)"
+        a.IsLate, a.AutoAbsent, a.AutoCheckOut
     };
 
     private static object NoteDto(ParentNote n) => new

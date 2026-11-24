@@ -1,0 +1,45 @@
+/* Parent → My Account: cards with a grey header, like the app's Account tab */
+.parent-account { max-width: 760px; }
+
+.acc-card {
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden; margin-bottom: 14px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .05);
+  header {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    background: #f3f4f6; padding: 10px 16px; font-weight: 700; color: #111827;
+  }
+}
+
+.acc-row {
+  display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-top: 1px solid #f1f5f9;
+  &:first-of-type { border-top: 0; }
+  .grow { flex: 1; min-width: 0; }
+  > i.bi { color: #2563eb; font-size: 18px; }
+  &.link { cursor: pointer; &:hover { background: #f8fafc; } }
+}
+
+.avatar {
+  width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  background: #dbeafe; color: #1d4ed8; font-weight: 700;
+  &.child { background: #38bdf8; color: #fff; }
+  &.dim { background: #f3f4f6; color: #6b7280; }
+}
+
+.pickup {
+  font-size: 12px; font-weight: 700; white-space: nowrap;
+  &.ok { color: #16a34a; }
+  &.wait { color: #d97706; }
+  &.no { color: #dc2626; }
+}
+
+.acc-foot { padding: 8px 16px 12px; font-size: 12px; color: #6b7280; }
+
+.child-details {
+  display: grid; grid-template-columns: 170px 1fr; gap: 6px 12px; margin: 0; padding: 4px 16px 8px 66px;
+  dt { color: #6b7280; font-weight: 500; }
+  dd { margin: 0; }
+}
+
+.chip-btn { border: 0; cursor: pointer; }
+
+.back { font-size: 14px; text-decoration: none; }

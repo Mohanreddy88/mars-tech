@@ -19,6 +19,22 @@ public class SchoolClass
 
     public Employee? ClassTeacher { get; set; }
     public List<Student> Students { get; set; } = new();
+    /// <summary>
+    /// Other teachers of the class (besides the lead, <see cref="ClassTeacherId"/>). They see its
+    /// children, attendance and reports and answer its parents' messages, like the lead; parents
+    /// see only the lead teacher's name.
+    /// </summary>
+    public List<SchoolClassTeacher> Teachers { get; set; } = new();
+}
+
+/// <summary>An extra teacher of a class (any number; the lead is SchoolClass.ClassTeacherId).</summary>
+public class SchoolClassTeacher
+{
+    public int ClassId    { get; set; }
+    public int EmployeeId { get; set; }
+
+    public SchoolClass Class    { get; set; } = null!;
+    public Employee    Employee { get; set; } = null!;
 }
 
 /// <summary>A child at the school.</summary>
@@ -42,6 +58,12 @@ public class Student
     public string?   Notes                 { get; set; }
     public bool      IsActive              { get; set; } = true;
     public DateTime  CreatedAt             { get; set; } = DateTime.UtcNow;
+    /// <summary>
+    /// The office confirmed there is no mother / father to record (single parent), so the missing
+    /// parent is not a mistake. Cleared when a mother / father is linked.
+    /// </summary>
+    public bool      NoMotherOnRecord      { get; set; }
+    public bool      NoFatherOnRecord      { get; set; }
 
     public SchoolClass? Class { get; set; }
     public List<StudentParent> Parents { get; set; } = new();

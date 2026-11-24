@@ -120,6 +120,51 @@ public class SchoolController : ControllerBase
         return Ok(new { enabled = settings.SchoolFeaturesEnabled });
     }
 
+    /// <summary>GET /api/school/times — the school day's timings (staff: check-in/out defaults).</summary>
+    [HttpGet("times")]
+    public async Task<IActionResult> GetTimes() => Ok(SchoolTimes.From(await _settings.GetAsync()).ToDto());
+
+    /// <summary>
+    /// PUT /api/school/times — start, late after, absent after, each session's end, the evening
+    /// automatic check-out, and whether the automatic steps run.
+    /// </summary>
+    [HttpPut("times")]
+    [Authorize(Roles = UserAccess.Admin)]
+    public async Task<IActionResult> UpdateTimes([FromBody] SchoolTimesRequest req)
+    {
+        var fields = new (string? value, string field, string label)[]
+        {
+            (req.Start, "start", "School starts"), (req.LateAfter, "lateAfter", "Late after"),
+            (req.AbsentAfter, "absentAfter", "Absent if not in by"), (req.HalfDayEnd, "halfDayEnd", "Half day ends"),
+            (req.FullDayEnd, "fullDayEnd", "Full day ends"), (req.DaycareEnd, "daycareEnd", "Daycare ends"),
+            (req.AutoCheckOutAt, "autoCheckOutAt", "Automatic check-out")
+        };
+        foreach (var (value, field, label) in fields)
+            if (!SchoolTimes.IsValid(value)) return BadRequest(new { message = $"{label}: enter a time like 08:30.", field });
+
+        TimeOnly T(string? v) => SchoolTimes.Parse(v, default);
+        if (T(req.LateAfter) < T(req.Start))
+            return BadRequest(new { message = "\"Late after\" can't be before the school starts.", field = "lateAfter" });
+        if (T(req.AbsentAfter) < T(req.LateAfter))
+            return BadRequest(new { message = "\"Absent if not in by\" must be on or after \"Late after\".", field = "absentAfter" });
+        var latestEnd = new[] { T(req.HalfDayEnd), T(req.FullDayEnd), T(req.DaycareEnd) }.Max();
+        if (new[] { T(req.HalfDayEnd), T(req.FullDayEnd), T(req.DaycareEnd) }.Any(e => e <= T(req.Start)))
+            return BadRequest(new { message = "Each session must end after the school starts.", field = "fullDayEnd" });
+        if (T(req.AutoCheckOutAt) <= latestEnd)
+            return BadRequest(new { message = "The automatic check-out must be after the last session ends.", field = "autoCheckOutAt" });
+
+        var s = await _settings.GetAsync();
+        s.SchoolStart = req.Start!.Trim(); s.SchoolLateAfter = req.LateAfter!.Trim(); s.SchoolAbsentAfter = req.AbsentAfter!.Trim();
+        s.SchoolHalfDayEnd = req.HalfDayEnd!.Trim(); s.SchoolFullDayEnd = req.FullDayEnd!.Trim(); s.SchoolDaycareEnd = req.DaycareEnd!.Trim();
+        s.SchoolAutoCheckOutAt = req.AutoCheckOutAt!.Trim(); s.SchoolAutoAttendance = req.Auto;
+        s.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        await Audit("Updated", "CompanySettings", "1",
+            $"School timings: {s.SchoolStart}, late after {s.SchoolLateAfter}, absent after {s.SchoolAbsentAfter}, " +
+            $"ends {s.SchoolHalfDayEnd}/{s.SchoolFullDayEnd}/{s.SchoolDaycareEnd}, auto check-out {s.SchoolAutoCheckOutAt}, automatic steps {(req.Auto ? "on" : "off")}");
+        return Ok(SchoolTimes.From(s).ToDto());
+    }
+
     // ── Classes ─────────────────────────────────────────────────────
 
     /// <summary>GET /api/school/classes — admins: all classes; class teachers: their own.</summary>
@@ -137,6 +182,9 @@ public class SchoolController : ControllerBase
             {
                 c.Id, c.Name, c.Description, c.SortOrder, c.IsActive, c.ClassTeacherId,
                 classTeacherName = c.ClassTeacher != null ? c.ClassTeacher.Name : null,
+                // Other teachers of the class (parents see only the lead, ClassTeacherName)
+                teacherIds   = c.Teachers.Select(t => t.EmployeeId).ToList(),
+                teacherNames = c.Teachers.Select(t => t.Employee.Name).ToList(),
                 studentCount     = c.Students.Count(s => s.IsActive)
             }).ToListAsync());
     }
@@ -153,6 +201,7 @@ public class SchoolController : ControllerBase
         ApplyClass(c, req);
         _db.SchoolClasses.Add(c);
         await _db.SaveChangesAsync();
+        await SetTeachersAsync(c, req.TeacherIds);
         await Audit("Created", "SchoolClass", c.Id.ToString(), $"Created class {c.Name}");
         return Ok(new { c.Id });
     }
@@ -168,6 +217,7 @@ public class SchoolController : ControllerBase
 
         ApplyClass(c, req);
         await _db.SaveChangesAsync();
+        await SetTeachersAsync(c, req.TeacherIds);
         await Audit("Updated", "SchoolClass", c.Id.ToString(), $"Updated class {c.Name}");
         return Ok(new { c.Id });
     }
@@ -197,7 +247,24 @@ public class SchoolController : ControllerBase
             return new { message = $"There is already a class called {name}.", field = "name" };
         if (req.ClassTeacherId != null && !await _db.Employees.AnyAsync(e => e.Id == req.ClassTeacherId && e.IsActive))
             return new { message = "Choose an active employee as class teacher.", field = "classTeacherId" };
+        var others = (req.TeacherIds ?? new()).Distinct().Where(t => t != req.ClassTeacherId).ToList();
+        if (others.Count > 0 && await _db.Employees.CountAsync(e => others.Contains(e.Id) && e.IsActive) != others.Count)
+            return new { message = "One of the other teachers is not an active employee.", field = "teacherIds" };
+        if (others.Count > 0 && req.ClassTeacherId == null)
+            return new { message = "Choose the lead teacher first (the one parents see).", field = "classTeacherId" };
         return null;
+    }
+
+    /// <summary>The class's other teachers become exactly these (the lead is never listed twice); null = unchanged.</summary>
+    private async Task SetTeachersAsync(SchoolClass c, List<int>? teacherIds)
+    {
+        if (teacherIds == null) return;
+        var wanted = teacherIds.Where(t => t != c.ClassTeacherId).ToHashSet();
+        var links = await _db.SchoolClassTeachers.Where(t => t.ClassId == c.Id).ToListAsync();
+        _db.SchoolClassTeachers.RemoveRange(links.Where(l => !wanted.Contains(l.EmployeeId)));
+        foreach (var id in wanted.Where(w => links.All(l => l.EmployeeId != w)))
+            _db.SchoolClassTeachers.Add(new SchoolClassTeacher { ClassId = c.Id, EmployeeId = id });
+        await _db.SaveChangesAsync();
     }
 
     private static void ApplyClass(SchoolClass c, SchoolClassRequest req)
@@ -227,9 +294,11 @@ public class SchoolController : ControllerBase
         if (classId != null) q = q.Where(s => s.ClassId == classId);
         if (!includeInactive) q = q.Where(s => s.IsActive);
 
-        return Ok(await q.OrderBy(s => s.Class != null ? s.Class.SortOrder : int.MaxValue)
+        var list = await q.OrderBy(s => s.Class != null ? s.Class.SortOrder : int.MaxValue)
             .ThenBy(s => s.Class != null ? s.Class.Name : "").ThenBy(s => s.FullName)
-            .Select(StudentDetail).ToListAsync());
+            .Select(StudentDetail).ToListAsync();
+        if (me.IsAdmin) await FillSiblingsAsync(list);
+        return Ok(list);
     }
 
     /// <summary>GET /api/school/students/{id} — one child (admin, their class teacher or their parent).</summary>
@@ -241,7 +310,44 @@ public class SchoolController : ControllerBase
         var s = await StudentQuery().Where(x => x.Id == id).Select(StudentDetail).FirstOrDefaultAsync();
         if (s == null) throw new KeyNotFoundException("Child not found.");
         if (me == null || !me.CanSeeStudent(s.Id, s.ClassId)) return Forbid();
+        if (me.IsAdmin) await FillSiblingsAsync(new List<StudentDto> { s });
         return Ok(s);
+    }
+
+    /// <summary>
+    /// Siblings = other children who share a mother, father or guardian (admins only: a parent must
+    /// not see the names of a half-sibling's other family). Worked out from the parent links.
+    /// </summary>
+    private async Task FillSiblingsAsync(List<StudentDto> list)
+    {
+        var parentIds = list.SelectMany(s => s.Parents).Select(p => p.Id).Distinct().ToList();
+        if (parentIds.Count == 0) return;
+        var links = await _db.StudentParents.AsNoTracking().Where(sp => parentIds.Contains(sp.ParentId))
+            .Select(sp => new
+            {
+                sp.StudentId, sp.ParentId, sp.Parent.Relationship, sp.Student.FullName, sp.Student.IsActive,
+                ClassName = sp.Student.Class != null ? sp.Student.Class.Name : null
+            }).ToListAsync();
+
+        foreach (var s in list)
+        {
+            var mine = s.Parents.Select(p => p.Id).ToHashSet();
+            s.Siblings = links.Where(l => l.StudentId != s.Id && mine.Contains(l.ParentId))
+                .GroupBy(l => l.StudentId)
+                .Select(g =>
+                {
+                    var rels = g.Select(l => l.Relationship).ToHashSet();
+                    var f = g.First();
+                    return new SiblingDto
+                    {
+                        Id = f.StudentId, FullName = f.FullName, ClassName = f.ClassName, IsActive = f.IsActive,
+                        Via = rels.Contains("Mother") && rels.Contains("Father") ? "Same parents"
+                            : rels.Contains("Mother") ? "Same mother"
+                            : rels.Contains("Father") ? "Same father" : "Same guardian"
+                    };
+                })
+                .OrderBy(x => x.FullName).ToList();
+        }
     }
 
     [HttpPost("students")]
@@ -319,10 +425,23 @@ public class SchoolController : ControllerBase
         req.EmergencyContactPhone = phone;
 
         var parentIds = req.ParentIds?.Distinct().ToList();
+        var chosen = parentIds is { Count: > 0 }
+            ? await _db.Parents.AsNoTracking().Where(p => parentIds.Contains(p.Id))
+                .Select(p => new { p.FullName, p.Relationship }).ToListAsync()
+            : new();
+
+        // Apps that know the rule send NoMother/NoFatherOnRecord: then a mother and a father are
+        // required unless the office ticked "no mother / father on record" (single parent).
+        if (parentIds != null)
+        {
+            if (req.NoMotherOnRecord == false && !chosen.Any(p => p.Relationship == "Mother"))
+                return new { message = "Choose the child's mother, or tick \"No mother on record\".", field = "motherId" };
+            if (req.NoFatherOnRecord == false && !chosen.Any(p => p.Relationship == "Father"))
+                return new { message = "Choose the child's father, or tick \"No father on record\".", field = "fatherId" };
+        }
+
         if (parentIds is { Count: > 0 })
         {
-            var chosen = await _db.Parents.AsNoTracking().Where(p => parentIds.Contains(p.Id))
-                .Select(p => new { p.FullName, p.Relationship }).ToListAsync();
             if (chosen.Count != parentIds.Count)
                 return new { message = "One of the chosen parents no longer exists. Reload the page.", field = "parentIds" };
             // One mother and one father per child (any number of guardians)
@@ -370,6 +489,7 @@ public class SchoolController : ControllerBase
         foreach (var pid in wanted.Where(w => links.All(l => l.ParentId != w)))
             _db.StudentParents.Add(new StudentParent { StudentId = studentId, ParentId = pid });
         await _db.SaveChangesAsync();
+        await SchoolParentFlags.SyncAsync(_db, new[] { studentId });
     }
 
     private static void ApplyStudent(Student s, StudentRequest req)
@@ -387,6 +507,9 @@ public class SchoolController : ControllerBase
         s.EmergencyContactPhone = Clean(req.EmergencyContactPhone);
         s.Notes                 = Clean(req.Notes);
         s.IsActive              = req.IsActive;
+        // Single parent confirmed by the office (only from apps that send it)
+        if (req.NoMotherOnRecord != null) s.NoMotherOnRecord = req.NoMotherOnRecord.Value;
+        if (req.NoFatherOnRecord != null) s.NoFatherOnRecord = req.NoFatherOnRecord.Value;
     }
 
     private IQueryable<Student> StudentQuery() => _db.Students.AsNoTracking();
@@ -398,7 +521,7 @@ public class SchoolController : ControllerBase
         ClassTeacherName = s.Class != null && s.Class.ClassTeacher != null ? s.Class.ClassTeacher.Name : null,
         SessionType = s.SessionType, JoinedOn = s.JoinedOn, MedicalNotes = s.MedicalNotes,
         EmergencyContactName = s.EmergencyContactName, EmergencyContactPhone = s.EmergencyContactPhone,
-        Notes = s.Notes, IsActive = s.IsActive,
+        Notes = s.Notes, IsActive = s.IsActive, NoMotherOnRecord = s.NoMotherOnRecord, NoFatherOnRecord = s.NoFatherOnRecord,
         Parents = s.Parents.Select(sp => new StudentParentDto
         {
             Id = sp.Parent.Id, FullName = sp.Parent.FullName, Relationship = sp.Parent.Relationship,
@@ -421,6 +544,19 @@ public class SchoolController : ControllerBase
             null, null, HttpContext.Connection.RemoteIpAddress?.ToString());
 }
 
+public class SchoolTimesRequest
+{
+    public string? Start { get; set; }
+    public string? LateAfter { get; set; }
+    public string? AbsentAfter { get; set; }
+    public string? HalfDayEnd { get; set; }
+    public string? FullDayEnd { get; set; }
+    public string? DaycareEnd { get; set; }
+    public string? AutoCheckOutAt { get; set; }
+    /// <summary>Run the automatic reminder / absent / check-out steps.</summary>
+    public bool Auto { get; set; } = true;
+}
+
 public class SchoolSettingsRequest
 {
     public bool Enabled { get; set; }
@@ -430,7 +566,10 @@ public class SchoolClassRequest
 {
     [StringLength(50)]  public string? Name { get; set; }
     [StringLength(200)] public string? Description { get; set; }
+    /// <summary>The lead teacher (the one parents see).</summary>
     public int? ClassTeacherId { get; set; }
+    /// <summary>Other teachers of the class (they see its children and answer its parents too); null = unchanged.</summary>
+    public List<int>? TeacherIds { get; set; }
     public int  SortOrder { get; set; }
     public bool IsActive { get; set; } = true;
 }
@@ -451,6 +590,13 @@ public class StudentRequest
     public bool IsActive { get; set; } = true;
     /// <summary>Parents to link (they can also be linked from School → Parents); null = leave unchanged.</summary>
     public List<int>? ParentIds { get; set; }
+    /// <summary>
+    /// Single parent: no mother / father to record. Apps that send these (true or false) must also send
+    /// ParentIds, and then a mother and a father are required unless the matching flag is true.
+    /// Null = old client: no check, flag unchanged.
+    /// </summary>
+    public bool? NoMotherOnRecord { get; set; }
+    public bool? NoFatherOnRecord { get; set; }
     /// <summary>Save even though a child with the same name and date of birth exists (the office confirmed).</summary>
     public bool AllowDuplicate { get; set; }
 }
@@ -472,7 +618,21 @@ public class StudentDto
     public string? EmergencyContactPhone { get; set; }
     public string? Notes { get; set; }
     public bool IsActive { get; set; }
+    public bool NoMotherOnRecord { get; set; }
+    public bool NoFatherOnRecord { get; set; }
     public List<StudentParentDto> Parents { get; set; } = new();
+    /// <summary>Children sharing a parent (admins only; empty for others).</summary>
+    public List<SiblingDto> Siblings { get; set; } = new();
+}
+
+public class SiblingDto
+{
+    public int Id { get; set; }
+    public string FullName { get; set; } = "";
+    public string? ClassName { get; set; }
+    public bool IsActive { get; set; }
+    /// <summary>"Same parents", "Same mother", "Same father" or "Same guardian".</summary>
+    public string Via { get; set; } = "";
 }
 
 public class StudentParentDto

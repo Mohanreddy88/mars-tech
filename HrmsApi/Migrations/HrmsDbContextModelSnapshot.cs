@@ -320,6 +320,10 @@ namespace HrmsApi.Migrations
                     b.Property<DateTime>("AskedAt")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<string>("Error")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
                     b.Property<int>("InputTokens")
                         .HasColumnType("integer");
 
@@ -580,8 +584,55 @@ namespace HrmsApi.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<string>("SchoolAbsentAfter")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<DateTime?>("SchoolAutoAbsentOn")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("SchoolAutoAttendance")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("SchoolAutoCheckOutAt")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<DateTime?>("SchoolAutoCheckOutOn")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("SchoolDaycareEnd")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
                     b.Property<bool>("SchoolFeaturesEnabled")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("SchoolFullDayEnd")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<string>("SchoolHalfDayEnd")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<string>("SchoolLateAfter")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<DateTime?>("SchoolRemindedOn")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("SchoolStart")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
 
                     b.Property<decimal>("SiblingDiscountPercent")
                         .HasPrecision(5, 2)
@@ -1836,6 +1887,71 @@ namespace HrmsApi.Migrations
                     b.ToTable("PayrollLeaveRequests");
                 });
 
+            modelBuilder.Entity("HrmsApi.Models.PickupPerson", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AddedByName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<int>("AddedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("DecidedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DecidedByName")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("RejectReason")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("Relationship")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("StudentId", "Status");
+
+                    b.ToTable("PickupPeople", (string)null);
+                });
+
             modelBuilder.Entity("HrmsApi.Models.PublicHoliday", b =>
                 {
                     b.Property<int>("Id")
@@ -1908,6 +2024,21 @@ namespace HrmsApi.Migrations
                         .IsUnique();
 
                     b.ToTable("SchoolClasses");
+                });
+
+            modelBuilder.Entity("HrmsApi.Models.SchoolClassTeacher", b =>
+                {
+                    b.Property<int>("ClassId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("EmployeeId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("ClassId", "EmployeeId");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.ToTable("SchoolClassTeachers", (string)null);
                 });
 
             modelBuilder.Entity("HrmsApi.Models.StatutoryRateSet", b =>
@@ -2032,6 +2163,12 @@ namespace HrmsApi.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
+                    b.Property<bool>("NoFatherOnRecord")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("NoMotherOnRecord")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
@@ -2060,6 +2197,12 @@ namespace HrmsApi.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
+                    b.Property<bool>("AutoAbsent")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("AutoCheckOut")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime?>("CheckInAt")
                         .HasColumnType("timestamp without time zone");
 
@@ -2076,6 +2219,9 @@ namespace HrmsApi.Migrations
 
                     b.Property<DateTime>("Date")
                         .HasColumnType("date");
+
+                    b.Property<bool>("IsLate")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("PickedUpBy")
                         .HasMaxLength(150)
@@ -2613,6 +2759,17 @@ namespace HrmsApi.Migrations
                     b.Navigation("Payroll");
                 });
 
+            modelBuilder.Entity("HrmsApi.Models.PickupPerson", b =>
+                {
+                    b.HasOne("HrmsApi.Models.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Student");
+                });
+
             modelBuilder.Entity("HrmsApi.Models.SchoolClass", b =>
                 {
                     b.HasOne("HrmsApi.Models.Employee", "ClassTeacher")
@@ -2621,6 +2778,25 @@ namespace HrmsApi.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("ClassTeacher");
+                });
+
+            modelBuilder.Entity("HrmsApi.Models.SchoolClassTeacher", b =>
+                {
+                    b.HasOne("HrmsApi.Models.SchoolClass", "Class")
+                        .WithMany("Teachers")
+                        .HasForeignKey("ClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HrmsApi.Models.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Class");
+
+                    b.Navigation("Employee");
                 });
 
             modelBuilder.Entity("HrmsApi.Models.Student", b =>
@@ -2763,6 +2939,8 @@ namespace HrmsApi.Migrations
             modelBuilder.Entity("HrmsApi.Models.SchoolClass", b =>
                 {
                     b.Navigation("Students");
+
+                    b.Navigation("Teachers");
                 });
 
             modelBuilder.Entity("HrmsApi.Models.Student", b =>

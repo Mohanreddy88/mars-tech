@@ -305,10 +305,24 @@ form textarea { min-height: 120px; resize: vertical; }
 /* Sign in */
 .signin { max-width: 460px; margin: 0 auto; }
 .signin .panel { padding: 34px; }
-.code-input { display: flex; align-items: center; border: 1.5px solid var(--line); border-radius: 12px; overflow: hidden; }
-.code-input:focus-within { border-color: var(--blue); box-shadow: 0 0 0 4px rgba(37, 99, 235, .12); }
-.code-input input { border: 0 !important; box-shadow: none !important; flex: 1; min-width: 0; }
-.code-input span { padding: 0 14px; color: var(--muted); font-weight: 600; background: #f8fafc; align-self: stretch; display: flex; align-items: center; border-left: 1px solid var(--line); }
+/* Company picker on the sign-in page: search box + list of companies */
+.company-pick { position: relative; display: flex; align-items: center; border: 1.5px solid var(--line); border-radius: 12px; background: #fff; }
+.company-pick:focus-within { border-color: var(--blue); box-shadow: 0 0 0 4px rgba(37, 99, 235, .12); }
+.company-pick > .bi { color: var(--muted); padding: 0 4px 0 14px; }
+.company-pick > .cp-caret { padding: 0 14px 0 4px; pointer-events: none; }
+.company-pick input { border: 0 !important; box-shadow: none !important; flex: 1; min-width: 0; }
+.company-list {
+  position: absolute; left: -1.5px; right: -1.5px; top: calc(100% + 6px); z-index: 20; margin: 0; padding: 6px; list-style: none;
+  background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 14px 32px rgba(15, 23, 42, .14);
+  max-height: 280px; overflow-y: auto;
+}
+.company-list li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; cursor: pointer; }
+.company-list li.active, .company-list li[data-i]:hover { background: #eef2ff; }
+.company-list li.none { color: var(--muted); cursor: default; }
+.company-list .co-av {
+  width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  background: linear-gradient(135deg, var(--navy), var(--navy-3)); color: #fff; font-weight: 700; font-size: 13px;
+}
 
 /* Footer */
 .site-footer { background: #071d40; color: rgba(255, 255, 255, .75); padding: 56px 0 28px; font-size: 14.5px; }
@@ -332,6 +346,19 @@ form textarea { min-height: 120px; resize: vertical; }
   text-decoration: none !important;
 }
 .wa-float.show { display: grid; }
+/* Chooser opened by the floating button: one line per WhatsApp number */
+.wa-menu {
+  position: fixed; right: 20px; bottom: 86px; z-index: 41; display: none; flex-direction: column; gap: 4px; padding: 8px;
+  background: #fff; border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 14px 32px rgba(15, 23, 42, .18);
+}
+.wa-menu.open { display: flex; }
+.wa-menu a { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; color: var(--text); text-decoration: none; white-space: nowrap; }
+.wa-menu a:hover { background: #f1f5f9; }
+.wa-menu i { color: #25d366; font-size: 20px; }
+.wa-menu small { color: var(--muted); display: block; font-size: 12px; }
+/* Small WhatsApp link next to a phone number in the contact card */
+.contact-card li .wa-inline { margin-left: 8px; }
+.contact-card li .wa-inline i { color: #25d366; font-size: 16px; }
 
 /* Contact card (contact section) */
 .contact-card { margin-top: 18px; background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 20px; }

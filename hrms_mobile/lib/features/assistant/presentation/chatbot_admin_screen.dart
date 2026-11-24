@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/error_view.dart';
@@ -134,6 +137,22 @@ class _AiCard extends ConsumerStatefulWidget {
 
 class _AiCardState extends ConsumerState<_AiCard> {
   bool _busy = false;
+  /// Re-reads the AI status every minute, so "AI isn't working" shows up without pulling to refresh.
+  Timer? _refresh;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) ref.invalidate(botAiStatusProvider);
+    });
+  }
+
+  @override
+  void dispose() {
+    _refresh?.cancel();
+    super.dispose();
+  }
 
   Future<void> _run(Future<void> Function() action, String done) async {
     setState(() => _busy = true);
@@ -196,10 +215,12 @@ class _AiCardState extends ConsumerState<_AiCard> {
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('AI answers${status.configured ? (status.enabled ? ' · On' : ' · Off') : ' · Not connected'}',
+                Text('AI answers${status.configured ? (status.enabled ? (status.problem != null ? ' · On, not working' : ' · On') : ' · Off') : ' · Not connected'}',
                     style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                if (status.problem != null) _AiProblem(status: status),
                 const SizedBox(height: 2),
                 Text(description, style: text.bodySmall),
+                const _ConsoleLink(),
                 if (status.keyUnreadable && !status.configured)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
@@ -248,6 +269,81 @@ class _AiCardState extends ConsumerState<_AiCard> {
 }
 
 /// Asks for the Anthropic API key, with the steps to get one. Pops with the key.
+/// Anthropic Console, where the company signs up, adds credit and creates its API key.
+const anthropicConsoleUrl = 'https://console.anthropic.com/';
+
+/// "Need an API key? Open the Anthropic Console" — opens it in the browser.
+class _ConsoleLink extends StatelessWidget {
+  const _ConsoleLink();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
+        Text('Need an API key or more credit? ', style: Theme.of(context).textTheme.bodySmall),
+        InkWell(
+          onTap: () async {
+            final ok = await launchUrl(Uri.parse(anthropicConsoleUrl), mode: LaunchMode.externalApplication);
+            if (!ok && context.mounted) {
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(const SnackBar(content: Text('Could not open $anthropicConsoleUrl')));
+            }
+          },
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Text('Open the Anthropic Console',
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    decoration: TextDecoration.underline)),
+            const SizedBox(width: 2),
+            Icon(Icons.open_in_new, size: 14, color: Theme.of(context).colorScheme.primary),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
+/// "AI isn't working: your Anthropic credit has run out…" — shown until an AI answer works again.
+class _AiProblem extends StatelessWidget {
+  const _AiProblem({required this.status});
+  final BotAiStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final at = DateTime.tryParse(status.problemAt ?? '');
+    final when = at == null ? null : DateFormat('d MMM, h:mm a').format(at.toLocal());
+    return Container(
+      margin: const EdgeInsets.only(top: 6, bottom: 4),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: scheme.errorContainer, borderRadius: BorderRadius.circular(8)),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(Icons.warning_amber_rounded, color: scheme.onErrorContainer, size: 20),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text.rich(
+            TextSpan(children: [
+              const TextSpan(text: 'AI isn\'t working: ', style: TextStyle(fontWeight: FontWeight.w700)),
+              TextSpan(text: status.problem),
+              TextSpan(
+                text: [
+                  if (when != null) '\nLast tried $when',
+                  if (status.problemCount > 1) ' · ${status.problemCount} questions in a row',
+                  '. People got answers from the list instead.',
+                ].join(),
+              ),
+            ]),
+            style: TextStyle(color: scheme.onErrorContainer, fontSize: 13),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
 class _ConnectDialog extends StatefulWidget {
   const _ConnectDialog();
 
@@ -282,9 +378,10 @@ class _ConnectDialogState extends State<_ConnectDialog> {
       title: const Text('Connect AI (Anthropic Claude)'),
       content: SingleChildScrollView(
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('1. Sign in at console.anthropic.com and add a payment method under Billing.\n'
+          Text('1. Sign up or sign in at the Anthropic Console and add credits under Plans & Billing.\n'
               '2. Under API keys, create a key (e.g. "Mars HRMS") and copy it.\n'
               '3. Paste it here. It is tested before saving.', style: text.bodySmall),
+          const _ConsoleLink(),
           const SizedBox(height: 12),
           TextField(
             controller: _key,

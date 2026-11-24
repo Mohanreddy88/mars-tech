@@ -5,6 +5,7 @@ using HrmsApi.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace HrmsApi.Tests;
 
@@ -24,7 +25,16 @@ public class PublicSiteTests
         {
             ["Contact:Email"] = "support@marstech.tech"
         }).Build();
-        return (new PublicController(config, NullLogger<PublicController>.Instance, queue), queue);
+        return (new PublicController(config, NullLogger<PublicController>.Instance, new TenantCatalog(null!),
+            Options.Create(new TenancyOptions { Enabled = false }), queue), queue);
+    }
+
+    [Fact]
+    public async Task Company_list_is_empty_when_companies_are_switched_off()
+    {
+        var (ctl, _) = Controller();
+        var ok = (await ctl.Companies()).Should().BeOfType<OkObjectResult>().Subject;
+        ((System.Collections.IEnumerable)ok.Value!).Cast<object>().Should().BeEmpty();
     }
 
     [Fact]

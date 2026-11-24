@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, View
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { AssistantService, BotAction, BotAnswer, BotStart, BotTopic, BotTurn } from '../../../core/services/assistant.service';
+import { AssistantService, BotAction, BotAiNotice, BotAnswer, BotStart, BotTopic, BotTurn } from '../../../core/services/assistant.service';
 import { AuthService } from '../../../core/services/auth.service';
 
 /** One line in the chat. */
@@ -52,6 +52,10 @@ export class AssistantWidgetComponent {
   text = '';
   lines: ChatLine[] = [];
   start: BotStart | null = null;
+  /** "Smart answers are paused…" (or, for admins, why AI stopped), shown above the chat. */
+  notice: BotAiNotice | null = null;
+  /** When the notice was last checked; reopening the chat after a while checks again. */
+  private noticeCheckedAt = 0;
   /** Questions and answers so far (text only), sent with each question so the AI can follow up. */
   private history: BotTurn[] = [];
   /** All answers by id, so a picked question shows its answer at once. */
@@ -60,7 +64,21 @@ export class AssistantWidgetComponent {
   toggle(): void {
     this.open = !this.open;
     if (this.open && !this.start && !this.loading) this.load();
+    else if (this.open && this.start && Date.now() - this.noticeCheckedAt > 60_000) this.refreshNotice();
     if (this.open) this.focusInput();
+  }
+
+  /** Re-checks whether AI answers are stopped or working again, without resetting the chat. */
+  private refreshNotice(): void {
+    this.noticeCheckedAt = Date.now();
+    this.bot.start().subscribe({
+      next: s => {
+        this.notice = s.aiNotice ?? null;
+        if (this.start) this.start.ai = s.ai;
+        this.cdr.markForCheck();
+      },
+      error: () => { /* keep what we have */ }
+    });
   }
 
   load(): void {
@@ -69,6 +87,8 @@ export class AssistantWidgetComponent {
     this.bot.start().subscribe({
       next: s => {
         this.start = s;
+        this.notice = s.aiNotice ?? null;
+        this.noticeCheckedAt = Date.now();
         this.loading = false;
         this.answers.clear();
         s.topics.forEach(t => t.items.forEach(i => this.answers.set(i.id, i)));
@@ -126,6 +146,11 @@ export class AssistantWidgetComponent {
     this.bot.ask(t, this.history.slice(-10)).subscribe({
       next: r => {
         this.asking = false;
+        // AI stopped or failed: show why (answer came from the list); an AI answer clears it
+        const had = !!this.notice;
+        if (r.aiNotice) this.notice = r.aiNotice;
+        else if (r.source === 'ai') this.notice = null;
+        if (had !== !!this.notice) this.bot.aiChanged.next();
         if (r.answer) {
           this.lines.push({ from: 'bot', text: r.answer.answer, action: r.answer.action, ai: r.source === 'ai', download: r.answer.download });
           this.remember(t, r.answer.answer);

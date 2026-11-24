@@ -65,7 +65,8 @@ public sealed class SchoolViewer
             .Select(e => new { e.Id, e.Name })
             .FirstOrDefaultAsync();
         var classIds = employee == null ? new List<int>() : await db.SchoolClasses
-            .Where(c => c.ClassTeacherId == employee.Id && c.IsActive)
+            // Lead teacher or one of the other teachers of the class
+            .Where(c => c.IsActive && (c.ClassTeacherId == employee.Id || c.Teachers.Any(t => t.EmployeeId == employee.Id)))
             .Select(c => c.Id).ToListAsync();
 
         return new SchoolViewer
@@ -123,19 +124,27 @@ public static class SchoolParticipants
             .Select(sp => sp.Parent.UserId!.Value)
             .ToListAsync();
 
-    /// <summary>Staff logins that see the thread: all active admins, plus the class teacher for "Teacher" threads.</summary>
+    /// <summary>
+    /// Staff logins that see the thread: all active admins, plus for "Teacher" threads every teacher
+    /// of the class — the lead and the other teachers.
+    /// </summary>
     public static async Task<List<int>> StaffUserIdsAsync(HrmsDbContext db, string kind, int? classId)
     {
         var ids = await db.Users.Where(u => u.Role == "Admin" && u.IsActive).Select(u => u.Id).ToListAsync();
         if (kind == Conversation.Teacher && classId != null)
         {
-            var teacherEmail = await db.SchoolClasses
+            var lead = await db.SchoolClasses
                 .Where(c => c.Id == classId && c.ClassTeacher != null)
                 .Select(c => c.ClassTeacher!.Email.ToLower())
-                .FirstOrDefaultAsync();
-            if (!string.IsNullOrEmpty(teacherEmail))
+                .ToListAsync();
+            var others = await db.SchoolClassTeachers
+                .Where(t => t.ClassId == classId && t.Employee.IsActive)
+                .Select(t => t.Employee.Email.ToLower())
+                .ToListAsync();
+            var emails = lead.Concat(others).Where(e => !string.IsNullOrEmpty(e)).Distinct().ToList();
+            if (emails.Count > 0)
                 ids.AddRange(await db.Users
-                    .Where(u => u.IsActive && u.Email.ToLower() == teacherEmail)
+                    .Where(u => u.IsActive && emails.Contains(u.Email.ToLower()))
                     .Select(u => u.Id).ToListAsync());
         }
         return ids.Distinct().ToList();

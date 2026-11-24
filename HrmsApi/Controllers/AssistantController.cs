@@ -30,11 +30,20 @@ public class AssistantController : ControllerBase
     private readonly IAssistantAi _ai;
     private readonly ILeaveService _leave;
     private readonly int _dailyAiLimit;
+    private readonly IPushService? _push;
+    private readonly IEmailQueue? _email;
+
+    /// <summary>After a problem that won't fix itself (no credit, bad key), the AI is tried again after this long.</summary>
+    private static readonly TimeSpan AiPause = TimeSpan.FromMinutes(10);
+    /// <summary>Admins are told about the same AI problem at most this often.</summary>
+    private static readonly TimeSpan AiAlertEvery = TimeSpan.FromHours(24);
+    private const string AiDownType = "assistant_ai_down", AiUpType = "assistant_ai_up";
+    private const string ChatbotPage = "/master/chatbot";
 
     public AssistantController(HrmsDbContext db, ICompanySettingsService settings, IAssistantAi ai, ILeaveService leave,
-        IConfiguration config)
+        IConfiguration config, IPushService? push = null, IEmailQueue? email = null)
     {
-        _db = db; _settings = settings; _ai = ai; _leave = leave;
+        _db = db; _settings = settings; _ai = ai; _leave = leave; _push = push; _email = email;
         _dailyAiLimit = int.TryParse(config["Assistant:DailyLimitPerUser"], out var n) && n > 0 ? n : 30;
         _secret = config["Jwt:Key"] ?? "";
     }
@@ -72,7 +81,9 @@ public class AssistantController : ControllerBase
                 .ToList(),
             actions = ActionsFor(me).Select(a => new { a.Key, a.Label }),
             canMessageSchool = me.IsParent && me.School,
-            ai = AiOn(settings)
+            ai = AiOn(settings),
+            // Shown at the top of the chat while AI answers are stopped (e.g. no Anthropic credit)
+            aiNotice = await StoppedNoticeAsync(me, settings)
         });
     }
 
@@ -109,6 +120,8 @@ public class AssistantController : ControllerBase
         var best = ranked.FirstOrDefault();
         var faqMatch = best.faq != null && best.score >= BotMatcher.MinScore;
         var aiOn = AiOn(settings);
+        // Set when the AI is stopped or just failed: the chat shows it above the answer
+        AiNotice? aiNotice = null;
 
         object FaqReply() => new
         {
@@ -117,16 +130,22 @@ public class AssistantController : ControllerBase
             related = ranked.Skip(1).Where(r => r.score >= BotMatcher.MinScore).Take(RelatedCount)
                 .Select(r => new { r.faq.Id, question = Fill(r.faq.Question, settings) }),
             unanswered = false,
-            source = "faq"
+            source = "faq",
+            aiNotice
         };
 
         // A clear FAQ match for a general question needs no AI
         if (faqMatch && (!aiOn || (best.score >= StrongFaqScore && !await LooksPersonalAsync(me, text))))
             return Ok(FaqReply());
 
-        if (aiOn && await UnderDailyAiLimitAsync(me))
+        // Stopped (no credit, bad key): don't call Anthropic again for a while, answer from the list
+        var stopped = aiOn ? await BlockingFailureAsync(settings) : null;
+        if (stopped != null && stopped.AskedAt > DateTime.UtcNow - AiPause)
+            aiNotice = Notice(me, stopped.Error!, blocking: true);
+        else if (aiOn && await UnderDailyAiLimitAsync(me))
         {
-            var ai = await AskAiAsync(me, settings, text, req.History);
+            var (ai, error) = await AskAiAsync(me, settings, text, req.History);
+            if (error != null) aiNotice = Notice(me, error, AiErrors.IsBlocking(error));
             if (ai != null)
             {
                 var page = ai.SuggestedPage == null ? null : ActionsFor(me).FirstOrDefault(a => a.Key == ai.SuggestedPage);
@@ -158,8 +177,115 @@ public class AssistantController : ControllerBase
             answer = (object?)null,
             related = ranked.Take(RelatedCount).Select(r => new { r.faq.Id, question = Fill(r.faq.Question, settings) }),
             unanswered = true,
-            source = "none"
+            source = "none",
+            aiNotice
         });
+    }
+
+    // ── AI stopped: notice in the chat, pause, tell the admins ──
+
+    /// <summary>
+    /// The newest AI attempt, if it failed for a reason that won't fix itself (no credit, bad key)
+    /// and no new key was connected since. Null = AI answers are working (or never tried).
+    /// </summary>
+    private async Task<BotAiUsage?> BlockingFailureAsync(CompanySettings s)
+    {
+        var last = await _db.BotAiUsageLog.AsNoTracking()
+            .OrderByDescending(u => u.AskedAt).ThenByDescending(u => u.Id).FirstOrDefaultAsync();
+        if (last == null || last.Succeeded || !AiErrors.IsBlocking(last.Error)) return null;
+        // A key connected after the failure gets a fresh try
+        if (s.AssistantAiKeySetAt != null && s.AssistantAiKeySetAt > last.AskedAt) return null;
+        return last;
+    }
+
+    /// <summary>The notice for the top of the chat while AI answers are stopped, or null.</summary>
+    private async Task<AiNotice?> StoppedNoticeAsync(Viewer me, CompanySettings s)
+    {
+        if (!AiOn(s)) return null;
+        var stopped = await BlockingFailureAsync(s);
+        return stopped == null ? null : Notice(me, stopped.Error!, blocking: true);
+    }
+
+    /// <summary>
+    /// Admins see what's wrong and where to fix it; everyone else a calm note (never billing details).
+    /// </summary>
+    private static AiNotice Notice(Viewer me, string error, bool blocking)
+    {
+        if (me.IsAdmin)
+            return blocking
+                ? new AiNotice("error", $"AI answers stopped: {error} Until then, the chat answers from the help list.",
+                    AiErrors.ConsoleUrl, "Open the Anthropic Console")
+                : new AiNotice("warning", $"The AI couldn't answer just now: {error} This answer is from the help list.", null, null);
+        if (!blocking)
+            return new AiNotice("info", "Smart answers didn't work just now, so this answer is from the help list.", null, null);
+        return new AiNotice("info", me.IsParent && me.School
+            ? "Smart answers are paused for now. You'll get answers from the help list, and you can still message the school."
+            : "Smart answers are paused for now. You'll get answers from the help list.", null, null);
+    }
+
+    /// <summary>
+    /// Tells every admin (bell, phone, email) that AI answers stopped — once per problem, at most
+    /// daily — or that they work again.
+    /// </summary>
+    private async Task AlertAdminsAsync(bool down, string? error)
+    {
+        try
+        {
+            var now = DateTime.UtcNow;
+            if (down)
+            {
+                var lastWorked = await _db.BotAiUsageLog.Where(u => u.Succeeded).Select(u => (DateTime?)u.AskedAt).MaxAsync();
+                var since = lastWorked > now - AiAlertEvery ? lastWorked.Value : now - AiAlertEvery;
+                if (await _db.Notifications.AnyAsync(n => n.Type == AiDownType && n.CreatedAt > since)) return;
+            }
+            else
+            {
+                // Only after a "stopped" alert that hasn't been followed by "work again"
+                var lastDown = await _db.Notifications.Where(n => n.Type == AiDownType).Select(n => (DateTime?)n.CreatedAt).MaxAsync();
+                if (lastDown == null || await _db.Notifications.AnyAsync(n => n.Type == AiUpType && n.CreatedAt > lastDown)) return;
+            }
+
+            var admins = await _db.Users.AsNoTracking().Where(u => u.Role == UserAccess.Admin && u.IsActive)
+                .Select(u => new { u.Id, u.Email, u.Username }).ToListAsync();
+            if (admins.Count == 0) return;
+
+            var title = down ? "Chatbot AI answers stopped" : "Chatbot AI answers work again";
+            var message = down
+                ? $"{error} Until then the chatbot answers from the help list. Anthropic Console: {AiErrors.ConsoleUrl}"
+                : "The chatbot is answering with AI again.";
+            foreach (var a in admins)
+                _db.Notifications.Add(new Notification
+                {
+                    UserId = a.Id, Title = title, Message = message.Length > 500 ? message[..500] : message,
+                    Type = down ? AiDownType : AiUpType, Link = ChatbotPage, CreatedAt = now
+                });
+            await _db.SaveChangesAsync();
+
+            if (_push != null)
+                await _push.SendToUsersAsync(_db, admins.Select(a => a.Id).ToList(), title,
+                    message.Length > 200 ? message[..200] : message, down ? AiDownType : AiUpType, ChatbotPage);
+
+            if (down && _email != null)
+            {
+                var html = $"""
+                    <div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px;color:#111827">
+                      <h2 style="color:#b91c1c;margin:0 0 12px">Chatbot AI answers stopped</h2>
+                      <p>{System.Net.WebUtility.HtmlEncode(error ?? "")}</p>
+                      <p>Until this is fixed, the chatbot answers from your help list, and people see a short
+                         "smart answers are paused" note.</p>
+                      <p><a href="{AiErrors.ConsoleUrl}" style="background:#2563eb;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none">Open the Anthropic Console</a></p>
+                      <p style="color:#6b7280;font-size:12px">AI answers start again by themselves within 10 minutes of the problem being fixed,
+                         or straight away when you connect a new key on the Chatbot page.</p>
+                    </div>
+                    """;
+                foreach (var a in admins.Where(a => !string.IsNullOrWhiteSpace(a.Email)))
+                    _email.Enqueue(new EmailJob { ToEmail = a.Email, Subject = "Chatbot AI answers stopped", Body = html });
+            }
+        }
+        catch
+        {
+            // Alerts are best effort: the chat answer must not fail because of them
+        }
     }
 
     // ── Admin: AI answers ──
@@ -195,7 +321,9 @@ public class AssistantController : ControllerBase
             model = _ai.Model,
             dailyLimitPerUser = _dailyAiLimit,
             today = Sum(rows.Where(r => r.AskedAt >= today)),
-            last30Days = Sum(rows)
+            last30Days = Sum(rows),
+            // The latest AI failure with a reason, unless an AI answer worked after it
+            problem = LatestProblem(rows)
         });
     }
 
@@ -399,7 +527,7 @@ public class AssistantController : ControllerBase
                 .Select(e => new { e.Id, e.Name }).FirstOrDefaultAsync();
             name = employee?.Name ?? user.Username;
             isTeacher = employee != null && settings.SchoolFeaturesEnabled
-                        && await _db.SchoolClasses.AnyAsync(c => c.ClassTeacherId == employee.Id && c.IsActive);
+                        && await _db.SchoolClasses.AnyAsync(c => c.IsActive && (c.ClassTeacherId == employee.Id || c.Teachers.Any(t => t.EmployeeId == employee.Id)));
         }
         return new Viewer(user.Id, name, user.Role == "Admin", isParent, settings.SchoolFeaturesEnabled, isTeacher);
     }
@@ -449,11 +577,15 @@ public class AssistantController : ControllerBase
         .Replace("{phone}", string.IsNullOrWhiteSpace(s.Phone) ? "the office" : s.Phone, StringComparison.OrdinalIgnoreCase)
         .Replace("{feeDueDay}", s.FeeDueDay.ToString(), StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Asks Claude, with tools limited to this user's own data, and logs the usage.</summary>
-    private async Task<AiAnswer?> AskAiAsync(Viewer me, CompanySettings settings, string text, List<ChatTurnDto>? history)
+    /// <summary>
+    /// Asks Claude, with tools limited to this user's own data, and logs the usage. Returns the
+    /// answer, or why it failed (both null = no answer for another reason, e.g. a refusal).
+    /// When AI answers stop or start working again, the admins are told.
+    /// </summary>
+    private async Task<(AiAnswer? answer, string? error)> AskAiAsync(Viewer me, CompanySettings settings, string text, List<ChatTurnDto>? history)
     {
         var sv = await SchoolViewer.LoadAsync(_db, User);
-        if (sv == null) return null;
+        if (sv == null) return (null, null);
         var user = new AssistantUser(me.UserId, me.Name, me.IsAdmin, me.IsParent && sv.IsParent, sv.ChildIds,
             sv.EmployeeId, sv.TeacherClassIds, me.School, me.Audience);
         var pages = ActionsFor(me).Select(a => (a.Key, a.Label)).ToList();
@@ -466,14 +598,35 @@ public class AssistantController : ControllerBase
 
         var answer = await _ai.AnswerAsync(CompanyKey(settings), tools, await SystemPromptAsync(user, settings), turns, text,
             HttpContext.RequestAborted);
+        var previous = await _db.BotAiUsageLog.AsNoTracking()
+            .OrderByDescending(u => u.AskedAt).ThenByDescending(u => u.Id).FirstOrDefaultAsync();
         _db.BotAiUsageLog.Add(new BotAiUsage
         {
             UserId = me.UserId, AskedAt = DateTime.UtcNow, Model = _ai.Model,
             InputTokens = answer?.InputTokens ?? 0, OutputTokens = answer?.OutputTokens ?? 0,
-            ToolCalls = answer?.ToolCalls ?? 0, Succeeded = answer != null
+            ToolCalls = answer?.ToolCalls ?? 0, Succeeded = answer is { Failed: false },
+            // Why it failed, for the admin's Chatbot page ("credit has run out" …)
+            Error = answer?.Error
         });
         await _db.SaveChangesAsync();
-        return answer;
+
+        if (answer is { Failed: true } && AiErrors.IsBlocking(answer.Error))
+            await AlertAdminsAsync(down: true, answer.Error);
+        else if (answer is { Failed: false } && previous is { Succeeded: false } && AiErrors.IsBlocking(previous.Error))
+            await AlertAdminsAsync(down: false, null);
+
+        return answer is { Failed: false } ? (answer, null) : (null, answer?.Error);
+    }
+
+    /// <summary>"AI isn't working: …" for the admin: the newest failure that has no success after it.</summary>
+    private static object? LatestProblem(IEnumerable<BotAiUsage> rows)
+    {
+        var newestFirst = rows.OrderByDescending(r => r.AskedAt).ThenByDescending(r => r.Id).ToList();
+        var last = newestFirst.FirstOrDefault();
+        if (last == null || last.Succeeded || last.Error == null) return null;
+        // Failed questions in a row since the last AI answer that worked
+        var failures = newestFirst.TakeWhile(r => !r.Succeeded).Count();
+        return new { message = last.Error, at = DateTime.SpecifyKind(last.AskedAt, DateTimeKind.Utc), failures };
     }
 
     private async Task<bool> UnderDailyAiLimitAsync(Viewer me)
@@ -577,6 +730,12 @@ public class AssistantController : ControllerBase
         f.IsActive = r.IsActive;
     }
 }
+
+/// <summary>
+/// A note for the top of the chat about AI answers. <c>level</c>: "error" (admins: stopped, with the
+/// fix), "warning" (admins: one failed answer), "info" (everyone else: paused / list answer).
+/// </summary>
+public sealed record AiNotice(string Level, string Message, string? Link, string? LinkLabel);
 
 public class AskRequest
 {

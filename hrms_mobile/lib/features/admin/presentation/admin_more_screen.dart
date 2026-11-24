@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
+import '../../../core/widgets/back_to_home.dart';
 import '../../../core/widgets/home_tiles.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../school/data/school_repository.dart';
@@ -43,7 +44,7 @@ class AdminMoreScreen extends ConsumerWidget {
         Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: HomeTileGrid(tiles: tiles));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('More')),
+      appBar: AppBar(leading: const BackToHomeButton(), title: const Text('More')),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(schoolMeProvider);
@@ -89,6 +90,8 @@ class AdminMoreScreen extends ConsumerWidget {
                 HomeTile('Classes', Icons.class_outlined, TileColors.school, () => open(Routes.schoolClasses)),
                 HomeTile('Children', Icons.child_care_outlined, TileColors.today, () => open(Routes.schoolChildren)),
                 HomeTile('Parents', Icons.family_restroom_outlined, TileColors.office, () => open(Routes.schoolParents)),
+                HomeTile('Families', Icons.diversity_3_outlined, TileColors.teacher, () => open(Routes.schoolFamilies)),
+                HomeTile('Pick-up people', Icons.how_to_reg_outlined, TileColors.note, () => open(Routes.schoolPickupPeople)),
                 HomeTile('Attendance', Icons.fact_check_outlined, TileColors.attendance, () => open(Routes.schoolAttendance)),
                 HomeTile('Messages', Icons.forum_outlined, TileColors.messages, () => open(Routes.schoolMessages),
                     badge: unread),

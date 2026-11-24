@@ -12,8 +12,8 @@ import '../../auth/application/auth_controller.dart';
 import '../../notifications/data/notification_repository.dart';
 import '../../assistant/presentation/assistant_screen.dart';
 import '../../notifications/presentation/notifications_screen.dart';
+import '../../school/data/parent_account.dart';
 import '../../school/data/school_repository.dart';
-import '../../school/presentation/messages_screens.dart';
 import '../data/admin_models.dart';
 import '../data/admin_repository.dart';
 
@@ -172,11 +172,13 @@ class _SchoolTiles extends ConsumerWidget {
     return HomeTileGrid(tiles: [
       HomeTile('Attendance', Icons.fact_check_outlined, TileColors.attendance, () => open(Routes.schoolAttendance)),
       HomeTile('Messages', Icons.forum_outlined, TileColors.messages, () => open(Routes.schoolMessages), badge: unread),
-      HomeTile('New message', Icons.edit_outlined, TileColors.teacher, () => startNewConversation(context, ref)),
       HomeTile('Announce', Icons.campaign_outlined, TileColors.news, () => open(Routes.schoolAnnouncements)),
       HomeTile('Fees', Icons.receipt_long_outlined, TileColors.fees, () => open(Routes.schoolFees), badge: claims),
       HomeTile('Children', Icons.child_care_outlined, TileColors.today, () => open(Routes.schoolChildren)),
       HomeTile('Parents', Icons.family_restroom_outlined, TileColors.office, () => open(Routes.schoolParents)),
+      HomeTile('Families', Icons.diversity_3_outlined, TileColors.teacher, () => open(Routes.schoolFamilies)),
+      HomeTile('Pick-up people', Icons.how_to_reg_outlined, TileColors.note, () => open(Routes.schoolPickupPeople),
+          badge: ref.watch(pendingPickupPeopleProvider).valueOrNull?.length ?? 0),
       HomeTile('Classes', Icons.class_outlined, TileColors.school, () => open(Routes.schoolClasses)),
     ]);
   }

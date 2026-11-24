@@ -16,6 +16,9 @@
 }
 
 .tag.bad { background: #fee2e2; color: #991b1b; }
+/* Late arrival; automatic absent / check-out (by the school-day job, not the teacher) */
+.tag.late { background: #fef3c7; color: #92400e; margin-left: 6px; }
+.tag.auto { background: #e5e7eb; color: #374151; margin-left: 6px; font-size: 11px; }
 
 tr.row-absent td { background: #fef2f2; }
 tr.row-expected-absent td { background: #fffbeb; }

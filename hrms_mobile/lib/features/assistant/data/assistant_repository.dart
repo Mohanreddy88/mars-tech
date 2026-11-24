@@ -48,13 +48,35 @@ class BotTopic {
   final List<BotAnswer> items;
 }
 
+/// A note about AI answers for the top of the chat. Admins get 'error' (stopped, with the fix and a
+/// link) or 'warning'; everyone else 'info' ("smart answers are paused…", no billing details).
+class BotAiNotice {
+  const BotAiNotice({required this.level, required this.message, this.link, this.linkLabel});
+  final String level;
+  final String message;
+  final String? link;
+  final String? linkLabel;
+
+  static BotAiNotice? fromJson(dynamic j) => j is Map<String, dynamic>
+      ? BotAiNotice(
+          level: j['level'] as String? ?? 'info',
+          message: j['message'] as String? ?? '',
+          link: j['link'] as String?,
+          linkLabel: j['linkLabel'] as String?,
+        )
+      : null;
+}
+
 class BotStart {
-  const BotStart({required this.greeting, required this.topics, required this.canMessageSchool, this.ai = false});
+  const BotStart({required this.greeting, required this.topics, required this.canMessageSchool, this.ai = false,
+      this.aiNotice});
   final String greeting;
   final List<BotTopic> topics;
   final bool canMessageSchool;
   /// AI answers are on for this company.
   final bool ai;
+  /// Shown at the top of the chat while AI answers are stopped (e.g. no Anthropic credit).
+  final BotAiNotice? aiNotice;
 
   factory BotStart.fromJson(Map<String, dynamic> j) => BotStart(
         greeting: j['greeting'] as String? ?? 'Hi! How can I help?',
@@ -67,19 +89,23 @@ class BotStart {
         ],
         canMessageSchool: j['canMessageSchool'] as bool? ?? false,
         ai: j['ai'] as bool? ?? false,
+        aiNotice: BotAiNotice.fromJson(j['aiNotice']),
       );
 }
 
 typedef BotQuestionRef = ({int id, String question});
 
 class BotAskResult {
-  const BotAskResult({this.reply, this.answer, required this.related, required this.unanswered, this.source = 'faq'});
+  const BotAskResult({this.reply, this.answer, required this.related, required this.unanswered, this.source = 'faq',
+      this.aiNotice});
   final String? reply;
   final BotAnswer? answer;
   final List<BotQuestionRef> related;
   final bool unanswered;
   /// Who answered: faq, ai or none.
   final String source;
+  /// Set when the AI is stopped or just failed; this answer came from the list.
+  final BotAiNotice? aiNotice;
 
   factory BotAskResult.fromJson(Map<String, dynamic> j) => BotAskResult(
         reply: j['reply'] as String?,
@@ -90,6 +116,7 @@ class BotAskResult {
         ],
         unanswered: j['unanswered'] as bool? ?? false,
         source: j['source'] as String? ?? 'faq',
+        aiNotice: BotAiNotice.fromJson(j['aiNotice']),
       );
 }
 
@@ -97,7 +124,13 @@ class BotAskResult {
 class BotAiStatus {
   const BotAiStatus({required this.configured, required this.enabled, required this.model, required this.dailyLimit,
       required this.todayQuestions, required this.monthQuestions, required this.monthAnswered,
-      this.keySource, this.keyHint, this.keyUnreadable = false});
+      this.keySource, this.keyHint, this.keyUnreadable = false, this.problem, this.problemAt, this.problemCount = 0});
+  /// Why the latest AI answers failed (e.g. no Anthropic credit), until one works again.
+  final String? problem;
+  /// When it last failed (UTC, ISO text).
+  final String? problemAt;
+  /// Questions in a row that failed.
+  final int problemCount;
   /// A key is available (the company's own or the server's).
   final bool configured;
   /// 'company' (connected here), 'server', or null.
@@ -113,7 +146,11 @@ class BotAiStatus {
 
   factory BotAiStatus.fromJson(Map<String, dynamic> j) {
     int n(String part, String k) => ((j[part] as Map<String, dynamic>?)?[k] as num?)?.toInt() ?? 0;
+    final problem = j['problem'] as Map<String, dynamic>?;
     return BotAiStatus(
+      problem: problem?['message'] as String?,
+      problemAt: problem?['at'] as String?,
+      problemCount: (problem?['failures'] as num?)?.toInt() ?? 0,
       configured: j['configured'] as bool? ?? false,
       keySource: j['keySource'] as String?,
       keyHint: j['keyHint'] as String?,

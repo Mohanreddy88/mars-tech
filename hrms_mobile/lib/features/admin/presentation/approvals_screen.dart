@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/router/app_router.dart';
+import '../../../core/widgets/back_to_home.dart';
 import '../../../core/utils/file_opener.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/error_view.dart';
@@ -28,6 +29,7 @@ class ApprovalsScreen extends ConsumerWidget {
       initialIndex: initialTab,
       child: Scaffold(
         appBar: AppBar(
+          leading: const BackToHomeButton(),
           title: const Text('Approvals'),
           bottom: TabBar(
             tabs: [

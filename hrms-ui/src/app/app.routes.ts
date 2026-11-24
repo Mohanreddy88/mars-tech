@@ -60,6 +60,8 @@ import { parentAreaGuard, parentOnlyGuard } from './core/guards/parent.guard';
 const schoolClasses       = () => import('./modules/school/pages/school-classes/school-classes.component').then(m => m.SchoolClassesComponent);
 const schoolStudents      = () => import('./modules/school/pages/school-students/school-students.component').then(m => m.SchoolStudentsComponent);
 const schoolParents       = () => import('./modules/school/pages/school-parents/school-parents.component').then(m => m.SchoolParentsComponent);
+const schoolFamilies      = () => import('./modules/school/pages/school-families/school-families.component').then(m => m.SchoolFamiliesComponent);
+const schoolPickupPeople  = () => import('./modules/school/pages/school-pickup-people/school-pickup-people.component').then(m => m.SchoolPickupPeopleComponent);
 const schoolAnnouncements = () => import('./modules/school/pages/school-announcements/school-announcements.component').then(m => m.SchoolAnnouncementsComponent);
 const schoolMessages      = () => import('./modules/school/pages/school-messages/school-messages.component').then(m => m.SchoolMessagesComponent);
 const schoolAttendance    = () => import('./modules/school/pages/school-attendance/school-attendance.component').then(m => m.SchoolAttendanceComponent);
@@ -67,6 +69,7 @@ const schoolFees          = () => import('./modules/school/pages/school-fees/sch
 const parentChild         = () => import('./modules/school/pages/parent-child/parent-child.component').then(m => m.ParentChildComponent);
 const parentFees          = () => import('./modules/school/pages/parent-fees/parent-fees.component').then(m => m.ParentFeesComponent);
 const parentHome          = () => import('./modules/school/pages/parent-home/parent-home.component').then(m => m.ParentHomeComponent);
+const parentAccount       = () => import('./modules/school/pages/parent-account/parent-account.component').then(m => m.ParentAccountComponent);
 
 /** A company's own site (esync.marshrms.com …). */
 const companyRoutes: Routes = [
@@ -154,6 +157,8 @@ const companyRoutes: Routes = [
       { path: 'school/students',      loadComponent: schoolStudents,      title: 'Children' },
       { path: 'school/my-class',      loadComponent: schoolStudents,      title: 'My Class' },
       { path: 'school/parents',       loadComponent: schoolParents,       canActivate: [adminGuard], title: 'Parents' },
+      { path: 'school/families',      loadComponent: schoolFamilies,      canActivate: [adminGuard], title: 'Families' },
+      { path: 'school/pickup-people', loadComponent: schoolPickupPeople,  canActivate: [adminGuard], title: 'Pick-up People' },
       { path: 'school/announcements', loadComponent: schoolAnnouncements, title: 'Announcements' },
       { path: 'school/messages',      loadComponent: schoolMessages,      title: 'Messages' },
       { path: 'school/attendance',    loadComponent: schoolAttendance,    title: 'Attendance & Daily Reports' },
@@ -165,6 +170,7 @@ const companyRoutes: Routes = [
       { path: 'parent/messages',      loadComponent: schoolMessages,      canActivate: [parentOnlyGuard], title: 'Messages' },
       { path: 'parent/child/:id',     loadComponent: parentChild,         canActivate: [parentOnlyGuard], title: 'My Child' },
       { path: 'parent/fees',          loadComponent: parentFees,          canActivate: [parentOnlyGuard], title: 'Fees' },
+      { path: 'parent/account',       loadComponent: parentAccount,       canActivate: [parentOnlyGuard], title: 'My Account' },
 
       // Notifications
       { path: 'notifications', component: NotificationsPageComponent },

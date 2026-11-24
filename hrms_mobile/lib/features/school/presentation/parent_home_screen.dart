@@ -207,9 +207,9 @@ class _Tiles extends ConsumerWidget {
 
     return HomeTileGrid(tiles: [
       HomeTile('Today', Icons.wb_sunny_outlined, TileColors.today, () => context.push(dayRoute)),
-      HomeTile('Daily report', Icons.photo_library_outlined, TileColors.report, () => context.push(dayRoute)),
-      HomeTile('Attendance', Icons.event_available_outlined, TileColors.attendance, () => context.push(dayRoute)),
-      HomeTile('Absence / pickup', Icons.edit_note_outlined, TileColors.note, () => context.push(dayRoute)),
+      HomeTile('Daily report', Icons.photo_library_outlined, TileColors.report, () => context.push('$dayRoute?view=report')),
+      HomeTile('Attendance', Icons.event_available_outlined, TileColors.attendance, () => context.push('$dayRoute?view=attendance')),
+      HomeTile('Absence / pickup', Icons.edit_note_outlined, TileColors.note, () => context.push('$dayRoute?view=notes')),
       HomeTile('Messages', Icons.forum_outlined, TileColors.messages, () => context.go(Routes.parentMessages),
           badge: unread?.messages ?? 0),
       HomeTile('Message teacher', Icons.person_outline, TileColors.teacher,

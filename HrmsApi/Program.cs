@@ -276,6 +276,8 @@ builder.Services.AddScoped<HrmsApi.Hubs.IChatNotifier, HrmsApi.Hubs.ChatNotifier
 builder.Services.AddSingleton<BackgroundEmailService>();
 builder.Services.AddSingleton<IEmailQueue>(sp => sp.GetRequiredService<BackgroundEmailService>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<BackgroundEmailService>());
+// School day: 9:00 "not arrived yet" to parents, 9:30 automatic absent, 7pm automatic check-out
+builder.Services.AddHostedService<SchoolDayService>();
 
 builder.Services.AddControllers();
 

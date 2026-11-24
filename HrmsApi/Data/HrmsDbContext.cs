@@ -33,6 +33,7 @@ public class HrmsDbContext : DbContext
 
     // ── School features ──
     public DbSet<SchoolClass>           SchoolClasses         => Set<SchoolClass>();
+    public DbSet<SchoolClassTeacher>    SchoolClassTeachers   => Set<SchoolClassTeacher>();
     public DbSet<Student>               Students              => Set<Student>();
     public DbSet<Parent>                Parents               => Set<Parent>();
     public DbSet<StudentParent>         StudentParents        => Set<StudentParent>();
@@ -44,6 +45,7 @@ public class HrmsDbContext : DbContext
     public DbSet<ConversationRead>      ConversationReads     => Set<ConversationRead>();
     public DbSet<StudentAttendance>     StudentAttendance     => Set<StudentAttendance>();
     public DbSet<ParentNote>            ParentNotes           => Set<ParentNote>();
+    public DbSet<PickupPerson>          PickupPeople          => Set<PickupPerson>();
     public DbSet<DailyReport>           DailyReports          => Set<DailyReport>();
     public DbSet<DailyReportPhoto>      DailyReportPhotos     => Set<DailyReportPhoto>();
     public DbSet<FeeItem>               FeeItems              => Set<FeeItem>();
@@ -392,6 +394,16 @@ public class HrmsDbContext : DbContext
             e.HasOne(x => x.ClassTeacher).WithMany().HasForeignKey(x => x.ClassTeacherId).OnDelete(DeleteBehavior.SetNull);
         });
 
+        // Other teachers of a class (the lead is SchoolClass.ClassTeacherId)
+        modelBuilder.Entity<SchoolClassTeacher>(e =>
+        {
+            e.ToTable("SchoolClassTeachers");
+            e.HasKey(x => new { x.ClassId, x.EmployeeId });
+            e.HasOne(x => x.Class).WithMany(c => c.Teachers).HasForeignKey(x => x.ClassId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Employee).WithMany().HasForeignKey(x => x.EmployeeId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => x.EmployeeId);
+        });
+
         modelBuilder.Entity<Student>(e =>
         {
             e.Property(x => x.FullName).IsRequired().HasMaxLength(150);
@@ -502,6 +514,22 @@ public class HrmsDbContext : DbContext
             e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
         });
 
+        modelBuilder.Entity<PickupPerson>(e =>
+        {
+            e.ToTable("PickupPeople");
+            e.Property(x => x.FullName).IsRequired().HasMaxLength(150);
+            e.Property(x => x.Relationship).IsRequired().HasMaxLength(50);
+            e.Property(x => x.Phone).HasMaxLength(30);
+            e.Property(x => x.Note).HasMaxLength(300);
+            e.Property(x => x.Status).IsRequired().HasMaxLength(20);
+            e.Property(x => x.AddedByName).IsRequired().HasMaxLength(150);
+            e.Property(x => x.DecidedByName).HasMaxLength(150);
+            e.Property(x => x.RejectReason).HasMaxLength(300);
+            e.HasIndex(x => new { x.StudentId, x.Status });
+            e.HasIndex(x => x.Status);
+            e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<ParentNote>(e =>
         {
             e.Property(x => x.Kind).IsRequired().HasMaxLength(20);
@@ -572,6 +600,7 @@ public class HrmsDbContext : DbContext
         {
             e.ToTable("BotAiUsage");
             e.Property(x => x.Model).IsRequired().HasMaxLength(60);
+            e.Property(x => x.Error).HasMaxLength(HrmsApi.Services.AiErrors.MaxLength);
             e.HasIndex(x => new { x.UserId, x.AskedAt });
             e.HasIndex(x => x.AskedAt);
         });

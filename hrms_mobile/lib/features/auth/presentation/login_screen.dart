@@ -7,6 +7,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/storage/company_store.dart';
 import '../application/auth_controller.dart';
+import 'company_picker.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -19,7 +20,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _username = TextEditingController();
   final _password = TextEditingController();
-  late final TextEditingController _company;
+  /// Chosen company code (release builds); '' = none yet.
+  String _company = '';
   bool _obscure = true;
   bool _loading = false;
   String? _error;
@@ -27,14 +29,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    _company = TextEditingController(text: ref.read(companyCodeProvider) ?? '');
+    _company = ref.read(companyCodeProvider) ?? '';
   }
 
   @override
   void dispose() {
     _username.dispose();
     _password.dispose();
-    _company.dispose();
     super.dispose();
   }
 
@@ -48,7 +49,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       // Release builds: sign in to the company's own address (remembered).
       if (Env.asksForCompany) {
-        final code = _company.text.trim().toLowerCase();
+        final code = _company.trim().toLowerCase();
         await ref.read(companyStoreProvider).save(code);
         ref.read(companyCodeProvider.notifier).state = code;
       }
@@ -106,17 +107,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         textColor: theme.colorScheme.onErrorContainer,
                       ),
                     if (Env.asksForCompany) ...[
-                      TextFormField(
-                        controller: _company,
-                        decoration: const InputDecoration(
-                          labelText: 'Company code',
-                          prefixIcon: Icon(Icons.business_outlined),
-                          suffixText: '.${Env.domain}',
-                          helperText: 'From your company\'s web address. Leave empty for ${Env.domain}.',
-                        ),
-                        autocorrect: false,
-                        textInputAction: TextInputAction.next,
-                        validator: (v) => Env.companyCodeError(v ?? ''),
+                      // Pick from the registered companies; the address (live or UAT) is added for you
+                      CompanyField(
+                        code: _company,
+                        onChanged: (c) => setState(() => _company = c),
                       ),
                       const SizedBox(height: 16),
                     ],

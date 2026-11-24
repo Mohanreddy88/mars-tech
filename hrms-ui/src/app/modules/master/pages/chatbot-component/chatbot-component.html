@@ -30,7 +30,24 @@
             <div class="alert alert-warning py-2 mt-2 mb-0 small">The saved API key can no longer be read (the server's secret changed). Please connect it again.</div>
           }
         } @else {
-          <span class="badge ms-1" [class.bg-success]="ai.enabled" [class.bg-secondary]="!ai.enabled">{{ ai.enabled ? 'On' : 'Off' }}</span>
+          @if (ai.enabled && ai.problem) {
+            <span class="badge bg-danger ms-1">On · not working</span>
+          } @else {
+            <span class="badge ms-1" [class.bg-success]="ai.enabled" [class.bg-secondary]="!ai.enabled">{{ ai.enabled ? 'On' : 'Off' }}</span>
+          }
+          @if (ai.problem) {
+            <div class="alert alert-danger py-2 px-3 mt-2 mb-2 small d-flex gap-2 align-items-start" role="alert">
+              <i class="bi bi-exclamation-triangle-fill mt-1"></i>
+              <div>
+                <strong>AI isn't working:</strong> {{ ai.problem.message }}<br>
+                <span class="text-muted">
+                  Last tried {{ utc(ai.problem.at) | date: 'd MMM, h:mm a' }}
+                  @if (ai.problem.failures > 1) { · {{ ai.problem.failures }} questions in a row }
+                  — people got answers from the list below instead. This message goes away once an AI answer works again.
+                </span>
+              </div>
+            </div>
+          }
           <p>
             @if (ai.keySource === 'company') {
               Connected with your Anthropic API key <strong>{{ ai.keyHint }}</strong>@if (ai.keySetAt) { (since {{ utc(ai.keySetAt) | date: 'd MMM yyyy' }})}.
@@ -48,6 +65,14 @@
             @if (ai.last30Days.questions > ai.last30Days.answered) { · {{ ai.last30Days.questions - ai.last30Days.answered }} fell back to this list }
           </div>
         }
+        <!-- Where the company signs up, adds credit and creates its API key -->
+        <div class="ai-console small mt-2">
+          <i class="bi bi-key"></i>
+          Need an API key or more credit? Sign up at the
+          <a href="https://console.anthropic.com/" target="_blank" rel="noopener">Anthropic Console <i class="bi bi-box-arrow-up-right"></i></a>,
+          add credits under <strong>Plans &amp; Billing</strong>, create a key under <strong>API Keys</strong>, then paste it here with
+          <strong>{{ ai.configured && ai.keySource === 'company' ? 'Replace key' : 'Connect AI' }}</strong>.
+        </div>
       </div>
       <div class="ai-actions">
         @if (!ai.configured || ai.keySource === 'server') {

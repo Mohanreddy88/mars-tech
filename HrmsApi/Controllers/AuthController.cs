@@ -31,8 +31,13 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
-        var user = await _db.Users
-            .FirstOrDefaultAsync(u => u.Username == request.Username);
+        // Usernames are not case-sensitive ("AdMin" = "admin"); an exact match wins if two
+        // older accounts differ only by case.
+        var name  = (request.Username ?? string.Empty).Trim();
+        var lower = name.ToLower();
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == name)
+                   ?? await _db.Users.Where(u => u.Username.ToLower() == lower)
+                                     .OrderBy(u => u.Id).FirstOrDefaultAsync();
 
         if (user is null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
             throw new UnauthorizedAccessException("Invalid username or password.");

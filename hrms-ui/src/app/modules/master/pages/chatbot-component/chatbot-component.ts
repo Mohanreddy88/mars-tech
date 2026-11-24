@@ -1,7 +1,8 @@
-import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Observable } from 'rxjs';
+import { Observable, interval } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   AssistantService, BotAudience, BotFaq, BotFaqSave, BotUnanswered, BotAdminList, BotAiStatus
 } from '../../../../core/services/assistant.service';
@@ -58,7 +59,17 @@ export class ChatbotComponent implements OnInit {
 
   readonly audienceLabels: Record<BotAudience, string> = { All: 'Everyone', Parent: 'Parents', Employee: 'Staff' };
 
-  ngOnInit(): void { this.load(); this.loadAi(); }
+  private destroyRef = inject(DestroyRef);
+
+  ngOnInit(): void {
+    this.load();
+    this.loadAi();
+    // Keep the AI card current (e.g. "AI isn't working" appears while people are chatting)
+    this.bot.aiChanged.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.loadAi());
+    interval(60_000).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      if (document.visibilityState === 'visible') this.loadAi();
+    });
+  }
 
   loadAi(): void {
     this.bot.aiStatus().subscribe({ next: a => { this.ai = a; this.cdr.markForCheck(); }, error: () => {} });

@@ -7,6 +7,7 @@
     </div>
     <div class="header-actions">
       <a class="btn btn-outline-primary" routerLink="/school/students"><i class="bi bi-emoji-smile"></i> Children</a>
+      <a class="btn btn-outline-primary" routerLink="/school/families"><i class="bi bi-diagram-3"></i> Families</a>
       <button class="btn btn-primary" (click)="openCreate()"><i class="bi bi-plus-lg"></i> Add Parent</button>
     </div>
   </div>
@@ -35,7 +36,7 @@
     <div class="table-card empty-state">
       <i class="bi bi-people"></i>
       <h5>No parents yet</h5>
-      <p>Add each parent and tick their children — or add the parents first and link the children later.</p>
+      <p>Add each parent, then set up their family (mother, father and children) under School → Families.</p>
       <button class="btn btn-primary" (click)="openCreate()"><i class="bi bi-plus-lg"></i> Add Parent</button>
     </div>
   } @else {
@@ -67,7 +68,8 @@
               </td>
               <td>
                 @for (c of p.children; track c.id) {
-                  <span class="tag" [class.muted]="!c.isActive">{{ c.fullName }}@if (c.className) { · {{ c.className }} }</span>
+                  <span class="tag" [class.muted]="!c.isActive" [title]="withText(c)">{{ c.fullName }}@if (c.className) { · {{ c.className }} }</span>
+                  @if (c.otherParents?.length) { <span class="cell-sub">with {{ otherNames(c) }}</span> }
                 } @empty { <span class="tag warn">No child linked</span> }
               </td>
               <td>
@@ -131,24 +133,20 @@
             <app-phone-input inputId="pa-phone" [(ngModel)]="form.phone" />
           </div>
 
-          <div class="form-group span-2">
-            <label>Children</label>
-            <input type="text" class="mb-2" [(ngModel)]="childSearch" placeholder="Find a child or class" aria-label="Find a child" />
-            <div class="pick-list">
-              @for (s of pickableStudents; track s.id) {
-                <label>
-                  <input type="checkbox" [checked]="form.studentIds.includes(s.id)" (change)="toggleChild(s.id, $any($event.target).checked)" />
-                  <span>{{ s.fullName }}
-                    @if (linkedTo(s); as others) { <span class="linked">linked to {{ others }}</span> }
-                  </span>
-                  <small>{{ s.className ?? 'No class' }}{{ s.isActive ? '' : ' · inactive' }}</small>
-                </label>
-              } @empty {
-                <div class="text-muted p-2">No children yet. You can link them later, here or from School → Children.</div>
-              }
+          @if (editing) {
+            <!-- Children are set on the child (Mother / Father) or under Families, never ticked here -->
+            <div class="form-group span-2">
+              <label>Children</label>
+              @for (c of editing.children; track c.id) {
+                <div class="mb-1">
+                  <i class="bi bi-emoji-smile"></i> <strong>{{ c.fullName }}</strong>
+                  <span class="cell-sub">{{ c.className ?? 'No class' }} · {{ withText(c) }}</span>
+                </div>
+              } @empty { <div class="text-muted">No child linked yet.</div> }
+              <div class="hint">Children are linked on the child (Mother / Father) or under
+                <a routerLink="/school/families" (click)="showModal = false">School → Families</a>.</div>
             </div>
-            <div class="hint">{{ form.studentIds.length }} selected. Brothers and sisters: tick each child. A child can have one mother and one father; others are guardians.</div>
-          </div>
+          }
 
           @if (editing?.hasLogin) {
             <div class="form-group span-2">
@@ -199,4 +197,13 @@
   confirmText="Delete"
   (confirmed)="remove()"
   (cancelled)="confirmDelete = null">
+</app-confirm-modal>
+
+<app-confirm-modal
+  [show]="!!familyPrompt"
+  title="Set up the family now?"
+  [message]="familyPromptText"
+  confirmText="Set up family"
+  (confirmed)="setUpFamily()"
+  (cancelled)="familyPrompt = null">
 </app-confirm-modal>

@@ -95,7 +95,7 @@ class _SchoolAttendanceScreenState extends ConsumerState<SchoolAttendanceScreen>
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => _PickupSheet(row: r, askTime: !_isToday),
+      builder: (_) => _PickupSheet(row: r, askTime: !_isToday, sessionEnd: _data?.sessionEnd(r.sessionType)),
     );
     if (result == null) return;
     await _run(r, () => _repo.checkOut(r.studentId, _date, result.$1, time: result.$2), '${r.fullName} checked out');
@@ -270,12 +270,17 @@ class _RowCard extends StatelessWidget {
             if (a == null) ...[
               FilledButton.icon(onPressed: busy ? null : onCheckIn, icon: const Icon(Icons.login, size: 18), label: const Text('Check in')),
               OutlinedButton(onPressed: busy ? null : onAbsent, child: const Text('Absent')),
-            ] else if (a.absent)
-              Pill('Absent${a.absenceReason != null ? ': ${a.absenceReason}' : ''}', tone: PillTone.bad)
-            else ...[
+            ] else if (a.absent) ...[
+              Pill('Absent${a.autoAbsent ? ' (automatic)' : ''}${a.absenceReason != null ? ': ${a.absenceReason}' : ''}',
+                  tone: PillTone.bad),
+              // Marked absent automatically but arrived after all: checking in makes them present (late)
+              if (a.autoAbsent)
+                TextButton.icon(onPressed: busy ? null : onCheckIn, icon: const Icon(Icons.login, size: 18), label: const Text('Arrived')),
+            ] else ...[
               Pill('In ${a.checkIn}', tone: PillTone.good),
+              if (a.isLate) const Pill('Late', tone: PillTone.warn),
               if (a.checkOut != null)
-                Pill('Home ${a.checkOut} · ${a.pickedUpBy ?? ''}', tone: PillTone.info)
+                Pill('Home ${a.checkOut} · ${a.autoCheckOut ? 'automatic' : a.pickedUpBy ?? ''}', tone: PillTone.info)
               else
                 OutlinedButton.icon(onPressed: busy ? null : onCheckOut, icon: const Icon(Icons.logout, size: 18), label: const Text('Check out')),
             ],
@@ -304,7 +309,9 @@ class _RowCard extends StatelessWidget {
 
 /// Who collected the child (parents, a pickup note's person, or someone else) and, for a past day, when.
 class _PickupSheet extends StatefulWidget {
-  const _PickupSheet({required this.row, required this.askTime});
+  const _PickupSheet({required this.row, required this.askTime, this.sessionEnd});
+  /// When the child's session ends ("16:30"): suggested as the time for a past day, or once it has passed today.
+  final String? sessionEnd;
   final AttendanceRow row;
   final bool askTime;
 
@@ -319,7 +326,16 @@ class _PickupSheetState extends State<_PickupSheet> {
   ];
   late String? _who = _choices.isEmpty ? null : _choices.first;
   final _other = TextEditingController();
-  TimeOfDay? _time;
+  late TimeOfDay? _time = _suggested();
+
+  TimeOfDay? _suggested() {
+    final e = widget.sessionEnd;
+    if (e == null || e.length < 5) return null;
+    final end = TimeOfDay(hour: int.parse(e.substring(0, 2)), minute: int.parse(e.substring(3, 5)));
+    final now = TimeOfDay.now();
+    final passed = now.hour * 60 + now.minute > end.hour * 60 + end.minute;
+    return widget.askTime || passed ? end : null;
+  }
 
   @override
   void dispose() {
@@ -347,14 +363,14 @@ class _PickupSheetState extends State<_PickupSheet> {
           const Text('Not a parent and no pickup note: check their ID and call a parent if unsure.',
               style: TextStyle(color: Color(0xFFB45309), fontSize: 12)),
         ],
-        if (widget.askTime)
+        if (widget.askTime || _time != null)
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.schedule),
             title: const Text('Time'),
             subtitle: Text(_time?.format(context) ?? 'Choose'),
             onTap: () async {
-              final t = await showTimePicker(context: context, initialTime: const TimeOfDay(hour: 17, minute: 0));
+              final t = await showTimePicker(context: context, initialTime: _time ?? const TimeOfDay(hour: 17, minute: 0));
               if (t != null) setState(() => _time = t);
             },
           ),

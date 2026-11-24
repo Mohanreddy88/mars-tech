@@ -4,11 +4,24 @@
       <div class="bot-avatar"><i class="bi bi-robot"></i></div>
       <div class="bot-title">
         <strong>Help assistant</strong>
-        <small>{{ start?.ai ? 'AI answers from your own records' : 'Answers from your ' + ((start?.canMessageSchool) ? 'school' : 'company') }}</small>
+        <small>{{ start?.ai && !notice ? 'AI answers from your own records' : 'Answers from your ' + ((start?.canMessageSchool) ? 'school' : 'company') }}</small>
       </div>
       <button class="icon-btn" (click)="showMenu()" title="Show topics" aria-label="Show topics" [disabled]="!start"><i class="bi bi-grid"></i></button>
       <button class="icon-btn" (click)="open = false" title="Close" aria-label="Close"><i class="bi bi-x-lg"></i></button>
     </header>
+
+    @if (notice) {
+      <!-- AI answers stopped / failed: admins see why and where to fix it, others a calm note -->
+      <div class="bot-notice" [ngClass]="notice.level" role="status">
+        <i class="bi" [class.bi-exclamation-triangle-fill]="notice.level !== 'info'" [class.bi-info-circle-fill]="notice.level === 'info'"></i>
+        <div>
+          {{ notice.message }}
+          @if (notice.link) {
+            <a [href]="notice.link" target="_blank" rel="noopener">{{ notice.linkLabel || 'Open' }} <i class="bi bi-box-arrow-up-right"></i></a>
+          }
+        </div>
+      </div>
+    }
 
     <div class="bot-body" #scroller aria-live="polite">
       @if (loading) {

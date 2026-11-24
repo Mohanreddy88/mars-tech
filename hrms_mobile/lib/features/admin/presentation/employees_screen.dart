@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
+import '../../../core/widgets/back_to_home.dart';
 import '../../../core/widgets/error_view.dart';
 import '../data/admin_models.dart';
 import '../data/admin_repository.dart';
@@ -26,7 +27,7 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Employees')),
+      appBar: AppBar(leading: const BackToHomeButton(), title: const Text('Employees')),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push(Routes.employeeForm),
         icon: const Icon(Icons.person_add_alt),

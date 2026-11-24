@@ -53,6 +53,18 @@ class SchoolRepository {
   Future<void> setEnabled(bool enabled) =>
       _call(() => _dio.put<void>('school/settings', data: {'enabled': enabled}));
 
+  /// School day timings ("HH:mm" values: start, lateAfter, absentAfter, halfDayEnd, fullDayEnd,
+  /// daycareEnd, autoCheckOutAt) and whether the automatic steps run ('auto').
+  Future<Map<String, dynamic>> schoolTimes() => _call(() async {
+        final r = await _dio.get<Map<String, dynamic>>('school/times');
+        return r.data ?? const {};
+      });
+
+  Future<Map<String, dynamic>> saveSchoolTimes(Map<String, dynamic> times) => _call(() async {
+        final r = await _dio.put<Map<String, dynamic>>('school/times', data: times);
+        return r.data ?? times;
+      });
+
   Future<List<StudentInfo>> students({int? classId}) => _call(() async {
         final r = await _dio.get<List<dynamic>>('school/students',
             queryParameters: {if (classId != null) 'classId': classId});
@@ -170,6 +182,13 @@ class SchoolRepository {
   Future<ChildDay> day(int studentId, String date) => _call(() async {
         final r = await _dio.get<Map<String, dynamic>>('school/children/$studentId/day', queryParameters: {'date': date});
         return ChildDay.fromJson(r.data!);
+      });
+
+  /// Days with attendance or a sent report between [from] and [to] (yyyy-MM-dd, at most 62 days).
+  Future<List<ChildDayMark>> days(int studentId, String from, String to) => _call(() async {
+        final r = await _dio.get<List<dynamic>>('school/children/$studentId/days',
+            queryParameters: {'from': from, 'to': to});
+        return (r.data ?? const []).map((e) => ChildDayMark.fromJson(e as Map<String, dynamic>)).toList();
       });
 
   Future<List<ParentNote>> notes({int? studentId}) => _call(() async {

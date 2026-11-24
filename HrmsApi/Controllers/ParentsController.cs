@@ -45,7 +45,11 @@ public class ParentsController : ControllerBase
                 children = p.Children.Select(c => new
                 {
                     id = c.StudentId, fullName = c.Student.FullName, isActive = c.Student.IsActive,
-                    className = c.Student.Class != null ? c.Student.Class.Name : null
+                    className = c.Student.Class != null ? c.Student.Class.Name : null,
+                    // The child's other parents, so a wrong link stands out ("Rudvik, with Mohan")
+                    otherParents = c.Student.Parents.Where(o => o.ParentId != p.Id)
+                        .Select(o => new { id = o.ParentId, fullName = o.Parent.FullName, relationship = o.Parent.Relationship })
+                        .ToList()
                 }).ToList()
             }).ToListAsync());
     }
@@ -229,14 +233,17 @@ public class ParentsController : ControllerBase
         p.IsActive     = req.IsActive;
     }
 
+    /// <summary>Links the parent to exactly these children; null leaves the links as they are.</summary>
     private async Task SetChildrenAsync(Parent p, List<int>? studentIds)
     {
-        var wanted = studentIds?.Distinct().ToHashSet() ?? new HashSet<int>();
+        if (studentIds == null) return;
+        var wanted = studentIds.Distinct().ToHashSet();
         var links = await _db.StudentParents.Where(sp => sp.ParentId == p.Id).ToListAsync();
         _db.StudentParents.RemoveRange(links.Where(l => !wanted.Contains(l.StudentId)));
         foreach (var sid in wanted.Where(w => links.All(l => l.StudentId != w)))
             _db.StudentParents.Add(new StudentParent { ParentId = p.Id, StudentId = sid });
         await _db.SaveChangesAsync();
+        await SchoolParentFlags.SyncAsync(_db, wanted.ToList());
     }
 
     /// <summary>New "Parent" login with a never-shown password, and the set-password email.</summary>
@@ -271,6 +278,7 @@ public class ParentRequest
     [StringLength(30)]  public string? Phone { get; set; }
     public string Relationship { get; set; } = "Mother";
     public bool IsActive { get; set; } = true;
+    /// <summary>Children to link; null = leave the links unchanged (the app sets children under Families).</summary>
     public List<int>? StudentIds { get; set; }
     /// <summary>Create a login and email the set-password link (needs an email address).</summary>
     public bool CreateLogin { get; set; }

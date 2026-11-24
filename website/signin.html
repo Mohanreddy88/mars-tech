@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sign in — Mars HRMS</title>
-  <meta name="description" content="Sign in to your company or school on Mars HRMS with your company code.">
+  <meta name="description" content="Sign in to your company or school on Mars HRMS.">
   <link rel="canonical" href="https://marshrms.com/signin">
   <meta property="og:title" content="Sign in — Mars HRMS">
-  <meta property="og:description" content="Sign in to your company or school on Mars HRMS with your company code.">
+  <meta property="og:description" content="Sign in to your company or school on Mars HRMS.">
   <meta property="og:image" content="https://marshrms.com/assets/img/og-logo.png">
   <meta property="og:type" content="website">
   <meta name="theme-color" content="#0b2c5f">
@@ -47,22 +47,26 @@
       <div class="center reveal" style="margin-bottom:24px">
         <img src="/assets/img/logo.png" alt="" width="84" height="84" style="margin:0 auto 14px;border-radius:50%">
         <h1 style="font-size:2rem">Sign in to Mars HRMS</h1>
-        <p class="muted">Enter your company or school code. It's the first part of your Mars HRMS address.</p>
+        <p class="muted">Choose your company or school to continue to its sign-in page.</p>
       </div>
       <div class="panel reveal">
         <form id="signin-form" novalidate>
           <div class="field">
-            <label for="code">Company code</label>
-            <div class="code-input">
-              <input id="code" name="code" autocomplete="organization" autocapitalize="none" spellcheck="false" placeholder="e.g. goldenkids" required>
-              <span data-domain>.marshrms.com</span>
+            <label for="company">Company or school</label>
+            <div class="company-pick">
+              <i class="bi bi-search" aria-hidden="true"></i>
+              <input id="company" name="company" role="combobox" aria-autocomplete="list" aria-expanded="false"
+                     aria-controls="company-list" autocomplete="off" autocapitalize="none" spellcheck="false"
+                     placeholder="Start typing your company or school name" required>
+              <i class="bi bi-chevron-down cp-caret" aria-hidden="true"></i>
+              <ul id="company-list" class="company-list" role="listbox" hidden></ul>
             </div>
           </div>
           <button class="btn btn-primary" type="submit" style="width:100%"><i class="bi bi-box-arrow-in-right"></i> Continue</button>
           <div class="form-msg" role="alert"></div>
         </form>
-        <p class="muted center" style="font-size:14px;margin:18px 0 0">Don't know your code? Ask your administrator or school office.<br>
-          On the phone? Use the Mars HRMS app and enter the same code.</p>
+        <p class="muted center" style="font-size:14px;margin:18px 0 0">Can't find it? Ask your administrator or school office.<br>
+          On the phone? Use the Mars HRMS app and choose the same company.</p>
       </div>
       <p class="center muted" style="margin-top:22px;font-size:14px">New to Mars HRMS? <a href="/#contact">Book a demo</a></p>
     </div>
@@ -79,7 +83,7 @@
       <div><h4>Product</h4><a href="/features">Features</a><a href="/schools">For schools</a><a href="/#mobile">Mobile app</a><a href="/#ai">AI assistant</a></div>
       <div><h4>Company</h4><a href="/#contact">Contact</a><a href="/#contact">Book a demo</a></div>
       <div><h4>Account</h4><a href="/signin">Sign in</a><a href="/privacy">Privacy policy</a><a href="/terms">Terms of use</a></div>
-      <div><h4>Contact</h4><a data-email href="mailto:support@marshrms.com"><span data-email-text>support@marshrms.com</span></a><a href="tel:+601111009978">+60 11-1100 9978 (MY)</a><a href="tel:+917993466088">+91 79934 66088 (IN)</a><p class="f-addr">Office 22-351WP, Road No. 6, Vinayaka Hills Phase 2, Almasguda, B. N. Reddy Nagar, Hyderabad, Telangana 500058, India</p></div>
+      <div><h4>Contact</h4><a data-email href="mailto:support@marshrms.com"><span data-email-text>support@marshrms.com</span></a><a href="tel:+60107767618">+60 10-776 7618 (MY)</a><a href="tel:+919848872329">+91 98488 72329 (IN)</a><p class="f-addr">Office 22-351WP, Road No. 6, Vinayaka Hills Phase 2, Almasguda, B. N. Reddy Nagar, Hyderabad, Telangana 500058, India</p></div>
     </div>
     <div class="bottom"><span>© <span data-year>2026</span> Mars Tech. All rights reserved.</span><a data-email href="mailto:support@marshrms.com"><span data-email-text>support@marshrms.com</span></a></div>
   </div>

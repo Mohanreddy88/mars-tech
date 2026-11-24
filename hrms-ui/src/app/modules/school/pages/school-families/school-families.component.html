@@ -1,0 +1,151 @@
+<div class="school-page">
+
+  <div class="page-header">
+    <div>
+      <h3>Families</h3>
+      <p>Set the mother and father once for all their children. A half-brother or sister is a separate family that shares the parent.</p>
+    </div>
+    <div class="header-actions">
+      <a class="btn btn-outline-primary" routerLink="/school/parents"><i class="bi bi-people"></i> Parents</a>
+      <a class="btn btn-outline-primary" routerLink="/school/students"><i class="bi bi-emoji-smile"></i> Children</a>
+      <button class="btn btn-primary" (click)="openCreate()"><i class="bi bi-plus-lg"></i> Add Family</button>
+    </div>
+  </div>
+
+  <div class="filters-row">
+    <div class="list-search">
+      <i class="bi bi-search" aria-hidden="true"></i>
+      <input type="search" [(ngModel)]="search" placeholder="Find a parent or child" aria-label="Search" />
+    </div>
+    @if (incompleteCount > 0) {
+      <label class="check"><input type="checkbox" [(ngModel)]="onlyIncomplete" /> Missing mother or father ({{ incompleteCount }})</label>
+    }
+    <span class="list-count ms-auto">{{ filtered.length }} of {{ families.length }}</span>
+  </div>
+
+  @if (loading) {
+    <div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div></div>
+  } @else if (filtered.length === 0) {
+    <div class="table-card empty-state">
+      <i class="bi bi-diagram-3"></i>
+      <h5>No families here</h5>
+      <button class="btn btn-primary" (click)="openCreate()"><i class="bi bi-plus-lg"></i> Add Family</button>
+    </div>
+  } @else {
+    <div class="table-card">
+      <table class="table align-middle mb-0">
+        <thead><tr><th>Mother</th><th>Father</th><th>Children</th><th>Actions</th></tr></thead>
+        <tbody>
+          @for (f of filtered; track $index) {
+            <tr>
+              @for (side of sidesOf(f); track $index) {
+                <td>
+                  @if (side.p) {
+                    <strong>{{ side.p.fullName }}</strong>
+                    @if (side.p.phone) { <div class="cell-sub"><i class="bi bi-telephone"></i> {{ phone(side.p.phone) }}</div> }
+                  } @else if (side.none) {
+                    <span class="cell-sub"><i>None on record (single parent)</i></span>
+                  } @else {
+                    <span class="tag warn">Not set</span>
+                  }
+                </td>
+              }
+              <td>
+                @for (c of f.children; track c.id) {
+                  <span class="tag" [class.muted]="!c.isActive">{{ c.fullName }}@if (c.className) { · {{ c.className }} }</span>
+                }
+              </td>
+              <td class="actions-cell">
+                <button class="btn btn-sm btn-warning" (click)="openEdit(f)" title="Edit"><i class="bi bi-pencil"></i></button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
+
+@if (showModal) {
+  <div class="modal-overlay" (click)="showModal = false">
+    <div class="modal-box wide" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <h5>{{ editing ? 'Edit Family' : 'Add Family' }}</h5>
+        <button class="btn-close-modal" (click)="showModal = false" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+
+      <div class="modal-form">
+        @if (modalError) { <div class="alert alert-danger py-2 mb-3">{{ modalError }}</div> }
+        <div class="form-grid">
+          <div class="section-title">Parents</div>
+          <div class="hint span-2" style="margin-top:-4px">Mother and father are required. For a single parent, tick "No … on record".
+            New parents are added under <a routerLink="/school/parents" (click)="showModal = false">School → Parents</a>.</div>
+
+          <div class="form-group">
+            <label for="fa-mother">Mother *</label>
+            @if (!noMother) {
+              <select id="fa-mother" [(ngModel)]="motherId" (ngModelChange)="parentErrors = {}" [class.is-invalid]="parentErrors['Mother']">
+                <option [ngValue]="null">— Choose the mother —</option>
+                @for (p of parentsFor('Mother', motherId); track p.id) {
+                  <option [ngValue]="p.id">{{ p.fullName }}{{ p.phone ? ' · ' + phone(p.phone) : '' }}{{ p.children.length ? ' · ' + childNames(p) : '' }}</option>
+                }
+              </select>
+              @if (parentErrors['Mother']) { <div class="field-error">{{ parentErrors['Mother'] }}</div> }
+            }
+            <label class="check mt-1">
+              <input type="checkbox" [ngModel]="noMother" (ngModelChange)="setNone('Mother', $event)" /> No mother on record <small class="text-muted">(single father)</small>
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label for="fa-father">Father *</label>
+            @if (!noFather) {
+              <select id="fa-father" [(ngModel)]="fatherId" (ngModelChange)="parentErrors = {}" [class.is-invalid]="parentErrors['Father']">
+                <option [ngValue]="null">— Choose the father —</option>
+                @for (p of parentsFor('Father', fatherId); track p.id) {
+                  <option [ngValue]="p.id">{{ p.fullName }}{{ p.phone ? ' · ' + phone(p.phone) : '' }}{{ p.children.length ? ' · ' + childNames(p) : '' }}</option>
+                }
+              </select>
+              @if (parentErrors['Father']) { <div class="field-error">{{ parentErrors['Father'] }}</div> }
+            }
+            <label class="check mt-1">
+              <input type="checkbox" [ngModel]="noFather" (ngModelChange)="setNone('Father', $event)" /> No father on record <small class="text-muted">(single mother)</small>
+            </label>
+          </div>
+
+          <div class="section-title">Children <small class="text-muted">(brothers and sisters with these parents)</small></div>
+          <div class="form-group span-2">
+            @for (id of childIds; track id) {
+              <div class="family-child">
+                <i class="bi bi-emoji-smile"></i>
+                <div class="flex-grow-1">
+                  <strong>{{ student(id)?.fullName ?? '…' }}</strong>
+                  <span class="cell-sub"> {{ student(id)?.className ?? 'No class' }}</span>
+                  @if (change(id); as c) { <div class="cell-sub text-warning-emphasis">Will change: {{ c }}</div> }
+                </div>
+                <button class="btn btn-sm btn-outline-secondary" (click)="removeChild(id)" title="Take out of this family"><i class="bi bi-x-lg"></i></button>
+              </div>
+            } @empty { <div class="text-muted mb-2">No children yet.</div> }
+            <div class="d-flex gap-2 mt-2">
+              <select [(ngModel)]="addChildId" aria-label="Add a child">
+                <option [ngValue]="null">— Add a child —</option>
+                @for (s of addableChildren; track s.id) {
+                  <option [ngValue]="s.id">{{ s.fullName }}{{ s.className ? ' · ' + s.className : '' }}{{ s.parents.length ? ' · ' + parentNames(s) : '' }}</option>
+                }
+              </select>
+              <button class="btn btn-outline-primary" (click)="addChild()" [disabled]="!addChildId"><i class="bi bi-plus-lg"></i> Add</button>
+            </div>
+            <div class="hint">New children are added under <a routerLink="/school/students" (click)="showModal = false">School → Children</a>.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer-row">
+        <button class="btn btn-secondary" (click)="showModal = false">Cancel</button>
+        <button class="btn btn-primary" (click)="save()" [disabled]="saving">
+          @if (saving) { <span class="spinner-border spinner-border-sm me-1"></span> } Save family
+        </button>
+      </div>
+    </div>
+  </div>
+}

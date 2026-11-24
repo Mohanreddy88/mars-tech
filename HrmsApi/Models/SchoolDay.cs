@@ -23,6 +23,12 @@ public class StudentAttendance
     public string?   PickedUpBy    { get; set; }
     public string?   AbsenceReason { get; set; }
     public DateTime  UpdatedAt     { get; set; } = DateTime.UtcNow;
+    /// <summary>Checked in after the "late after" time.</summary>
+    public bool      IsLate        { get; set; }
+    /// <summary>Marked absent automatically (not checked in by the "absent after" time).</summary>
+    public bool      AutoAbsent    { get; set; }
+    /// <summary>Checked out automatically in the evening (the teacher didn't), at the session's end time.</summary>
+    public bool      AutoCheckOut  { get; set; }
 
     public Student Student { get; set; } = null!;
 }
@@ -53,6 +59,33 @@ public class ParentNote
     public DateTime? SeenAt          { get; set; }
     public string?   SeenByName      { get; set; }
     public DateTime? CancelledAt     { get; set; }
+
+    public Student Student { get; set; } = null!;
+}
+
+/// <summary>
+/// Someone besides the parents who may collect a child regularly (grandparent, driver…). A parent
+/// adds them in the app; they count only once the office approves. One per child.
+/// </summary>
+public class PickupPerson
+{
+    public const string Pending = "Pending", Approved = "Approved", Rejected = "Rejected";
+
+    public int       Id              { get; set; }
+    public int       StudentId       { get; set; }
+    public string    FullName        { get; set; } = string.Empty;
+    /// <summary>"Grandmother", "Driver", "Aunt"…</summary>
+    public string    Relationship    { get; set; } = string.Empty;
+    public string?   Phone           { get; set; }
+    public string?   Note            { get; set; }
+    public string    Status          { get; set; } = Pending;
+    public int       AddedByUserId   { get; set; }
+    public string    AddedByName     { get; set; } = string.Empty;
+    public DateTime  CreatedAt       { get; set; } = DateTime.UtcNow;
+    public DateTime? DecidedAt       { get; set; }
+    public string?   DecidedByName   { get; set; }
+    /// <summary>Why the office said no (shown to the parent).</summary>
+    public string?   RejectReason    { get; set; }
 
     public Student Student { get; set; } = null!;
 }
