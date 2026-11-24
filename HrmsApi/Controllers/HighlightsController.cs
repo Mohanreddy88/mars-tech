@@ -114,6 +114,53 @@ public class HighlightsController : ControllerBase
                 $"{holiday.Date:ddd d MMM}" + (days == 0 ? " · today" : days == 1 ? " · tomorrow" : $" · in {days} days"), "holidays", "View"));
         }
 
+        // ── The team today ──
+        var staff = await _db.Employees.CountAsync(e => e.IsActive);
+        if (staff > 0)
+        {
+            var off = await (from l in _db.LeaveRequests
+                             join e in _db.Employees on l.EmployeeId equals e.Id
+                             where l.Status == "Approved" && l.StartDate.Date <= today && l.EndDate.Date >= today
+                             select e.Name).Distinct().ToListAsync();
+            cards.Add(new("team", "hr", "team", "info", $"{staff} people in the team",
+                off.Count == 0 ? "Everyone is in today — no one on leave."
+                    : $"On leave today: {string.Join(", ", off.Take(3))}{(off.Count > 3 ? $" +{off.Count - 3}" : "")}",
+                "employees", "Team"));
+        }
+
+        // ── This month's payroll, once generated ──
+        var payroll = await _db.Payrolls.Where(p => p.Month == today.Month && p.Year == today.Year)
+            .GroupBy(_ => 1).Select(g => new { count = g.Count(), net = g.Sum(p => p.NetSalary) }).FirstOrDefaultAsync();
+        if (payroll != null)
+            cards.Add(new("payroll-done", "hr", "payroll", "good",
+                $"{today.ToString("MMMM", CultureInfo.InvariantCulture)} payroll: RM {payroll.net:#,##0.00}",
+                $"{payroll.count} payslip{S(payroll.count)} generated.", "payroll", "Open"));
+
+        // ── School: fees collected this month, and the school in numbers ──
+        if (settings.SchoolFeaturesEnabled)
+        {
+            var fees = await _db.FeeInvoices
+                .Where(i => i.Month == today.Month && i.Year == today.Year && i.Status != FeeInvoice.Void)
+                .GroupBy(_ => 1).Select(g => new { total = g.Sum(i => i.Total), paid = g.Sum(i => i.AmountPaid), count = g.Count() })
+                .FirstOrDefaultAsync();
+            if (fees is { total: > 0 })
+            {
+                var pct = (int)Math.Round(fees.paid / fees.total * 100);
+                cards.Add(new("fees-month", "school", "fees", pct >= 90 ? "good" : "info",
+                    $"{pct}% of {today.ToString("MMMM", CultureInfo.InvariantCulture)} fees collected",
+                    $"RM {fees.paid:#,##0.00} of RM {fees.total:#,##0.00} · {fees.count} invoice{S(fees.count)}.", "school-fees", "Fees"));
+            }
+
+            var kids = await _db.Students.CountAsync(s => s.IsActive);
+            if (kids > 0)
+            {
+                var classes = await _db.SchoolClasses.CountAsync(c => c.IsActive);
+                var parents = await _db.Parents.CountAsync(p => p.IsActive && p.UserId != null);
+                cards.Add(new("school", "school", "school", "info", $"{kids} {(kids == 1 ? "child" : "children")} in {classes} class{(classes == 1 ? "" : "es")}",
+                    $"{parents} parent{S(parents)} use the app and the parent portal.", "school-children", "Children"));
+            }
+        }
+
         var birthdays = await BirthdaysThisWeekAsync(today);
         if (birthdays.Count > 0)
             cards.Add(new("birthdays", "hr", "birthday", "info", birthdays.Count == 1 ? "Birthday this week" : $"{birthdays.Count} birthdays this week",

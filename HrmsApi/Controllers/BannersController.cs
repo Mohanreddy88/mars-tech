@@ -114,6 +114,50 @@ public class BannersController : ControllerBase
                 null, null, "green", null, true));
         }
 
+        // ── Each child: today at school, and their class teacher ──
+        var children = await _db.Students.AsNoTracking().Where(s => me.ChildIds.Contains(s.Id) && s.IsActive)
+            .OrderBy(s => s.FullName)
+            .Select(s => new
+            {
+                s.Id, s.FullName,
+                className = s.Class != null ? s.Class.Name : null,
+                teacher = s.Class != null && s.Class.ClassTeacher != null ? s.Class.ClassTeacher.Name : null,
+                att = _db.StudentAttendance.Where(a => a.StudentId == s.Id && a.Date == today)
+                    .Select(a => new { a.Status, a.CheckInAt, a.CheckOutAt, a.PickedUpBy }).FirstOrDefault()
+            }).ToListAsync();
+        var n = 0;
+        foreach (var c in children.Take(3))
+        {
+            var first = c.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? c.FullName;
+            if (c.att is { CheckOutAt: not null })
+                slides.Add(new(-20 - n, $"{first} went home at {SchoolClock.LocalTime(c.att.CheckOutAt.Value)}",
+                    c.att.PickedUpBy != null ? $"Picked up by {c.att.PickedUpBy}. See today's report — meals, nap and photos." : "See today's report — meals, nap and photos.",
+                    null, null, "green", null, true));
+            else if (c.att is { Status: StudentAttendance.Present, CheckInAt: not null })
+                slides.Add(new(-20 - n, $"{first} is at school today",
+                    $"Checked in at {SchoolClock.LocalTime(c.att.CheckInAt.Value)}. Look out for the daily report and photos.",
+                    null, null, "green", null, true));
+            if (c.teacher != null)
+                slides.Add(new(-30 - n, $"Meet {c.teacher}",
+                    $"{first}'s class teacher{(c.className != null ? $" in {c.className}" : "")}. Questions about the day? Just ask.",
+                    "Message the teacher", "new-message", "purple", null, true));
+            n++;
+        }
+
+        // ── The school: price list and (until the school makes its own banners) what a day looks like ──
+        var prices = await FeePrices.ForDateAsync(_db, today);
+        var offered = prices?.Sessions.Where(s => s.Offered && s.MonthlyFee > 0).OrderBy(s => s.MonthlyFee).ToList() ?? new();
+        if (prices != null && offered.Count > 0)
+            slides.Add(new(-5, $"Price & Terms {prices.Name}",
+                string.Join(" · ", offered.Select(s => $"{s.SessionType} RM {s.MonthlyFee:#,##0} a month")) + ". Meals included.",
+                "See prices", "fees", "teal", null, true));
+
+        if (schoolBanners == 0)
+        {
+            var meals = offered.Select(s => s.MealsIncluded).LastOrDefault(m => !string.IsNullOrWhiteSpace(m));
+            slides.AddRange(SchoolShowcase(meals).Select((s, i) => s with { Id = -40 - i }));
+        }
+
         if (slides.Count == 0 && schoolBanners == 0)
         {
             var school = (await _settings.GetAsync()).NameForDisplay;
@@ -121,6 +165,50 @@ public class BannersController : ControllerBase
                 "Message the school", "new-message", "purple", null, true));
         }
         return slides;
+    }
+
+    /// <summary>
+    /// General cards about life at the school: shown to parents until the school adds its own
+    /// banners, and the "sample banners" an admin can add and then change (and add photos to).
+    /// </summary>
+    public static List<ParentSlide> SchoolShowcase(string? meals) => new()
+    {
+        new(0, "A day full of learning", "Circle time, hands-on activities, art, music and story time — every day.",
+            null, null, "orange", null, true),
+        new(0, "Safe, happy play areas", "Indoor and outdoor play spaces where children explore, climb and make friends.",
+            null, null, "pink", null, true),
+        new(0, "Healthy meals every day", string.IsNullOrWhiteSpace(meals)
+                ? "Freshly prepared, balanced meals and snacks."
+                : $"Freshly prepared {meals} — balanced and child-friendly.",
+            null, null, "blue", null, true),
+        new(0, "Caring, qualified teachers", "Small classes and teachers who know every child by name.",
+            "Message the school", "new-message", "purple", null, true),
+    };
+
+    /// <summary>POST /api/school/banners/samples — adds the general school cards as banners to edit (admins).</summary>
+    [HttpPost("samples")]
+    public async Task<IActionResult> AddSamples()
+    {
+        var me = await SchoolViewer.LoadAsync(_db, User);
+        if (me is not { IsAdmin: true }) return Forbid();
+        var prices = await FeePrices.ForDateAsync(_db, SchoolClock.Today);
+        var meals = prices?.Sessions.Where(s => s.Offered && !string.IsNullOrWhiteSpace(s.MealsIncluded))
+            .OrderBy(s => s.MonthlyFee).Select(s => s.MealsIncluded).LastOrDefault();
+        var existing = await _db.SchoolBanners.Select(b => b.Title).ToListAsync();
+        var order = await _db.SchoolBanners.MaxAsync(b => (int?)b.SortOrder) ?? 0;
+        var added = 0;
+        foreach (var s in SchoolShowcase(meals).Where(s => !existing.Contains(s.Title)))
+        {
+            _db.SchoolBanners.Add(new SchoolBanner
+            {
+                Title = s.Title, Text = s.Text, ButtonText = s.ButtonText, Link = s.Link, Theme = s.Theme,
+                SortOrder = ++order, CreatedByName = me.Name
+            });
+            added++;
+        }
+        await _db.SaveChangesAsync();
+        if (added > 0) await LogAsync(me, "Created", 0, $"Added {added} sample banners");
+        return Ok(new { added });
     }
 
     /// <summary>GET /api/school/banners/{id}/image?v= — the picture (admins, and parents the banner is for).</summary>

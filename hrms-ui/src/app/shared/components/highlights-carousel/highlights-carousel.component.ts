@@ -27,13 +27,15 @@ const PAGES: Record<string, string> = {
   'school-attendance': '/school/attendance',
   'chatbot': '/master/chatbot',
   'holidays': '/master/public-holidays',
-  'employees': '/employees'
+  'employees': '/employees',
+  'school-children': '/school/students'
 };
 
 const ICONS: Record<string, string> = {
   leave: 'bi-calendar2-x', attendance: 'bi-clock-history', payroll: 'bi-cash-stack', pickup: 'bi-person-check',
   fees: 'bi-receipt', messages: 'bi-chat-dots', ai: 'bi-robot', children: 'bi-emoji-smile',
-  holiday: 'bi-calendar-heart', birthday: 'bi-gift', done: 'bi-check2-circle'
+  holiday: 'bi-calendar-heart', birthday: 'bi-gift', done: 'bi-check2-circle',
+  team: 'bi-people', school: 'bi-mortarboard'
 };
 
 /**

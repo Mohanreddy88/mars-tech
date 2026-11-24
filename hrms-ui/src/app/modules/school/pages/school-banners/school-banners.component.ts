@@ -157,6 +157,18 @@ export class SchoolBannersComponent implements OnInit, OnDestroy {
     });
   }
 
+  addSamples(): void {
+    this.busy = true;
+    this.api.addSamples().subscribe({
+      next: r => {
+        this.busy = false;
+        this.toast.success('Sample banners', r.added ? `${r.added} added — edit them to add your own photos.` : 'They are already in the list.');
+        this.load();
+      },
+      error: err => { this.busy = false; this.toast.error('Banners', err?.error?.message ?? 'Could not add them.'); this.cdr.markForCheck(); }
+    });
+  }
+
   // ── List actions ──
 
   move(b: Banner, up: boolean): void {

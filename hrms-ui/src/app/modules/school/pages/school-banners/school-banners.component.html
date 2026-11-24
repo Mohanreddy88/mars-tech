@@ -6,6 +6,7 @@
       <p>Advert-style slides at the top of the parent home, on the website and in the app — events, offers, reminders.</p>
     </div>
     <div class="header-actions">
+      <button class="btn btn-outline-primary" (click)="addSamples()" [disabled]="busy"><i class="bi bi-magic"></i> Add sample banners</button>
       <button class="btn btn-primary" (click)="add()"><i class="bi bi-plus-lg"></i> New banner</button>
     </div>
   </div>
@@ -16,7 +17,8 @@
     <div class="table-card empty-state">
       <i class="bi bi-image"></i>
       <h5>No banners yet</h5>
-      <p>Add one — e.g. "Holiday camp: register now" with a photo and a button to a sign-up form.</p>
+      <p>Until you add your own, parents see general cards about the school (a day of learning, play areas, meals, teachers).
+        Click <strong>Add sample banners</strong> to turn them into banners you can change and add your own photos to.</p>
     </div>
   } @else {
     <div class="table-card">

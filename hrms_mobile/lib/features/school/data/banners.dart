@@ -168,6 +168,12 @@ class BannersRepository {
       _call(() => _dio.post<void>('school/banners/$id/move', queryParameters: {'up': up}));
 
   Future<void> delete(int id) => _call(() => _dio.delete<void>('school/banners/$id'));
+
+  /// Adds the general school cards (a day of learning, play areas, meals, teachers) as banners to edit.
+  Future<int> addSamples() => _call(() async {
+        final r = await _dio.post<Map<String, dynamic>>('school/banners/samples');
+        return (r.data?['added'] as int?) ?? 0;
+      });
 }
 
 final bannersRepositoryProvider = Provider<BannersRepository>((ref) => BannersRepository(ref.watch(dioProvider)));

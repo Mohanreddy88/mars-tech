@@ -119,7 +119,8 @@ public class BannersTests
     {
         var db = Setup();
         var mum = Ctl(db, MumUser, SchoolViewer.ParentRole);
-        Titles(await mum.Current()).Should().Equal("Welcome to Golden");
+        // Nothing of their own yet: the general school cards
+        Titles(await mum.Current()).Should().Equal(BannersController.SchoolShowcase(null).Select(s => s.Title));
 
         var today = SchoolClock.Today;
         db.FeeInvoices.Add(new FeeInvoice { StudentId = 1, InvoiceNo = "INV-1", Year = today.Year, Month = today.Month,
@@ -131,11 +132,33 @@ public class BannersTests
         db.PublicHolidays.Add(new PublicHoliday { Name = "Christmas", Date = today.AddDays(3), Year = today.Year });
         db.SaveChanges();
 
-        Titles(await mum.Current()).Should().Equal("RM 930.00 school fees due", "New from the school", "School closed: Christmas");
+        db.Employees.Add(new Employee { Id = 7, Name = "Ms Tan", Email = "tan@school.test", IsActive = true });
+        db.SchoolClasses.Single(c => c.Id == 1).ClassTeacherId = 7;
+        db.StudentAttendance.Add(new StudentAttendance { StudentId = 1, Date = today, Status = StudentAttendance.Present, CheckInAt = DateTime.UtcNow });
+        db.FeePriceLists.Add(new FeePriceList { Name = "2027", EffectiveFrom = today.AddDays(-30), Sessions =
+            { new FeePriceSession { SessionType = Student.HalfDay, MonthlyFee = 930 }, new FeePriceSession { SessionType = Student.FullDay, MonthlyFee = 1450 } } });
+        db.SaveChanges();
 
-        // School banners come first; the automatic ones follow
+        var titles = Titles(await mum.Current());
+        titles.Take(6).Should().Equal("RM 930.00 school fees due", "New from the school", "School closed: Christmas",
+            "Ali is at school today", "Meet Ms Tan", "Price & Terms 2027");
+        titles.Should().Contain("A day full of learning");
+
+        // School banners come first; the general cards give way to the school's own
         await Ctl(db, AdminUser, "Admin").Create(new BannerForm { Title = "Holiday camp" });
-        Titles(await mum.Current()).First().Should().Be("Holiday camp");
+        titles = Titles(await mum.Current());
+        titles.First().Should().Be("Holiday camp");
+        titles.Should().NotContain("A day full of learning");
+    }
+
+    [Fact]
+    public async Task Admin_adds_the_sample_banners_once()
+    {
+        var db = Setup();
+        var admin = Ctl(db, AdminUser, "Admin");
+        await admin.AddSamples();
+        await admin.AddSamples();
+        db.SchoolBanners.Select(b => b.Title).Should().BeEquivalentTo(BannersController.SchoolShowcase(null).Select(s => s.Title));
     }
 
     private sealed class Settings(HrmsDbContext db) : ICompanySettingsService

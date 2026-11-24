@@ -30,6 +30,22 @@ String? bannerRoute(String? link) => switch (link) {
       _ => null,
     };
 
+/// The icon of a card without a picture: from its link, else its colour (same as the website).
+IconData bannerIcon(SchoolBanner b) => switch (b.link) {
+      'fees' => Icons.receipt_long_outlined,
+      'messages' || 'new-message' => Icons.forum_outlined,
+      'announcements' => Icons.campaign_outlined,
+      'account' => Icons.badge_outlined,
+      _ => switch (b.theme) {
+          'orange' => Icons.palette_outlined,
+          'pink' => Icons.celebration_outlined,
+          'blue' => Icons.restaurant_outlined,
+          'green' => Icons.sentiment_satisfied_alt_outlined,
+          'teal' => Icons.payments_outlined,
+          _ => Icons.auto_awesome_outlined,
+        },
+    };
+
 /// Opens what a banner's button points to.
 Future<void> openBanner(BuildContext context, WidgetRef ref, SchoolBanner b) async {
   final link = b.link;
@@ -56,7 +72,7 @@ class BannerCarousel extends ConsumerStatefulWidget {
 
 class _BannerCarouselState extends ConsumerState<BannerCarousel> {
   static const _every = Duration(seconds: 6);
-  final _page = PageController(viewportFraction: 0.94);
+  final _page = PageController(viewportFraction: 0.86);
   Timer? _timer;
   int _index = 0;
   bool _touching = false;
@@ -96,13 +112,14 @@ class _BannerCarouselState extends ConsumerState<BannerCarousel> {
       padding: const EdgeInsets.only(top: 12, bottom: 4),
       child: Column(children: [
         SizedBox(
-          height: 170,
+          height: 190,
           child: Listener(
             onPointerDown: (_) => _touching = true,
             onPointerUp: (_) => _touching = false,
             onPointerCancel: (_) => _touching = false,
             child: PageView.builder(
               controller: _page,
+              padEnds: false,
               itemCount: banners.length,
               onPageChanged: (i) => setState(() => _index = i),
               itemBuilder: (context, i) => Padding(
@@ -172,18 +189,22 @@ class BannerSlide extends ConsumerWidget {
           ] else ...[
             Positioned(right: -50, top: -80, child: _circle(220, .14)),
             Positioned(right: 110, bottom: -70, child: _circle(130, .10)),
+            Positioned(right: 16, top: 14, child: Icon(bannerIcon(banner), color: Colors.white, size: 38)),
           ],
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-              Text(banner.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w800, height: 1.15)),
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.end, children: [
+              Padding(
+                padding: const EdgeInsets.only(right: 44),
+                child: Text(banner.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800, height: 1.15)),
+              ),
               if (banner.text?.isNotEmpty ?? false) ...[
                 const SizedBox(height: 6),
                 Text(banner.text!,
-                    maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 14)),
+                    maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 13)),
               ],
               if (hasButton) ...[
                 const SizedBox(height: 12),

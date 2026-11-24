@@ -34,7 +34,19 @@ class BannersScreen extends ConsumerWidget {
     final list = ref.watch(bannersProvider);
     final repo = ref.read(bannersRepositoryProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Banners')),
+      appBar: AppBar(title: const Text('Banners'), actions: [
+        IconButton(
+          tooltip: 'Add sample banners',
+          icon: const Icon(Icons.auto_awesome_outlined),
+          onPressed: () async {
+            var added = 0;
+            if (await attempt(context, () async => added = await repo.addSamples()) && context.mounted) {
+              toast(context, added > 0 ? '$added sample banners added — tap one to add your photo.' : 'They are already in the list.');
+              ref.invalidate(bannersProvider);
+            }
+          },
+        ),
+      ]),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _edit(context, ref, null),
         icon: const Icon(Icons.add),
@@ -55,7 +67,9 @@ class BannersScreen extends ConsumerWidget {
               if (banners.isEmpty)
                 const Padding(
                   padding: EdgeInsets.only(top: 48),
-                  child: Text('No banners yet.\nAdd one — e.g. "Holiday camp: register now" with a photo and a button.',
+                  child: Text(
+                      'No banners yet. Parents see general cards about the school until you add your own.\n\n'
+                      'Tap ✦ (top right) to add them as sample banners you can change and add photos to.',
                       textAlign: TextAlign.center),
                 ),
               for (var i = 0; i < banners.length; i++)

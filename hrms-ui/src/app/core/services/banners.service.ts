@@ -111,6 +111,9 @@ export class BannersService {
   }
 
   delete(id: number): Observable<unknown> { return this.http.delete(`${this.api}/${id}`); }
+
+  /** Adds the general school cards (a day of learning, play areas, meals, teachers) as banners to edit. */
+  addSamples(): Observable<{ added: number }> { return this.http.post<{ added: number }>(`${this.api}/samples`, null); }
 }
 
 /** Where a banner button goes on this website: a route, an outside address, or nothing. */

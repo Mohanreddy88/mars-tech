@@ -51,6 +51,7 @@ String? highlightRoute(String? page) => switch (page) {
       'chatbot' => Routes.chatbotAdmin,
       'holidays' => Routes.holidaysMaster,
       'employees' => Routes.adminEmployees,
+      'school-children' => Routes.schoolChildren,
       _ => null,
     };
 
@@ -66,6 +67,8 @@ const _icons = <String, IconData>{
   'holiday': Icons.celebration_outlined,
   'birthday': Icons.cake_outlined,
   'done': Icons.task_alt,
+  'team': Icons.groups_outlined,
+  'school': Icons.school_outlined,
 };
 
 const _tones = <String, List<Color>>{ // same colours as the website cards

@@ -71,6 +71,25 @@ public class HighlightsTests
         Cards(db).Should().NotContain(c => c.Group == "school");
     }
 
+    [Fact]
+    public void Information_cards_show_the_team_fees_and_school()
+    {
+        var db = Db();
+        var today = SchoolClock.Today;
+        db.Employees.AddRange(new Employee { Id = 1, Name = "Ms Tan", Email = "t@x.test", IsActive = true },
+                              new Employee { Id = 2, Name = "Mr Lee", Email = "l@x.test", IsActive = true });
+        db.LeaveRequests.Add(new LeaveRequest { EmployeeId = 2, Status = "Approved", StartDate = today.AddDays(-1), EndDate = today.AddDays(1) });
+        db.SchoolClasses.Add(new SchoolClass { Id = 1, Name = "N2" });
+        db.Students.Add(new Student { Id = 1, FullName = "Ali", ClassId = 1 });
+        db.FeeInvoices.Add(new FeeInvoice { StudentId = 1, InvoiceNo = "I1", Year = today.Year, Month = today.Month, Total = 1000, AmountPaid = 950, Status = FeeInvoice.Partial });
+        db.SaveChanges();
+
+        var cards = Cards(db);
+        cards.Should().Contain(c => c.Key == "team" && c.Title == "2 people in the team" && c.Text.Contains("Mr Lee"));
+        cards.Should().Contain(c => c.Key == "fees-month" && c.Title.StartsWith("95%") && c.Tone == "good");
+        cards.Should().Contain(c => c.Key == "school" && c.Title == "1 child in 1 class");
+    }
+
     private sealed class Settings(HrmsDbContext db) : ICompanySettingsService
     {
         public Task<CompanySettings> GetAsync() => db.CompanySettings.FirstAsync();

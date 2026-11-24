@@ -1,13 +1,15 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnChanges, OnDestroy, OnInit, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostListener, Input, OnChanges, OnDestroy, OnInit, ViewChild, inject
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { BannerView, bannerTarget } from '../../../core/services/banners.service';
 
 /**
- * Advert-style banners at the top of the parent home (School → Banners): one at a time, sliding
- * on every few seconds (paused under the mouse or a finger), with arrows, dots and swipe. A banner's
- * button opens a parent page, or an outside address in a new tab. Also the live preview in the
- * admin's banner form (autoplay off). Same look as the app.
+ * Slides at the top of the parent home: the school's banners and cards from the parent's own data
+ * (fees, today at school, the teacher, prices, life at the school). Colourful cards side by side,
+ * moving on one at a time (paused under the mouse or a finger), with arrows, dots and swipe — the
+ * same look as the public website and the admin home. Also the preview in the admin's banner form.
  */
 @Component({
   selector: 'app-banner-carousel',
@@ -21,36 +23,87 @@ export class BannerCarouselComponent implements OnInit, OnChanges, OnDestroy {
   private router = inject(Router);
   private cdr = inject(ChangeDetectorRef);
 
+  @ViewChild('track') private track?: ElementRef<HTMLElement>;
+
   @Input() banners: BannerView[] = [];
   @Input() autoplay = true;
-  /** Preview: the button does nothing. */
+  /** Preview: one card, the button does nothing. */
   @Input() preview = false;
 
-  /** Time each banner is shown. */
-  private static readonly Every = 6000;
+  /** Time each position is shown. */
+  private static readonly Every = 5000;
 
   index = 0;
+  stops = 0;
   private paused = false;
   private timer: ReturnType<typeof setInterval> | null = null;
-  private touchX: number | null = null;
+  private scrollTimer: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
     if (this.autoplay)
-      this.timer = setInterval(() => { if (!this.paused && this.banners.length > 1) this.go(this.index + 1); }, BannerCarouselComponent.Every);
+      this.timer = setInterval(() => {
+        if (!this.paused && this.stops > 1 && document.visibilityState === 'visible') this.go(this.index + 1);
+      }, BannerCarouselComponent.Every);
   }
 
-  ngOnChanges(): void { if (this.index >= this.banners.length) this.index = 0; }
+  ngOnChanges(): void { setTimeout(() => this.measure()); }
 
-  ngOnDestroy(): void { if (this.timer) clearInterval(this.timer); }
+  ngOnDestroy(): void {
+    if (this.timer) clearInterval(this.timer);
+    if (this.scrollTimer) clearTimeout(this.scrollTimer);
+  }
 
-  go(i: number): void {
-    const n = this.banners.length;
-    if (!n) return;
-    this.index = ((i % n) + n) % n;
+  @HostListener('window:resize')
+  measure(): void {
+    const el = this.track?.nativeElement;
+    if (!el || el.children.length === 0) { this.stops = 0; this.cdr.markForCheck(); return; }
+    const step = this.step();
+    this.stops = step > 0 ? Math.max(0, Math.round((el.scrollWidth - el.clientWidth) / step)) + 1 : 1;
+    if (this.index >= this.stops) this.index = 0;
     this.cdr.markForCheck();
   }
 
+  dotList(): number[] { return Array.from({ length: this.stops }, (_, i) => i); }
+
+  go(i: number): void {
+    const n = this.stops;
+    const el = this.track?.nativeElement;
+    if (!n || !el) return;
+    this.index = ((i % n) + n) % n;
+    el.scrollTo({ left: this.index * this.step(), behavior: 'smooth' });
+    this.cdr.markForCheck();
+  }
+
+  onScroll(): void {
+    if (this.scrollTimer) clearTimeout(this.scrollTimer);
+    this.scrollTimer = setTimeout(() => {
+      const el = this.track?.nativeElement;
+      const step = this.step();
+      if (!el || step <= 0) return;
+      this.index = Math.min(Math.round(el.scrollLeft / step), Math.max(0, this.stops - 1));
+      this.cdr.markForCheck();
+    }, 80);
+  }
+
   external(b: BannerView): boolean { return !!b.link?.startsWith('https://'); }
+
+  /** A picture-less card gets an icon that fits its link or theme. */
+  iconFor(b: BannerView): string {
+    switch (b.link) {
+      case 'fees': return 'bi-receipt';
+      case 'messages': case 'new-message': return 'bi-chat-heart';
+      case 'announcements': return 'bi-megaphone';
+      case 'account': return 'bi-person-vcard';
+    }
+    switch (b.theme) {
+      case 'orange': return 'bi-palette';
+      case 'pink': return 'bi-balloon';
+      case 'blue': return 'bi-egg-fried';
+      case 'green': return 'bi-emoji-smile';
+      case 'teal': return 'bi-cash-coin';
+      default: return 'bi-stars';
+    }
+  }
 
   open(b: BannerView): void {
     if (this.preview) return;
@@ -61,14 +114,12 @@ export class BannerCarouselComponent implements OnInit, OnChanges, OnDestroy {
 
   pause(on: boolean): void { this.paused = on; }
 
-  touchStart(e: TouchEvent): void { this.touchX = e.touches[0]?.clientX ?? null; this.paused = true; }
+  /** After a swipe, wait a moment before moving on again. */
+  touchEnd(): void { setTimeout(() => this.paused = false, 3000); }
 
-  touchEnd(e: TouchEvent): void {
-    const start = this.touchX;
-    this.touchX = null;
-    this.paused = false;
-    const end = e.changedTouches[0]?.clientX;
-    if (start == null || end == null || Math.abs(end - start) < 40) return;
-    this.go(this.index + (end < start ? 1 : -1));
+  /** Distance from one card to the next. */
+  private step(): number {
+    const kids = this.track?.nativeElement.children;
+    return kids && kids.length > 1 ? (kids[1] as HTMLElement).offsetLeft - (kids[0] as HTMLElement).offsetLeft : 0;
   }
 }
