@@ -151,6 +151,14 @@
           @if (schoolEnabled && times) {
             <!-- School day timings: late arrivals, automatic absent / check-out, check-out time suggestion -->
             <h5 class="mt-4 mb-2">School day timings</h5>
+            @if (times.priceList) {
+              <div class="alert alert-info py-2 small">
+                <i class="bi bi-info-circle"></i> Session hours now come from the <strong>{{ times.priceList }}</strong> price list
+                (School → Fees → Price lists):
+                @for (s of times.sessions ?? []; track s.sessionType) { <span class="me-2">{{ s.sessionType }} {{ s.start }}–{{ s.end }}</span> }.
+                The times below are used only when there is no price list.
+              </div>
+            }
             <div class="times-grid">
               <label>School starts <input type="time" [(ngModel)]="times.start" name="tStart" /></label>
               <label>Late after <input type="time" [(ngModel)]="times.lateAfter" name="tLate" /></label>

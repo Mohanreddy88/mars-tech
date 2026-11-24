@@ -114,6 +114,51 @@ export function rm(v: number | null | undefined): string {
   return 'RM ' + (v ?? 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+
+// ── Price lists (one per academic year) and deposits ──
+
+export type ChargeKind = 'OneTime' | 'TwiceAYear' | 'Deposit';
+export const CHARGE_KINDS: { value: ChargeKind; label: string }[] = [
+  { value: 'OneTime', label: 'One-time (at registration)' },
+  { value: 'TwiceAYear', label: 'Twice a year' },
+  { value: 'Deposit', label: 'Refundable deposit (2nd month)' }
+];
+
+export interface PriceSession {
+  sessionType: string;
+  offered: boolean;
+  start: string;
+  end: string;
+  mealsIncluded: string | null;
+  monthlyFee: number;
+  /** What a new child pays: the first invoice, and the second (with the deposit). */
+  uponRegistration?: number;
+  secondMonth?: number;
+}
+
+export interface PriceCharge { id?: number; name: string; kind: ChargeKind; amount: number; sessionType: string | null; }
+
+export interface PriceList {
+  id: number;
+  name: string;
+  effectiveFrom: string;
+  /** "1,7" */
+  twiceAYearMonths: string;
+  terms: string | null;
+  /** In force today. */
+  current: boolean;
+  sessions: PriceSession[];
+  charges: PriceCharge[];
+}
+
+export interface StudentDepositRow {
+  id: number; studentId: number; childName: string; className: string | null; childActive: boolean;
+  description: string; amount: number; status: 'Held' | 'Refunded' | 'Deducted';
+  createdAt: string; settledAt: string | null; settledByName: string | null; note: string | null;
+  invoiceNo: string | null; invoicePaid: boolean;
+  /** The child's unpaid invoices (to deduct the deposit from). */
+  openInvoices: { id: number; invoiceNo: string; year: number; month: number; balance: number }[];
+}
 @Injectable({ providedIn: 'root' })
 export class SchoolFeesService {
   private api = `${environment.apiUrl}/school/fees`;
@@ -186,6 +231,20 @@ export class SchoolFeesService {
   deletePayment(paymentId: number): Observable<InvoiceDetail> { return this.http.delete<InvoiceDetail>(`${this.api}/payments/${paymentId}`); }
   invoicePdf(id: number): Observable<Blob> { return this.http.get(`${this.api}/invoices/${id}/pdf`, { responseType: 'blob' }); }
   receiptPdf(paymentId: number): Observable<Blob> { return this.http.get(`${this.api}/payments/${paymentId}/receipt`, { responseType: 'blob' }); }
+
+  // Price lists and deposits
+  getPriceLists(): Observable<PriceList[]> { return this.http.get<PriceList[]>(`${this.api}/price-lists`); }
+  currentPriceList(): Observable<PriceList | null> { return this.http.get<PriceList | null>(`${this.api}/price-lists/current`); }
+  createPriceList(name: string, effectiveFrom: string, copyFromId: number | null): Observable<PriceList> {
+    return this.http.post<PriceList>(`${this.api}/price-lists`, { name, effectiveFrom, copyFromId });
+  }
+  savePriceList(p: PriceList): Observable<PriceList> { return this.http.put<PriceList>(`${this.api}/price-lists/${p.id}`, p); }
+  deletePriceList(id: number): Observable<void> { return this.http.delete<void>(`${this.api}/price-lists/${id}`); }
+  priceListPdf(id: number): Observable<Blob> { return this.http.get(`${this.api}/price-lists/${id}/pdf`, { responseType: 'blob' }); }
+  getDeposits(all = false): Observable<StudentDepositRow[]> { return this.http.get<StudentDepositRow[]>(`${this.api}/deposits`, { params: all ? { status: 'all' } : {} }); }
+  settleDeposit(id: number, how: 'refund' | 'deduct', invoiceId: number | null, note: string | null): Observable<unknown> {
+    return this.http.post(`${this.api}/deposits/${id}/settle`, { how, invoiceId, note });
+  }
 
   // Parents
   mine(): Observable<{ paymentInstructions: string | null; outstanding: number; invoices: InvoiceDetail[] }> {

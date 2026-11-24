@@ -10,8 +10,10 @@ import { schoolToday } from '../../../../core/services/school-day.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { ConfirmModalComponent } from '../../../../shared/components/confirm-modal/confirm-modal.component';
 import { InputModalComponent } from '../../../../shared/components/input-modal/input-modal.component';
+import { PriceListsComponent } from '../../components/price-lists/price-lists.component';
+import { DepositsComponent } from '../../components/deposits/deposits.component';
 
-type Tab = 'invoices' | 'claims' | 'items' | 'addons' | 'settings';
+type Tab = 'invoices' | 'claims' | 'prices' | 'deposits' | 'items' | 'addons' | 'settings';
 
 /**
  * School → Fees (admin). Monthly invoices per child (session fee + add-ons − sibling discount),
@@ -20,7 +22,7 @@ type Tab = 'invoices' | 'claims' | 'items' | 'addons' | 'settings';
 @Component({
   selector: 'app-school-fees',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, ConfirmModalComponent, InputModalComponent],
+  imports: [CommonModule, FormsModule, RouterModule, ConfirmModalComponent, InputModalComponent, PriceListsComponent, DepositsComponent],
   templateUrl: './school-fees.component.html',
   styleUrls: ['../../school-shared.scss', './school-fees.component.scss']
 })
@@ -38,6 +40,8 @@ export class SchoolFeesComponent implements OnInit {
   readonly methods = PAYMENT_METHODS;
 
   tab: Tab = 'invoices';
+  /** A price list exists (fees come from it, not from the session fee items). */
+  hasPriceList = false;
 
   // ── Invoices ──
   year = +schoolToday().substring(0, 4);
@@ -105,8 +109,9 @@ export class SchoolFeesComponent implements OnInit {
   ngOnInit(): void {
     const qp = this.route.snapshot.queryParamMap;
     const t = qp.get('tab') as Tab | null;
-    if (t && ['invoices', 'claims', 'items', 'addons', 'settings'].includes(t)) this.tab = t;
+    if (t && ['invoices', 'claims', 'prices', 'deposits', 'items', 'addons', 'settings'].includes(t)) this.tab = t;
     this.school.getClasses().subscribe({ next: c => { this.classes = c.filter(x => x.isActive); this.cdr.markForCheck(); }, error: () => {} });
+    this.fees.getPriceLists().subscribe({ next: l => { this.hasPriceList = l.length > 0; this.cdr.markForCheck(); }, error: () => {} });
     if (qp.get('month')) { const [y, m] = qp.get('month')!.split('-').map(Number); if (y && m) { this.year = y; this.month = m; } }
     this.loadItems();
     this.loadTab();

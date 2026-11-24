@@ -13,17 +13,22 @@
       <i class="bi bi-patch-check"></i> To confirm
       @if ((summary?.claimsPending ?? 0) > 0) { <span class="count-dot">{{ summary?.claimsPending }}</span> }
     </button>
-    <button [class.active]="tab === 'items'" (click)="setTab('items')"><i class="bi bi-tags"></i> Fee items</button>
+    <button [class.active]="tab === 'prices'" (click)="setTab('prices')"><i class="bi bi-card-list"></i> Price lists</button>
+    <button [class.active]="tab === 'deposits'" (click)="setTab('deposits')"><i class="bi bi-safe"></i> Deposits</button>
+    <button [class.active]="tab === 'items'" (click)="setTab('items')"><i class="bi bi-tags"></i> Add-ons &amp; fee items</button>
     <button [class.active]="tab === 'addons'" (click)="setTab('addons')"><i class="bi bi-puzzle"></i> Add-ons per child</button>
     <button [class.active]="tab === 'settings'" (click)="setTab('settings')"><i class="bi bi-gear"></i> Settings</button>
   </div>
 
+  @if (tab === 'prices') { <app-price-lists /> }
+  @if (tab === 'deposits') { <app-deposits /> }
+
   <!-- ═════════════ Invoices ═════════════ -->
   @if (tab === 'invoices') {
-    @if (sessionItems.length === 0) {
+    @if (sessionItems.length === 0 && !hasPriceList) {
       <div class="alert alert-info py-2">
-        <i class="bi bi-info-circle"></i> First set the monthly fee for each session under
-        <a href="javascript:void(0)" (click)="setTab('items')">Fee items</a>, then create the month's invoices here.
+        <i class="bi bi-info-circle"></i> First set this year's fees and timings under
+        <a href="javascript:void(0)" (click)="setTab('prices')">Price lists</a>, then create the month's invoices here.
       </div>
     }
 

@@ -222,7 +222,12 @@ public class PriceListsController : ControllerBase
             d.Id, d.StudentId, childName = d.Student.FullName, className = d.Student.Class != null ? d.Student.Class.Name : null,
             childActive = d.Student.IsActive, d.Description, d.Amount, d.Status, d.CreatedAt, d.SettledAt, d.SettledByName, d.Note,
             invoiceNo = _db.FeeInvoices.Where(i => i.Id == d.InvoiceId).Select(i => i.InvoiceNo).FirstOrDefault(),
-            invoicePaid = _db.FeeInvoices.Where(i => i.Id == d.InvoiceId).Select(i => i.Status == FeeInvoice.Paid).FirstOrDefault()
+            invoicePaid = _db.FeeInvoices.Where(i => i.Id == d.InvoiceId).Select(i => i.Status == FeeInvoice.Paid).FirstOrDefault(),
+            // The child's unpaid invoices, to deduct the deposit from
+            openInvoices = _db.FeeInvoices
+                .Where(i => i.StudentId == d.StudentId && (i.Status == FeeInvoice.Unpaid || i.Status == FeeInvoice.Partial))
+                .OrderByDescending(i => i.Year).ThenByDescending(i => i.Month)
+                .Select(i => new { i.Id, i.InvoiceNo, i.Year, i.Month, balance = i.Total - i.AmountPaid }).ToList()
         }).ToListAsync());
     }
 
