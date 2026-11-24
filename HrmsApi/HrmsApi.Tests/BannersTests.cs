@@ -36,7 +36,7 @@ public class BannersTests
     }
 
     private static BannersController Ctl(HrmsDbContext db, int userId, string role) =>
-        new(db, new NoAudit())
+        new(db, new NoAudit(), new Settings(db))
         {
             ControllerContext = new ControllerContext
             {
@@ -112,6 +112,35 @@ public class BannersTests
         var today = new DateTime(2026, 11, 24);
         BannersController.Status(active, startIn == null ? null : today.AddDays(startIn.Value),
             endIn == null ? null : today.AddDays(endIn.Value), today).Should().Be(expected);
+    }
+
+    [Fact]
+    public async Task Without_banners_parents_still_get_slides_from_their_own_data()
+    {
+        var db = Setup();
+        var mum = Ctl(db, MumUser, SchoolViewer.ParentRole);
+        Titles(await mum.Current()).Should().Equal("Welcome to Golden");
+
+        var today = SchoolClock.Today;
+        db.FeeInvoices.Add(new FeeInvoice { StudentId = 1, InvoiceNo = "INV-1", Year = today.Year, Month = today.Month,
+            Total = 930, AmountPaid = 0, Status = FeeInvoice.Unpaid, DueDate = today.AddDays(7), SentAt = DateTime.UtcNow });
+        db.FeeInvoices.Add(new FeeInvoice { StudentId = 2, InvoiceNo = "INV-2", Year = today.Year, Month = today.Month,
+            Total = 500, Status = FeeInvoice.Unpaid, DueDate = today.AddDays(7), SentAt = DateTime.UtcNow });   // another family's
+        db.Announcements.Add(new Announcement { Title = "Sports day", Body = "Friday", CreatedByName = "Office" });
+        db.Announcements.Add(new Announcement { Title = "K1 trip", Body = "Zoo", ClassId = 2, CreatedByName = "Office" });   // not Mum's class
+        db.PublicHolidays.Add(new PublicHoliday { Name = "Christmas", Date = today.AddDays(3), Year = today.Year });
+        db.SaveChanges();
+
+        Titles(await mum.Current()).Should().Equal("RM 930.00 school fees due", "New from the school", "School closed: Christmas");
+
+        // School banners come first; the automatic ones follow
+        await Ctl(db, AdminUser, "Admin").Create(new BannerForm { Title = "Holiday camp" });
+        Titles(await mum.Current()).First().Should().Be("Holiday camp");
+    }
+
+    private sealed class Settings(HrmsDbContext db) : ICompanySettingsService
+    {
+        public Task<CompanySettings> GetAsync() => db.CompanySettings.FirstAsync();
     }
 
     private sealed class NoAudit : IAuditService

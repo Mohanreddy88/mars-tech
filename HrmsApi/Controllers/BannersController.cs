@@ -21,10 +21,11 @@ public class BannersController : ControllerBase
 {
     private readonly HrmsDbContext _db;
     private readonly IAuditService _audit;
+    private readonly ICompanySettingsService _settings;
 
-    public BannersController(HrmsDbContext db, IAuditService audit)
+    public BannersController(HrmsDbContext db, IAuditService audit, ICompanySettingsService settings)
     {
-        _db = db; _audit = audit;
+        _db = db; _audit = audit; _settings = settings;
     }
 
     /// <summary>Largest picture accepted.</summary>
@@ -64,12 +65,62 @@ public class BannersController : ControllerBase
         var list = await ForParent(me)
             .Where(b => b.IsActive && (b.StartsOn == null || b.StartsOn <= today) && (b.EndsOn == null || b.EndsOn >= today))
             .OrderBy(b => b.SortOrder).ThenBy(b => b.Id)
-            .Select(b => new
-            {
-                b.Id, b.Title, b.Text, b.ButtonText, b.Link, b.Theme,
-                imageVersion = b.ImageData != null ? b.ImageVersion : (int?)null
-            }).ToListAsync();
+            .Select(b => new ParentSlide(b.Id, b.Title, b.Text, b.ButtonText, b.Link, b.Theme,
+                b.ImageData != null ? b.ImageVersion : null, false))
+            .ToListAsync();
+        list.AddRange(await AutomaticSlidesAsync(me, today, schoolBanners: list.Count));
         return Ok(list);
+    }
+
+    /// <summary>
+    /// Slides made from the parent's own data, after the school's banners: fees due, new
+    /// announcements, the next public holiday — or a welcome card when there's nothing else.
+    /// Negative ids (they have no picture and can't be edited).
+    /// </summary>
+    private async Task<List<ParentSlide>> AutomaticSlidesAsync(SchoolViewer me, DateTime today, int schoolBanners)
+    {
+        var slides = new List<ParentSlide>();
+
+        var due = (await _db.FeeInvoices.AsNoTracking()
+                .Where(i => me.ChildIds.Contains(i.StudentId) && i.SentAt != null && i.Status != FeeInvoice.Void && i.Status != FeeInvoice.Paid)
+                .Select(i => new { i.Total, i.AmountPaid, i.DueDate }).ToListAsync())
+            .Where(i => i.Total > i.AmountPaid).ToList();
+        if (due.Count > 0)
+        {
+            var amount = due.Sum(i => i.Total - i.AmountPaid);
+            var overdue = due.Any(i => i.DueDate.Date < today);
+            slides.Add(new(-1, $"RM {amount:#,##0.00} school fees {(overdue ? "overdue" : "due")}",
+                overdue ? "Please settle the overdue fees — tap to see the invoices and pay."
+                        : $"Due by {due.Min(i => i.DueDate):d MMM}. Tap to see the invoice and tell us when you've paid.",
+                "Pay now", "fees", overdue ? "pink" : "orange", null, true));
+        }
+
+        var classIds = _db.Students.Where(s => me.ChildIds.Contains(s.Id) && s.ClassId != null).Select(s => s.ClassId!.Value);
+        var news = await _db.Announcements.AsNoTracking()
+            .Where(a => (a.ClassId == null || classIds.Contains(a.ClassId.Value))
+                && !_db.AnnouncementReads.Any(r => r.AnnouncementId == a.Id && r.UserId == me.UserId))
+            .OrderByDescending(a => a.CreatedAt).Select(a => a.Title).ToListAsync();
+        if (news.Count > 0)
+            slides.Add(new(-2, news.Count == 1 ? "New from the school" : $"{news.Count} new announcements",
+                news.Count == 1 ? news[0] : $"Latest: {news[0]}", "Read", "announcements", "blue", null, true));
+
+        var holiday = await _db.PublicHolidays.AsNoTracking()
+            .Where(h => h.Date >= today && h.Date <= today.AddDays(30)).OrderBy(h => h.Date).FirstOrDefaultAsync();
+        if (holiday != null)
+        {
+            var days = (holiday.Date.Date - today).Days;
+            slides.Add(new(-3, $"School closed: {holiday.Name}",
+                $"{holiday.Date:dddd d MMMM}" + (days == 0 ? " · today" : days == 1 ? " · tomorrow" : $" · in {days} days"),
+                null, null, "green", null, true));
+        }
+
+        if (slides.Count == 0 && schoolBanners == 0)
+        {
+            var school = (await _settings.GetAsync()).NameForDisplay;
+            slides.Add(new(-4, $"Welcome to {school}", "Your child's day, messages and fees — all in one place.",
+                "Message the school", "new-message", "purple", null, true));
+        }
+        return slides;
     }
 
     /// <summary>GET /api/school/banners/{id}/image?v= — the picture (admins, and parents the banner is for).</summary>
@@ -221,6 +272,10 @@ public class BannersController : ControllerBase
         _audit.LogAsync(action, "SchoolBanner", id.ToString(), text, User.Identity?.Name ?? "unknown", me.UserId,
             null, null, HttpContext.Connection.RemoteIpAddress?.ToString());
 }
+
+/// <summary>A slide on the parent home: a school banner, or (<c>Automatic</c>) one made from the parent's data.</summary>
+public sealed record ParentSlide(int Id, string Title, string? Text, string? ButtonText, string? Link, string Theme,
+    int? ImageVersion, bool Automatic);
 
 public class BannerForm
 {

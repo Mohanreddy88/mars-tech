@@ -179,7 +179,21 @@ public class PriceListTests
         var db = Setup();
         var list = db.FeePriceLists.Include(p => p.Sessions).Include(p => p.Charges).Single();
         FeePdf.PriceTerms(db.CompanySettings.First(), list).Length.Should().BeGreaterThan(1000);
+
+        // To look at it: set PDF_PREVIEW_DIR and the page is saved there as a picture
+        var dir = Environment.GetEnvironmentVariable("PDF_PREVIEW_DIR");
+        if (!string.IsNullOrEmpty(dir))
+            QuestPDF.Fluent.GenerateExtensions.GenerateImages(FeePdf.PriceTermsDocument(db.CompanySettings.First(), list),
+                i => Path.Combine(dir, $"price-terms-{i}.png"));
     }
+
+    [Theory]
+    [InlineData("08:00", "8:00 a.m.")]
+    [InlineData("12:00", "12 noon")]
+    [InlineData("18:30", "6:30 p.m.")]
+    [InlineData("00:15", "12:15 a.m.")]
+    public void Price_list_hours_read_like_the_school_sheet(string hhmm, string expected) =>
+        FeePdf.Clock(hhmm).Should().Be(expected);
 
     private sealed class Live : IChatNotifier
     {
