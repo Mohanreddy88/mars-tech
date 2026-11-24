@@ -1,0 +1,22 @@
+.modal-box.wide { max-width: 760px; width: 100%; }
+
+.order-cell { white-space: nowrap; .btn { display: block; line-height: 1; } }
+
+/* Theme colours (same as the banner carousel) */
+.theme-purple { background: linear-gradient(120deg, #8b5cf6, #6d28d9); }
+.theme-blue   { background: linear-gradient(120deg, #3b82f6, #1d4ed8); }
+.theme-green  { background: linear-gradient(120deg, #22c55e, #15803d); }
+.theme-orange { background: linear-gradient(120deg, #f59e0b, #ea580c); }
+.theme-pink   { background: linear-gradient(120deg, #ec4899, #be185d); }
+.theme-teal   { background: linear-gradient(120deg, #14b8a6, #0f766e); }
+
+.thumb {
+  flex: none; width: 84px; height: 46px; border-radius: 8px; overflow: hidden;
+  img { width: 100%; height: 100%; object-fit: cover; display: block; }
+}
+
+.swatches { display: flex; gap: 10px; flex-wrap: wrap; }
+.swatch {
+  width: 36px; height: 36px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 0 1px #d1d5db;
+  &.on { box-shadow: 0 0 0 3px #111827; }
+}

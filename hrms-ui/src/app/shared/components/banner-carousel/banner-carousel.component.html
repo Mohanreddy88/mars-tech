@@ -1,0 +1,38 @@
+@if (banners.length) {
+  <section class="banners" aria-roledescription="carousel" aria-label="News from the school"
+           (mouseenter)="pause(true)" (mouseleave)="pause(false)"
+           (touchstart)="touchStart($event)" (touchend)="touchEnd($event)">
+    <div class="track" [style.transform]="'translateX(-' + index * 100 + '%)'">
+      @for (b of banners; track b.id; let i = $index) {
+        <div class="slide" [ngClass]="'theme-' + b.theme"
+             [attr.aria-hidden]="i !== index" role="group" [attr.aria-label]="(i + 1) + ' of ' + banners.length">
+          @if (b.imageUrl) {
+            <div class="picture" [style.background-image]="'url(' + b.imageUrl + ')'"></div>
+          } @else {
+            <span class="blob one"></span><span class="blob two"></span>
+          }
+          <div class="content">
+            <h3>{{ b.title }}</h3>
+            @if (b.text) { <p>{{ b.text }}</p> }
+            @if (b.link && b.buttonText) {
+              <button type="button" class="cta" (click)="open(b)" [tabindex]="i === index ? 0 : -1">
+                {{ b.buttonText }}
+                <i class="bi" [ngClass]="external(b) ? 'bi-box-arrow-up-right' : 'bi-arrow-right'"></i>
+              </button>
+            }
+          </div>
+        </div>
+      }
+    </div>
+
+    @if (banners.length > 1) {
+      <button type="button" class="nav prev" (click)="go(index - 1)" aria-label="Previous"><i class="bi bi-chevron-left"></i></button>
+      <button type="button" class="nav next" (click)="go(index + 1)" aria-label="Next"><i class="bi bi-chevron-right"></i></button>
+      <div class="dots">
+        @for (b of banners; track b.id; let i = $index) {
+          <button type="button" [class.on]="i === index" (click)="go(i)" [attr.aria-label]="'Show ' + b.title"></button>
+        }
+      </div>
+    }
+  </section>
+}
