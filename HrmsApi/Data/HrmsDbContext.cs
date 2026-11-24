@@ -39,6 +39,7 @@ public class HrmsDbContext : DbContext
     public DbSet<StudentParent>         StudentParents        => Set<StudentParent>();
     public DbSet<Announcement>          Announcements         => Set<Announcement>();
     public DbSet<AnnouncementRead>      AnnouncementReads     => Set<AnnouncementRead>();
+    public DbSet<SchoolBanner>          SchoolBanners         => Set<SchoolBanner>();
     public DbSet<Conversation>          Conversations         => Set<Conversation>();
     public DbSet<ChatMessage>           ChatMessages          => Set<ChatMessage>();
     public DbSet<ChatAttachment>        ChatAttachments       => Set<ChatAttachment>();
@@ -449,6 +450,19 @@ public class HrmsDbContext : DbContext
             e.Property(x => x.AttachmentName).HasMaxLength(255);
             e.Property(x => x.AttachmentContentType).HasMaxLength(100);
             e.HasIndex(x => x.CreatedAt);
+            e.HasOne(x => x.Class).WithMany().HasForeignKey(x => x.ClassId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<SchoolBanner>(e =>
+        {
+            e.Property(x => x.Title).IsRequired().HasMaxLength(SchoolBanner.MaxTitle);
+            e.Property(x => x.Text).HasMaxLength(SchoolBanner.MaxText);
+            e.Property(x => x.ButtonText).HasMaxLength(SchoolBanner.MaxButton);
+            e.Property(x => x.Link).HasMaxLength(SchoolBanner.MaxLink);
+            e.Property(x => x.Theme).IsRequired().HasMaxLength(20);
+            e.Property(x => x.ImageContentType).HasMaxLength(50);
+            e.Property(x => x.CreatedByName).IsRequired().HasMaxLength(150);
+            e.HasIndex(x => new { x.IsActive, x.SortOrder });
             e.HasOne(x => x.Class).WithMany().HasForeignKey(x => x.ClassId).OnDelete(DeleteBehavior.Cascade);
         });
 

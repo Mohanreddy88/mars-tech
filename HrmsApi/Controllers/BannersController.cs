@@ -1,0 +1,238 @@
+using HrmsApi.Data;
+using HrmsApi.Models;
+using HrmsApi.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Net.Http.Headers;
+
+namespace HrmsApi.Controllers;
+
+/// <summary>
+/// School → Banners: advert-style slides at the top of the parent home (website and app).
+///   Admins: list, add, change, switch off, reorder and delete banners.
+///   Parents: the banners live today for the whole school or their children's classes.
+/// </summary>
+[ApiController]
+[Route("api/school/banners")]
+[Authorize]
+[RequiresSchoolFeatures]
+public class BannersController : ControllerBase
+{
+    private readonly HrmsDbContext _db;
+    private readonly IAuditService _audit;
+
+    public BannersController(HrmsDbContext db, IAuditService audit)
+    {
+        _db = db; _audit = audit;
+    }
+
+    /// <summary>Largest picture accepted.</summary>
+    public const int MaxImageBytes = 3 * 1024 * 1024;
+
+    /// <summary>GET /api/school/banners — every banner in slide order, with its status (admins).</summary>
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var me = await SchoolViewer.LoadAsync(_db, User);
+        if (me is not { IsAdmin: true }) return Forbid();
+        var today = SchoolClock.Today;
+        var list = await _db.SchoolBanners.AsNoTracking().OrderBy(b => b.SortOrder).ThenBy(b => b.Id)
+            .Select(b => new
+            {
+                b.Id, b.Title, b.Text, b.ButtonText, b.Link, b.Theme, b.ClassId, b.StartsOn, b.EndsOn, b.IsActive,
+                b.SortOrder, b.CreatedByName, b.UpdatedAt,
+                className    = b.Class != null ? b.Class.Name : null,
+                imageVersion = b.ImageData != null ? b.ImageVersion : (int?)null
+            }).ToListAsync();
+        return Ok(list.Select(b => new
+        {
+            b.Id, b.Title, b.Text, b.ButtonText, b.Link, b.Theme, b.ClassId, b.className,
+            b.StartsOn, b.EndsOn, b.IsActive, b.SortOrder, b.CreatedByName, b.UpdatedAt, b.imageVersion,
+            status = Status(b.IsActive, b.StartsOn, b.EndsOn, today)
+        }));
+    }
+
+    /// <summary>GET /api/school/banners/current — the banners a parent sees today, in slide order.</summary>
+    [HttpGet("current")]
+    public async Task<IActionResult> Current()
+    {
+        var me = await SchoolViewer.LoadAsync(_db, User);
+        if (me == null) return Forbid();
+        if (!me.IsParent) return Ok(Array.Empty<object>());
+        var today = SchoolClock.Today;
+        var list = await ForParent(me)
+            .Where(b => b.IsActive && (b.StartsOn == null || b.StartsOn <= today) && (b.EndsOn == null || b.EndsOn >= today))
+            .OrderBy(b => b.SortOrder).ThenBy(b => b.Id)
+            .Select(b => new
+            {
+                b.Id, b.Title, b.Text, b.ButtonText, b.Link, b.Theme,
+                imageVersion = b.ImageData != null ? b.ImageVersion : (int?)null
+            }).ToListAsync();
+        return Ok(list);
+    }
+
+    /// <summary>GET /api/school/banners/{id}/image?v= — the picture (admins, and parents the banner is for).</summary>
+    [HttpGet("{id:int}/image")]
+    public async Task<IActionResult> Image(int id)
+    {
+        var me = await SchoolViewer.LoadAsync(_db, User);
+        if (me == null || !(me.IsAdmin || me.IsParent)) return Forbid();
+        var q = me.IsAdmin ? _db.SchoolBanners.AsNoTracking() : ForParent(me);
+        var img = await q.Where(b => b.Id == id).Select(b => new { b.ImageContentType, b.ImageData }).FirstOrDefaultAsync();
+        if (img?.ImageData == null) throw new KeyNotFoundException("No picture.");
+        // The address carries the picture's version, so it may be kept by the browser / app
+        Response.Headers[HeaderNames.CacheControl] = "private, max-age=86400";
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
+        return File(img.ImageData, img.ImageContentType ?? "image/jpeg");
+    }
+
+    /// <summary>POST /api/school/banners (multipart) — a new banner, shown last (admins).</summary>
+    [HttpPost]
+    [RequestSizeLimit(MaxImageBytes + 256 * 1024)]
+    public async Task<IActionResult> Create([FromForm] BannerForm form)
+    {
+        var me = await SchoolViewer.LoadAsync(_db, User);
+        if (me is not { IsAdmin: true }) return Forbid();
+        var b = new SchoolBanner { CreatedByName = me.Name, CreatedAt = DateTime.UtcNow };
+        var error = await ApplyAsync(b, form);
+        if (error != null) return error;
+        b.SortOrder = (await _db.SchoolBanners.MaxAsync(x => (int?)x.SortOrder) ?? 0) + 1;
+        _db.SchoolBanners.Add(b);
+        await _db.SaveChangesAsync();
+        await LogAsync(me, "Created", b.Id, $"Added banner \"{b.Title}\"");
+        return Ok(new { b.Id });
+    }
+
+    /// <summary>PUT /api/school/banners/{id} (multipart) — change a banner; removeImage drops the picture (admins).</summary>
+    [HttpPut("{id:int}")]
+    [RequestSizeLimit(MaxImageBytes + 256 * 1024)]
+    public async Task<IActionResult> Update(int id, [FromForm] BannerForm form)
+    {
+        var me = await SchoolViewer.LoadAsync(_db, User);
+        if (me is not { IsAdmin: true }) return Forbid();
+        var b = await _db.SchoolBanners.FindAsync(id) ?? throw new KeyNotFoundException("Banner not found.");
+        var error = await ApplyAsync(b, form);
+        if (error != null) return error;
+        await _db.SaveChangesAsync();
+        await LogAsync(me, "Updated", b.Id, $"Changed banner \"{b.Title}\"");
+        return NoContent();
+    }
+
+    /// <summary>POST /api/school/banners/{id}/move?up=true — one place earlier (up) or later in the slides (admins).</summary>
+    [HttpPost("{id:int}/move")]
+    public async Task<IActionResult> Move(int id, [FromQuery] bool up)
+    {
+        var me = await SchoolViewer.LoadAsync(_db, User);
+        if (me is not { IsAdmin: true }) return Forbid();
+        var all = await _db.SchoolBanners.OrderBy(b => b.SortOrder).ThenBy(b => b.Id).ToListAsync();
+        var i = all.FindIndex(b => b.Id == id);
+        if (i < 0) throw new KeyNotFoundException("Banner not found.");
+        var j = up ? i - 1 : i + 1;
+        if (j < 0 || j >= all.Count) return NoContent();
+        (all[i], all[j]) = (all[j], all[i]);
+        for (var k = 0; k < all.Count; k++) all[k].SortOrder = k + 1;
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    /// <summary>DELETE /api/school/banners/{id} (admins).</summary>
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var me = await SchoolViewer.LoadAsync(_db, User);
+        if (me is not { IsAdmin: true }) return Forbid();
+        var b = await _db.SchoolBanners.FindAsync(id) ?? throw new KeyNotFoundException("Banner not found.");
+        _db.SchoolBanners.Remove(b);
+        await _db.SaveChangesAsync();
+        await LogAsync(me, "Deleted", id, $"Deleted banner \"{b.Title}\"");
+        return NoContent();
+    }
+
+    // ── helpers ──
+
+    /// <summary>"Live", "Scheduled" (starts later), "Ended" or "Off".</summary>
+    public static string Status(bool active, DateTime? starts, DateTime? ends, DateTime today) =>
+        !active ? "Off" : starts != null && starts.Value.Date > today ? "Scheduled" : ends != null && ends.Value.Date < today ? "Ended" : "Live";
+
+    /// <summary>Whole-school banners and the ones for the parent's children's classes.</summary>
+    private IQueryable<SchoolBanner> ForParent(SchoolViewer me)
+    {
+        var classIds = _db.Students.Where(s => me.ChildIds.Contains(s.Id) && s.ClassId != null).Select(s => s.ClassId!.Value);
+        return _db.SchoolBanners.AsNoTracking().Where(b => b.ClassId == null || classIds.Contains(b.ClassId.Value));
+    }
+
+    /// <summary>Checks the form and copies it onto the banner; a 400 result when something is wrong.</summary>
+    private async Task<IActionResult?> ApplyAsync(SchoolBanner b, BannerForm f)
+    {
+        IActionResult Bad(string message, string field) => BadRequest(new { message, field });
+
+        var title = (f.Title ?? "").Trim();
+        var text = string.IsNullOrWhiteSpace(f.Text) ? null : f.Text.Trim();
+        var button = string.IsNullOrWhiteSpace(f.ButtonText) ? null : f.ButtonText.Trim();
+        var link = string.IsNullOrWhiteSpace(f.Link) ? null : f.Link.Trim();
+        var theme = string.IsNullOrWhiteSpace(f.Theme) ? "purple" : f.Theme.Trim().ToLowerInvariant();
+
+        if (title.Length == 0) return Bad("Enter a headline.", "title");
+        if (title.Length > SchoolBanner.MaxTitle) return Bad($"Keep the headline under {SchoolBanner.MaxTitle} characters.", "title");
+        if (text?.Length > SchoolBanner.MaxText) return Bad($"Keep the text under {SchoolBanner.MaxText} characters.", "text");
+        if (button?.Length > SchoolBanner.MaxButton) return Bad($"Keep the button under {SchoolBanner.MaxButton} characters.", "buttonText");
+        if (link != null && (link.Length > SchoolBanner.MaxLink || !SchoolBanner.IsValidLink(link)))
+            return Bad("The button must open a parent page or a web address starting with https://.", "link");
+        if (button != null && link == null) return Bad("Choose what the button opens.", "link");
+        if (!SchoolBanner.Themes.Contains(theme)) return Bad("Choose a colour.", "theme");
+        if (f.StartsOn != null && f.EndsOn != null && f.EndsOn.Value.Date < f.StartsOn.Value.Date)
+            return Bad("The end date is before the start date.", "endsOn");
+        if (f.ClassId != null && !await _db.SchoolClasses.AnyAsync(c => c.Id == f.ClassId))
+            return Bad("Choose a class.", "classId");
+
+        if (f.Image is { Length: > 0 })
+        {
+            if (f.Image.Length > MaxImageBytes) return Bad("The picture must be 3 MB or smaller.", "image");
+            using var ms = new MemoryStream();
+            await f.Image.CopyToAsync(ms);
+            var bytes = ms.ToArray();
+            var type = LeaveAttachment.DetectType(bytes);
+            if (type is not ("image/jpeg" or "image/png")) return Bad("The picture must be a JPG or PNG.", "image");
+            b.ImageData = bytes;
+            b.ImageContentType = type;
+            b.ImageVersion++;
+        }
+        else if (f.RemoveImage)
+        {
+            b.ImageData = null;
+            b.ImageContentType = null;
+        }
+
+        b.Title = title;
+        b.Text = text;
+        b.ButtonText = link == null ? null : button ?? "Find out more";
+        b.Link = link;
+        b.Theme = theme;
+        b.ClassId = f.ClassId;
+        b.StartsOn = f.StartsOn?.Date;
+        b.EndsOn = f.EndsOn?.Date;
+        b.IsActive = f.IsActive;
+        b.UpdatedAt = DateTime.UtcNow;
+        return null;
+    }
+
+    private Task LogAsync(SchoolViewer me, string action, int id, string text) =>
+        _audit.LogAsync(action, "SchoolBanner", id.ToString(), text, User.Identity?.Name ?? "unknown", me.UserId,
+            null, null, HttpContext.Connection.RemoteIpAddress?.ToString());
+}
+
+public class BannerForm
+{
+    public string? Title { get; set; }
+    public string? Text { get; set; }
+    public string? ButtonText { get; set; }
+    public string? Link { get; set; }
+    public string? Theme { get; set; }
+    public int? ClassId { get; set; }
+    public DateTime? StartsOn { get; set; }
+    public DateTime? EndsOn { get; set; }
+    public bool IsActive { get; set; } = true;
+    public IFormFile? Image { get; set; }
+    public bool RemoveImage { get; set; }
+}

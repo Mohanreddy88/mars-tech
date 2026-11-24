@@ -202,3 +202,48 @@ public class ConversationRead
 
     public Conversation Conversation { get; set; } = null!;
 }
+
+/// <summary>
+/// An advert-style banner the school office shows on the parent home (website and app), sliding
+/// with the others: "Holiday camp — register now", "Photo day on Friday". A colour theme and an
+/// optional picture; an optional button opens a parent page (<see cref="Pages"/>) or a web address.
+/// Shown to every parent or one class's parents, between optional dates.
+/// </summary>
+public class SchoolBanner
+{
+    public const int MaxTitle = 80, MaxText = 200, MaxButton = 30, MaxLink = 300;
+    public static readonly string[] Themes = { "purple", "blue", "green", "orange", "pink", "teal" };
+    /// <summary>Parent pages a button may open (the website and the app map each key).</summary>
+    public static readonly string[] Pages = { "fees", "messages", "new-message", "announcements", "account" };
+
+    public int       Id            { get; set; }
+    public string    Title         { get; set; } = string.Empty;
+    public string?   Text          { get; set; }
+    public string?   ButtonText    { get; set; }
+    /// <summary>A key from <see cref="Pages"/> or an https:// address; null = no button.</summary>
+    public string?   Link          { get; set; }
+    public string    Theme         { get; set; } = "purple";
+    /// <summary>Null = every parent in the school.</summary>
+    public int?      ClassId       { get; set; }
+    /// <summary>School dates (Malaysia), both inclusive; null = no limit.</summary>
+    public DateTime? StartsOn      { get; set; }
+    public DateTime? EndsOn        { get; set; }
+    public bool      IsActive      { get; set; } = true;
+    public int       SortOrder     { get; set; }
+
+    // Optional picture (JPG/PNG), stored in the company's database
+    public string?   ImageContentType { get; set; }
+    public byte[]?   ImageData        { get; set; }
+    /// <summary>Changes with every new picture, so clients can cache by it.</summary>
+    public int       ImageVersion     { get; set; }
+
+    public string    CreatedByName { get; set; } = string.Empty;
+    public DateTime  CreatedAt     { get; set; } = DateTime.UtcNow;
+    public DateTime  UpdatedAt     { get; set; } = DateTime.UtcNow;
+
+    public SchoolClass? Class { get; set; }
+
+    public static bool IsValidLink(string link) =>
+        Pages.Contains(link)
+        || (Uri.TryCreate(link, UriKind.Absolute, out var u) && u.Scheme == Uri.UriSchemeHttps);
+}
