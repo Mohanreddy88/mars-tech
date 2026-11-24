@@ -68,11 +68,11 @@ const _icons = <String, IconData>{
   'done': Icons.task_alt,
 };
 
-const _tones = <String, List<Color>>{
-  'warn': [Color(0xFFF59E0B), Color(0xFFEA580C)],
-  'bad': [Color(0xFFEF4444), Color(0xFFB91C1C)],
-  'good': [Color(0xFF22C55E), Color(0xFF15803D)],
-  'info': [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
+const _tones = <String, List<Color>>{ // same colours as the website cards
+  'warn': [Color(0xFFFBBF24), Color(0xFFEA580C)],
+  'bad': [Color(0xFFF87171), Color(0xFFB91C1C)],
+  'good': [Color(0xFF34D399), Color(0xFF047857)],
+  'info': [Color(0xFF60A5FA), Color(0xFF1D4ED8)],
 };
 
 /// Sliding highlights at the top of the admin home: one card at a time, moving on every few
@@ -86,7 +86,7 @@ class HighlightsCarousel extends ConsumerStatefulWidget {
 
 class _HighlightsCarouselState extends ConsumerState<HighlightsCarousel> {
   static const _every = Duration(seconds: 5);
-  final _page = PageController(viewportFraction: 0.94);
+  final _page = PageController(viewportFraction: 0.84, keepPage: false);
   Timer? _timer;
   int _index = 0;
   bool _touching = false;
@@ -123,13 +123,14 @@ class _HighlightsCarouselState extends ConsumerState<HighlightsCarousel> {
 
     return Column(children: [
       SizedBox(
-        height: 132,
+        height: 186,
         child: Listener(
           onPointerDown: (_) => _touching = true,
           onPointerUp: (_) => _touching = false,
           onPointerCancel: (_) => _touching = false,
           child: PageView.builder(
             controller: _page,
+            padEnds: false,
             itemCount: cards.length,
             onPageChanged: (i) => setState(() => _index = i),
             itemBuilder: (context, i) => _Card(card: cards[i]),
@@ -161,45 +162,76 @@ class _Card extends StatelessWidget {
   const _Card({required this.card});
   final HighlightCard card;
 
+  String get _toneLabel => switch (card.tone) { 'warn' => 'To do', 'bad' => 'Needs fixing', 'good' => 'Good news', _ => 'For you' };
+
   @override
   Widget build(BuildContext context) {
     final route = highlightRoute(card.page);
     final colors = _tones[card.tone] ?? _tones['info']!;
+    void open() => Routes.open(GoRouter.of(context), route!);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
       child: Material(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         clipBehavior: Clip.antiAlias,
+        elevation: 3,
+        shadowColor: Colors.black26,
         child: Ink(
           decoration: BoxDecoration(gradient: LinearGradient(colors: colors, begin: Alignment.topLeft, end: Alignment.bottomRight)),
           child: InkWell(
-            onTap: route == null ? null : () => Routes.open(GoRouter.of(context), route),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
-              child: Row(children: [
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: .2), borderRadius: BorderRadius.circular(14)),
-                  child: Icon(_icons[card.icon] ?? Icons.info_outline, color: Colors.white, size: 28),
+            onTap: route == null ? null : open,
+            child: Stack(children: [
+              // Decorative circle and the big icon, like the website's cards
+              Positioned(
+                right: -50,
+                top: -60,
+                child: Container(
+                  width: 160,
+                  height: 160,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: .14)),
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Text(card.group == 'school' ? 'SCHOOL' : 'HR',
-                        style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: .8)),
-                    const SizedBox(height: 2),
-                    Text(card.title,
+              ),
+              Positioned(right: 14, top: 12, child: Icon(_icons[card.icon] ?? Icons.info_outline, color: Colors.white, size: 36)),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: .22), borderRadius: BorderRadius.circular(20)),
+                    child: Text('${card.group == 'school' ? 'SCHOOL' : 'HR'} · ${_toneLabel.toUpperCase()}',
+                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: .6)),
+                  ),
+                  const SizedBox(height: 10),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 40),
+                    child: Text(card.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 2),
-                    Text(card.text, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 13)),
-                  ]),
-                ),
-                if (route != null) const Icon(Icons.chevron_right, color: Colors.white),
-              ]),
-            ),
+                        style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800, height: 1.2)),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(card.text, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 13)),
+                  const Spacer(),
+                  if (route != null && card.action != null)
+                    Material(
+                      color: Colors.white,
+                      shape: const StadiumBorder(),
+                      child: InkWell(
+                        customBorder: const StadiumBorder(),
+                        onTap: open,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Text(card.action!, style: TextStyle(color: colors[1], fontWeight: FontWeight.w700, fontSize: 13)),
+                            const SizedBox(width: 4),
+                            Icon(Icons.arrow_forward, color: colors[1], size: 15),
+                          ]),
+                        ),
+                      ),
+                    ),
+                ]),
+              ),
+            ]),
           ),
         ),
       ),

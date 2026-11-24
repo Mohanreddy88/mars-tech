@@ -1,32 +1,28 @@
 @if (cards.length) {
   <section class="highlights" aria-roledescription="carousel" aria-label="Highlights"
-           (mouseenter)="pause(true)" (mouseleave)="pause(false)"
-           (touchstart)="touchStart($event)" (touchend)="touchEnd($event)">
-    <div class="track" [style.transform]="'translateX(-' + index * 100 + '%)'">
-      @for (c of cards; track c.key; let i = $index) {
-        <div class="slide" [ngClass]="'tone-' + c.tone" [attr.aria-hidden]="i !== index"
-             role="group" [attr.aria-label]="(i + 1) + ' of ' + cards.length">
-          <div class="icon"><i class="bi" [ngClass]="icon(c)"></i></div>
-          <div class="body">
-            <span class="group">{{ c.group === 'school' ? 'School' : 'HR' }}</span>
-            <h3>{{ c.title }}</h3>
-            <p>{{ c.text }}</p>
-          </div>
+           (mouseenter)="pause(true)" (mouseleave)="pause(false)" (focusin)="pause(true)" (focusout)="pause(false)">
+    <div class="track" #track (scroll)="onScroll()" (touchstart)="pause(true)" (touchend)="touchEnd()">
+      @for (c of cards; track c.key) {
+        <article class="hl-card" [ngClass]="'tone-' + c.tone" [class.clickable]="!!c.page" (click)="open(c)">
+          <span class="kind">{{ c.group === 'school' ? 'School' : 'HR' }} · {{ toneLabel(c) }}</span>
+          <i class="bi art" [ngClass]="icon(c)" aria-hidden="true"></i>
+          <h3>{{ c.title }}</h3>
+          <p>{{ c.text }}</p>
           @if (c.page && c.action) {
-            <button class="btn btn-light btn-sm open" (click)="open(c)" [tabindex]="i === index ? 0 : -1">
+            <button type="button" class="cta" (click)="open(c); $event.stopPropagation()">
               {{ c.action }} <i class="bi bi-arrow-right"></i>
             </button>
           }
-        </div>
+        </article>
       }
     </div>
 
-    @if (cards.length > 1) {
-      <button class="nav prev" (click)="go(index - 1)" aria-label="Previous"><i class="bi bi-chevron-left"></i></button>
-      <button class="nav next" (click)="go(index + 1)" aria-label="Next"><i class="bi bi-chevron-right"></i></button>
+    @if (stops > 1) {
+      <button type="button" class="nav prev" (click)="go(index - 1)" aria-label="Previous"><i class="bi bi-chevron-left"></i></button>
+      <button type="button" class="nav next" (click)="go(index + 1)" aria-label="Next"><i class="bi bi-chevron-right"></i></button>
       <div class="dots">
-        @for (c of cards; track c.key; let i = $index) {
-          <button [class.on]="i === index" (click)="go(i)" [attr.aria-label]="'Show ' + c.title"></button>
+        @for (d of dotList(); track d) {
+          <button type="button" [class.on]="d === index" (click)="go(d)" [attr.aria-label]="'Show card ' + (d + 1)"></button>
         }
       </div>
     }

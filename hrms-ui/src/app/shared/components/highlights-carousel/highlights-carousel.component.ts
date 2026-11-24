@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
@@ -37,8 +37,8 @@ const ICONS: Record<string, string> = {
 };
 
 /**
- * Sliding "highlights" at the top of the admin home: one card at a time, moving on every few
- * seconds (paused while the mouse is over it or a finger is on it), with arrows, dots and swipe.
+ * Sliding "highlights" at the top of the admin home, the same look as the public website slider:
+ * several cards side by side moving on one at a time (paused under the mouse or a finger), with arrows, dots and swipe.
  * A card opens its page. The same cards as the app's admin home.
  */
 @Component({
@@ -57,16 +57,23 @@ export class HighlightsCarouselComponent implements OnInit, OnDestroy {
   /** Time each card is shown. */
   private static readonly Every = 5000;
 
+  @ViewChild('track') private track?: ElementRef<HTMLElement>;
+
   cards: HighlightCard[] = [];
+  /** First card in view. */
   index = 0;
+  /** Positions the track can stop at (cards minus the ones that fit beside the last). */
+  stops = 0;
   private paused = false;
   private timer: ReturnType<typeof setInterval> | null = null;
   private refreshTimer: ReturnType<typeof setInterval> | null = null;
-  private touchX: number | null = null;
+  private scrollTimer: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
     this.load();
-    this.timer = setInterval(() => { if (!this.paused && this.cards.length > 1) this.go(this.index + 1); }, HighlightsCarouselComponent.Every);
+    this.timer = setInterval(() => {
+      if (!this.paused && this.stops > 1 && document.visibilityState === 'visible') this.go(this.index + 1);
+    }, HighlightsCarouselComponent.Every);
     // Keep the numbers current while the page is open
     this.refreshTimer = setInterval(() => { if (document.visibilityState === 'visible') this.load(); }, 120_000);
   }
@@ -74,23 +81,61 @@ export class HighlightsCarouselComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.timer) clearInterval(this.timer);
     if (this.refreshTimer) clearInterval(this.refreshTimer);
+    if (this.scrollTimer) clearTimeout(this.scrollTimer);
+  }
+
+  @HostListener('window:resize')
+  measure(): void {
+    const el = this.track?.nativeElement;
+    const kids = el?.children;
+    if (!el || !kids || kids.length === 0) { this.stops = 0; this.cdr.markForCheck(); return; }
+    const step = this.step();
+    this.stops = step > 0 ? Math.max(0, Math.round((el.scrollWidth - el.clientWidth) / step)) + 1 : 1;
+    if (this.index >= this.stops) this.index = 0;
+    this.cdr.markForCheck();
+  }
+
+  dotList(): number[] { return Array.from({ length: this.stops }, (_, i) => i); }
+
+  toneLabel(c: HighlightCard): string {
+    return c.tone === 'warn' ? 'To do' : c.tone === 'bad' ? 'Needs fixing' : c.tone === 'good' ? 'Good news' : 'For you';
+  }
+
+  onScroll(): void {
+    if (this.scrollTimer) clearTimeout(this.scrollTimer);
+    this.scrollTimer = setTimeout(() => {
+      const el = this.track?.nativeElement;
+      const step = this.step();
+      if (!el || step <= 0) return;
+      this.index = Math.min(Math.round(el.scrollLeft / step), Math.max(0, this.stops - 1));
+      this.cdr.markForCheck();
+    }, 80);
+  }
+
+  /** Distance from one card to the next. */
+  private step(): number {
+    const kids = this.track?.nativeElement.children;
+    return kids && kids.length > 1 ? (kids[1] as HTMLElement).offsetLeft - (kids[0] as HTMLElement).offsetLeft : 0;
   }
 
   load(): void {
     this.http.get<HighlightCard[]>(`${environment.apiUrl}/dashboard/highlights`).subscribe({
       next: c => {
         this.cards = c;
-        if (this.index >= c.length) this.index = 0;
         this.cdr.markForCheck();
+        // Measure once the cards are on the page
+        setTimeout(() => this.measure());
       },
       error: () => {}
     });
   }
 
   go(i: number): void {
-    const n = this.cards.length;
-    if (!n) return;
+    const n = this.stops;
+    const el = this.track?.nativeElement;
+    if (!n || !el) return;
     this.index = ((i % n) + n) % n;
+    el.scrollTo({ left: this.index * this.step(), behavior: 'smooth' });
     this.cdr.markForCheck();
   }
 
@@ -103,14 +148,6 @@ export class HighlightsCarouselComponent implements OnInit, OnDestroy {
 
   pause(on: boolean): void { this.paused = on; }
 
-  touchStart(e: TouchEvent): void { this.touchX = e.touches[0]?.clientX ?? null; this.paused = true; }
-
-  touchEnd(e: TouchEvent): void {
-    const start = this.touchX;
-    this.touchX = null;
-    this.paused = false;
-    const end = e.changedTouches[0]?.clientX;
-    if (start == null || end == null || Math.abs(end - start) < 40) return;
-    this.go(this.index + (end < start ? 1 : -1));
-  }
+  /** After a swipe, wait a moment before moving on again. */
+  touchEnd(): void { setTimeout(() => this.paused = false, 3000); }
 }
