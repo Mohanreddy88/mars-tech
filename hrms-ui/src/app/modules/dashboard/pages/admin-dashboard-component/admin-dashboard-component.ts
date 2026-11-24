@@ -8,6 +8,7 @@ import { environment } from '../../../../../environments/environment';
 import { photoUrl } from '../../../../core/utils/photo-url';
 import { ReportsService } from '../../../../core/services/reports.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { HighlightsCarouselComponent } from '../../../../shared/components/highlights-carousel/highlights-carousel.component';
 
 /** One month in the payroll trend (from /analytics/payroll-trends). */
 interface PayrollTrendPoint { year: number; month: number; monthName: string; totalNet: number; totalGross: number; employeeCount: number; }
@@ -90,7 +91,7 @@ interface AdminDashboardData {
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, HighlightsCarouselComponent],
   templateUrl: './admin-dashboard-component.html',
   styleUrls: ['./admin-dashboard-component.scss']
 })

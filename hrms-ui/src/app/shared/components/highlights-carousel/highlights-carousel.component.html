@@ -1,0 +1,34 @@
+@if (cards.length) {
+  <section class="highlights" aria-roledescription="carousel" aria-label="Highlights"
+           (mouseenter)="pause(true)" (mouseleave)="pause(false)"
+           (touchstart)="touchStart($event)" (touchend)="touchEnd($event)">
+    <div class="track" [style.transform]="'translateX(-' + index * 100 + '%)'">
+      @for (c of cards; track c.key; let i = $index) {
+        <div class="slide" [ngClass]="'tone-' + c.tone" [attr.aria-hidden]="i !== index"
+             role="group" [attr.aria-label]="(i + 1) + ' of ' + cards.length">
+          <div class="icon"><i class="bi" [ngClass]="icon(c)"></i></div>
+          <div class="body">
+            <span class="group">{{ c.group === 'school' ? 'School' : 'HR' }}</span>
+            <h3>{{ c.title }}</h3>
+            <p>{{ c.text }}</p>
+          </div>
+          @if (c.page && c.action) {
+            <button class="btn btn-light btn-sm open" (click)="open(c)" [tabindex]="i === index ? 0 : -1">
+              {{ c.action }} <i class="bi bi-arrow-right"></i>
+            </button>
+          }
+        </div>
+      }
+    </div>
+
+    @if (cards.length > 1) {
+      <button class="nav prev" (click)="go(index - 1)" aria-label="Previous"><i class="bi bi-chevron-left"></i></button>
+      <button class="nav next" (click)="go(index + 1)" aria-label="Next"><i class="bi bi-chevron-right"></i></button>
+      <div class="dots">
+        @for (c of cards; track c.key; let i = $index) {
+          <button [class.on]="i === index" (click)="go(i)" [attr.aria-label]="'Show ' + c.title"></button>
+        }
+      </div>
+    }
+  </section>
+}
