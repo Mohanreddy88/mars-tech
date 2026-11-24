@@ -54,6 +54,10 @@ public class HrmsDbContext : DbContext
     public DbSet<FeeInvoiceLine>        FeeInvoiceLines       => Set<FeeInvoiceLine>();
     public DbSet<FeePayment>            FeePayments           => Set<FeePayment>();
     public DbSet<FeePaymentClaim>       FeePaymentClaims      => Set<FeePaymentClaim>();
+    public DbSet<FeePriceList>          FeePriceLists         => Set<FeePriceList>();
+    public DbSet<FeePriceSession>       FeePriceSessions      => Set<FeePriceSession>();
+    public DbSet<FeePriceCharge>        FeePriceCharges       => Set<FeePriceCharge>();
+    public DbSet<StudentDeposit>        StudentDeposits       => Set<StudentDeposit>();
     public DbSet<BotFaq>                BotFaqs               => Set<BotFaq>();
     public DbSet<BotUnanswered>         BotUnansweredQuestions => Set<BotUnanswered>();
     public DbSet<BotAiUsage>            BotAiUsageLog         => Set<BotAiUsage>();
@@ -609,6 +613,48 @@ public class HrmsDbContext : DbContext
     private static void ConfigureSchoolFees(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<CompanySettings>().Property(x => x.SiblingDiscountPercent).HasPrecision(5, 2);
+
+        // Price lists (one per academic year): sessions with hours and monthly fee, other charges
+        modelBuilder.Entity<FeePriceList>(e =>
+        {
+            e.ToTable("FeePriceLists");
+            e.Property(x => x.Name).IsRequired().HasMaxLength(50);
+            e.Property(x => x.EffectiveFrom).HasColumnType("date");
+            e.Property(x => x.TwiceAYearMonths).IsRequired().HasMaxLength(40);
+            e.Property(x => x.Terms).HasMaxLength(2000);
+            e.HasIndex(x => x.EffectiveFrom).IsUnique();
+        });
+        modelBuilder.Entity<FeePriceSession>(e =>
+        {
+            e.ToTable("FeePriceSessions");
+            e.Property(x => x.SessionType).IsRequired().HasMaxLength(20);
+            e.Property(x => x.Start).IsRequired().HasMaxLength(5);
+            e.Property(x => x.End).IsRequired().HasMaxLength(5);
+            e.Property(x => x.MealsIncluded).HasMaxLength(200);
+            e.Property(x => x.MonthlyFee).HasPrecision(12, 2);
+            e.HasIndex(x => new { x.PriceListId, x.SessionType }).IsUnique();
+            e.HasOne(x => x.PriceList).WithMany(p => p.Sessions).HasForeignKey(x => x.PriceListId).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<FeePriceCharge>(e =>
+        {
+            e.ToTable("FeePriceCharges");
+            e.Property(x => x.Name).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Kind).IsRequired().HasMaxLength(20);
+            e.Property(x => x.SessionType).HasMaxLength(20);
+            e.Property(x => x.Amount).HasPrecision(12, 2);
+            e.HasOne(x => x.PriceList).WithMany(p => p.Charges).HasForeignKey(x => x.PriceListId).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<StudentDeposit>(e =>
+        {
+            e.ToTable("StudentDeposits");
+            e.Property(x => x.Description).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Status).IsRequired().HasMaxLength(20);
+            e.Property(x => x.Amount).HasPrecision(12, 2);
+            e.Property(x => x.SettledByName).HasMaxLength(150);
+            e.Property(x => x.Note).HasMaxLength(300);
+            e.HasIndex(x => new { x.StudentId, x.Status });
+            e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
+        });
 
         modelBuilder.Entity<FeeItem>(e =>
         {

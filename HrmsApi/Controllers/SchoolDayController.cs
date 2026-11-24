@@ -97,7 +97,7 @@ public class SchoolDayController : ControllerBase
             date = day.ToString("yyyy-MM-dd"),
             today = SchoolClock.Today.ToString("yyyy-MM-dd"),
             // Check-out suggests the session's end time; "late after" / "absent after" for the list
-            times = SchoolTimes.From(await _db.CompanySettings.AsNoTracking().FirstOrDefaultAsync() ?? new CompanySettings()).ToDto(),
+            times = (await SchoolTimes.LoadAsync(_db)).ToDto(),
             rows,
             summary = new
             {
@@ -128,7 +128,7 @@ public class SchoolDayController : ControllerBase
         a.CheckInBy     = me!.Name;
         if (a.CheckOutAt != null && a.CheckOutAt < at) { a.CheckOutAt = null; a.CheckOutBy = null; a.PickedUpBy = null; }
         // Late when in after the "late after" time; an automatic absence is undone (the child came after all)
-        var times = SchoolTimes.From(await _db.CompanySettings.AsNoTracking().FirstOrDefaultAsync() ?? new CompanySettings());
+        var times = await SchoolTimes.LoadAsync(_db);
         a.IsLate     = SchoolTimes.LocalTimeOf(at) > times.LateAfter;
         a.AutoAbsent = false;
         a.UpdatedAt = DateTime.UtcNow;

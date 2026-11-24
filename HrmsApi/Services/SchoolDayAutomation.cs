@@ -25,7 +25,7 @@ public static class SchoolDayAutomation
     {
         var s = await db.CompanySettings.FirstOrDefaultAsync();
         if (s == null || !s.SchoolFeaturesEnabled || !s.SchoolAutoAttendance) return;
-        var times = SchoolTimes.From(s);
+        var times = await SchoolTimes.LoadAsync(db, s);   // session hours from the price list in force
         var local = DateTime.SpecifyKind(nowUtc, DateTimeKind.Utc) + SchoolClock.Offset;
         var today = local.Date;
         var now = TimeOnly.FromDateTime(local);

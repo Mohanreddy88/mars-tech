@@ -1343,6 +1343,129 @@ namespace HrmsApi.Migrations
                     b.ToTable("FeePaymentClaims");
                 });
 
+            modelBuilder.Entity("HrmsApi.Models.FeePriceCharge", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("PriceListId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SessionType")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PriceListId");
+
+                    b.ToTable("FeePriceCharges", (string)null);
+                });
+
+            modelBuilder.Entity("HrmsApi.Models.FeePriceList", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("EffectiveFrom")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Terms")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("TwiceAYearMonths")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EffectiveFrom")
+                        .IsUnique();
+
+                    b.ToTable("FeePriceLists", (string)null);
+                });
+
+            modelBuilder.Entity("HrmsApi.Models.FeePriceSession", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("End")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<string>("MealsIncluded")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<decimal>("MonthlyFee")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<bool>("Offered")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("PriceListId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SessionType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Start")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PriceListId", "SessionType")
+                        .IsUnique();
+
+                    b.ToTable("FeePriceSessions", (string)null);
+                });
+
             modelBuilder.Entity("HrmsApi.Models.LeaveAttachment", b =>
                 {
                     b.Property<int>("Id")
@@ -2248,6 +2371,58 @@ namespace HrmsApi.Migrations
                     b.ToTable("StudentAttendance", (string)null);
                 });
 
+            modelBuilder.Entity("HrmsApi.Models.StudentDeposit", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int?>("DeductedInvoiceId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int?>("InvoiceId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTime?>("SettledAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("SettledByName")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StudentId", "Status");
+
+                    b.ToTable("StudentDeposits", (string)null);
+                });
+
             modelBuilder.Entity("HrmsApi.Models.StudentFeeAddOn", b =>
                 {
                     b.Property<int>("StudentId")
@@ -2615,6 +2790,28 @@ namespace HrmsApi.Migrations
                     b.Navigation("Invoice");
                 });
 
+            modelBuilder.Entity("HrmsApi.Models.FeePriceCharge", b =>
+                {
+                    b.HasOne("HrmsApi.Models.FeePriceList", "PriceList")
+                        .WithMany("Charges")
+                        .HasForeignKey("PriceListId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PriceList");
+                });
+
+            modelBuilder.Entity("HrmsApi.Models.FeePriceSession", b =>
+                {
+                    b.HasOne("HrmsApi.Models.FeePriceList", "PriceList")
+                        .WithMany("Sessions")
+                        .HasForeignKey("PriceListId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PriceList");
+                });
+
             modelBuilder.Entity("HrmsApi.Models.LeaveAttachment", b =>
                 {
                     b.HasOne("HrmsApi.Models.LeaveRequest", "LeaveRequest")
@@ -2820,6 +3017,17 @@ namespace HrmsApi.Migrations
                     b.Navigation("Student");
                 });
 
+            modelBuilder.Entity("HrmsApi.Models.StudentDeposit", b =>
+                {
+                    b.HasOne("HrmsApi.Models.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Student");
+                });
+
             modelBuilder.Entity("HrmsApi.Models.StudentFeeAddOn", b =>
                 {
                     b.HasOne("HrmsApi.Models.FeeItem", "FeeItem")
@@ -2913,6 +3121,13 @@ namespace HrmsApi.Migrations
                     b.Navigation("Lines");
 
                     b.Navigation("Payments");
+                });
+
+            modelBuilder.Entity("HrmsApi.Models.FeePriceList", b =>
+                {
+                    b.Navigation("Charges");
+
+                    b.Navigation("Sessions");
                 });
 
             modelBuilder.Entity("HrmsApi.Models.LeaveType", b =>

@@ -93,6 +93,75 @@ public static class FeePdf
         })).GeneratePdf();
     }
 
+    /// <summary>
+    /// "Price &amp; Terms 2027": each session's hours, meals and monthly fee, the first-time charges,
+    /// the total upon registration, the deposit and the second month, and the terms — like the
+    /// school's own price sheet, made from the price list.
+    /// </summary>
+    public static byte[] PriceTerms(CompanySettings company, FeePriceList list)
+    {
+        var sessions = list.Sessions.Where(s => s.Offered).OrderBy(s => Array.IndexOf(Student.SessionTypes, s.SessionType)).ToList();
+        return Document.Create(doc => doc.Page(page =>
+        {
+            Setup(page);
+            page.Content().Column(col =>
+            {
+                Header(col, company, "PRICE & TERMS");
+                col.Item().PaddingTop(12).AlignCenter().Text($"Price & Terms, {list.Name}").FontSize(16).Bold().FontColor(company.BrandColor);
+                col.Item().AlignCenter().Text($"From {list.EffectiveFrom.ToString("d MMMM yyyy", Inv)}").FontSize(9).FontColor(Colors.Grey.Darken1);
+
+                col.Item().PaddingTop(14).Table(t =>
+                {
+                    t.ColumnsDefinition(c => { c.RelativeColumn(2); foreach (var _ in sessions) c.RelativeColumn(); });
+                    t.Header(h =>
+                    {
+                        HeadCell(h.Cell(), "", company);
+                        foreach (var s in sessions) HeadCell(h.Cell(), s.SessionType, company, right: true);
+                    });
+                    void Row(string label, Func<FeePriceSession, string> value, bool bold = false)
+                    {
+                        var l = BodyCell(t.Cell()).Text(label);
+                        if (bold) l.Bold();
+                        foreach (var s in sessions)
+                        {
+                            var v = BodyCell(t.Cell()).AlignRight().Text(value(s));
+                            if (bold) v.Bold();
+                        }
+                    }
+                    Row("Hours", s => $"{s.Start} – {s.End}");
+                    Row("Monthly school fees", s => Rm(s.MonthlyFee), bold: true);
+                    Row("Meals included", s => s.MealsIncluded ?? "—");
+
+                    var firstTime = list.Charges.Where(c => c.Kind != FeePriceCharge.Deposit).OrderBy(c => c.SortOrder).ThenBy(c => c.Id).ToList();
+                    foreach (var c in firstTime)
+                        Row(c.Kind == FeePriceCharge.TwiceAYear ? $"{c.Name} (twice a year)" : c.Name,
+                            s => FeePrices.AppliesTo(c, s.SessionType) ? Rm(c.Amount) : "n.a.");
+                    Row("Total upon registration", s => Rm(s.MonthlyFee + firstTime.Where(c => FeePrices.AppliesTo(c, s.SessionType)).Sum(c => c.Amount)), bold: true);
+
+                    foreach (var d in list.Charges.Where(c => c.Kind == FeePriceCharge.Deposit).OrderBy(c => c.SortOrder))
+                        Row($"{d.Name} (refundable, 2nd month)", s => FeePrices.AppliesTo(d, s.SessionType) ? Rm(d.Amount) : "n.a.");
+                    if (list.Charges.Any(c => c.Kind == FeePriceCharge.Deposit))
+                        Row("2nd month payable", s => Rm(s.MonthlyFee + list.Charges
+                            .Where(c => c.Kind == FeePriceCharge.Deposit && FeePrices.AppliesTo(c, s.SessionType)).Sum(c => c.Amount)), bold: true);
+                });
+
+                var months = FeePrices.Months(list.TwiceAYearMonths);
+                if (list.Charges.Any(c => c.Kind == FeePriceCharge.TwiceAYear) && months.Length > 0)
+                    col.Item().PaddingTop(10).Text("Twice-a-year charges are billed at registration and in " +
+                        string.Join(" and ", months.Select(m => new DateTime(2000, m, 1).ToString("MMMM", Inv))) + ".").FontSize(9);
+                if (!string.IsNullOrWhiteSpace(list.Terms))
+                    col.Item().PaddingTop(10).Text(list.Terms).FontSize(9);
+                if (!string.IsNullOrWhiteSpace(company.FeePaymentInstructions))
+                    col.Item().PaddingTop(14).Background(Colors.Grey.Lighten4).Padding(10).Column(c =>
+                    {
+                        c.Item().Text("How to pay").Bold();
+                        c.Item().Text(company.FeePaymentInstructions);
+                    });
+            });
+            Footer(page);
+        })).GeneratePdf();
+    }
+
     public static byte[] Receipt(CompanySettings company, FeeInvoice inv, FeePayment payment, IReadOnlyList<string> parents)
     {
         var month = new DateTime(inv.Year, inv.Month, 1).ToString("MMMM yyyy", Inv);
