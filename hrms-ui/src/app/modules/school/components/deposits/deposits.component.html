@@ -1,0 +1,69 @@
+<div class="filters-row">
+  <span>Refundable deposits the school holds. Return them after the academic year: refund, or deduct from an unpaid invoice.</span>
+  <label class="check ms-auto"><input type="checkbox" [(ngModel)]="all" (ngModelChange)="load()" /> Show refunded too</label>
+</div>
+
+@if (loading) {
+  <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+} @else if (!rows.length) {
+  <div class="table-card empty-state">
+    <i class="bi bi-safe"></i>
+    <h5>No deposits held</h5>
+    <p>Deposits in the price list are billed in each new child's second month.</p>
+  </div>
+} @else {
+  <div class="table-card">
+    <table class="table align-middle mb-0">
+      <thead><tr><th>Child</th><th>Deposit</th><th>Billed on</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        @for (r of rows; track r.id) {
+          <tr>
+            <td><strong>{{ r.childName }}</strong> <span class="cell-sub">{{ r.className ?? '' }}{{ r.childActive ? '' : ' · left the school' }}</span></td>
+            <td>{{ r.description }} · <strong>{{ rm(r.amount) }}</strong></td>
+            <td>{{ r.invoiceNo ?? '—' }} @if (r.invoiceNo) { <span class="cell-sub">{{ r.invoicePaid ? 'paid' : 'not paid yet' }}</span> }</td>
+            <td>
+              <span class="tag" [class.warn]="r.status === 'Held'" [class.ok]="r.status !== 'Held'">{{ r.status }}</span>
+              @if (r.note) { <div class="cell-sub">{{ r.note }}</div> }
+              @if (r.settledByName) { <div class="cell-sub">by {{ r.settledByName }} · {{ r.settledAt | date: 'd MMM yyyy' }}</div> }
+            </td>
+            <td class="actions-cell">
+              @if (r.status === 'Held') { <button class="btn btn-sm btn-outline-primary" (click)="start(r)">Return deposit</button> }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  <p class="cell-sub mt-2">Held: {{ rm(heldTotal) }}</p>
+}
+
+@if (settling) {
+  <div class="modal-overlay" (click)="settling = null">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <h5>Return {{ settling.childName }}'s deposit ({{ rm(settling.amount) }})</h5>
+        <button class="btn-close-modal" (click)="settling = null" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="modal-form">
+        <label class="check"><input type="radio" name="how" value="refund" [(ngModel)]="how" /> Refunded (cash or bank transfer)</label>
+        <label class="check" [class.text-muted]="!settling.openInvoices.length">
+          <input type="radio" name="how" value="deduct" [(ngModel)]="how" [disabled]="!settling.openInvoices.length" />
+          Deduct from an unpaid invoice {{ settling.openInvoices.length ? '' : '(none unpaid)' }}
+        </label>
+        @if (how === 'deduct') {
+          <select class="mt-2" [(ngModel)]="invoiceId" aria-label="Invoice">
+            @for (i of settling.openInvoices; track i.id) { <option [ngValue]="i.id">{{ i.invoiceNo }} · {{ monthName(i.year, i.month) }} · balance {{ rm(i.balance) }}</option> }
+          </select>
+        }
+        <div class="form-group mt-3">
+          <label for="dp-note">Note (optional)</label>
+          <input id="dp-note" type="text" maxlength="300" [(ngModel)]="note" placeholder="e.g. Bank transfer 12 Dec" />
+        </div>
+      </div>
+      <div class="modal-footer-row">
+        <button class="btn btn-secondary" (click)="settling = null">Cancel</button>
+        <button class="btn btn-primary" (click)="confirm()" [disabled]="busy">Save</button>
+      </div>
+    </div>
+  </div>
+}

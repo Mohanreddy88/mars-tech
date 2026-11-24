@@ -18,7 +18,9 @@ esac
 STATE=/var/lib/hrms-$1-last-attempt
 
 exec 9>/var/lock/hrms-deploy.lock
-flock -n 9 || exit 0            # another deploy is running; try again next tick
+# uat and prod start in the same second: wait briefly for the other check instead of skipping
+# this tick (a real deploy takes minutes; then give up and try again next tick).
+flock -w 50 9 || exit 0
 
 cd "$APP_DIR" || exit 1
 git fetch -q origin "$BRANCH" || { echo "$(date -Is) [$1] fetch failed"; exit 1; }

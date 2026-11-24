@@ -16,6 +16,7 @@ import '../../school/data/parent_account.dart';
 import '../../school/data/school_repository.dart';
 import '../data/admin_models.dart';
 import '../data/admin_repository.dart';
+import 'highlights_carousel.dart';
 
 /// Admin home: headcount, pending approvals, this month's payroll,
 /// departments and recent activity.
@@ -44,6 +45,7 @@ class AdminDashboardScreen extends ConsumerWidget {
             ref.invalidate(unreadCountProvider);
             ref.invalidate(schoolUnreadProvider);
             ref.invalidate(staffTodayProvider);
+            ref.invalidate(highlightsProvider);
             return ref.refresh(adminDashboardProvider.future);
           },
           child: ListView(
@@ -54,6 +56,8 @@ class AdminDashboardScreen extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
                 child: _Header(username: username, d: d, schoolName: school ? me.school.name : null),
               ),
+              // Sliding highlights: what needs attention right now (same cards as the website)
+              const Padding(padding: EdgeInsets.only(top: 4, bottom: 8), child: HighlightsCarousel()),
               _NeedsYou(d: d, school: school),
               const Divider(height: 1),
               if (school) ...[
@@ -180,6 +184,7 @@ class _SchoolTiles extends ConsumerWidget {
       HomeTile('Pick-up people', Icons.how_to_reg_outlined, TileColors.note, () => open(Routes.schoolPickupPeople),
           badge: ref.watch(pendingPickupPeopleProvider).valueOrNull?.length ?? 0),
       HomeTile('Classes', Icons.class_outlined, TileColors.school, () => open(Routes.schoolClasses)),
+      HomeTile('Banners', Icons.view_carousel_outlined, TileColors.report, () => open(Routes.schoolBanners)),
     ]);
   }
 }

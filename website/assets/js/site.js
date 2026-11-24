@@ -224,3 +224,79 @@
     });
   }
 })();
+
+/* Sliding cards: one card further every few seconds (paused under the mouse, a finger or keyboard
+   focus, and while the tab is hidden), with arrows, dots, swipe and scroll. Loops back to the start. */
+(function () {
+  'use strict';
+  var EVERY = 4500;
+  var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  Array.prototype.forEach.call(document.querySelectorAll('[data-slider]'), function (slider) {
+    var track = slider.querySelector('[data-track]');
+    var cards = track ? track.children : [];
+    if (!track || cards.length < 2) return;
+    var dotsBox = slider.querySelector('[data-dots]');
+    var paused = false;
+
+    function step() { return cards[1].offsetLeft - cards[0].offsetLeft; }
+    function index() { return Math.round(track.scrollLeft / step()); }
+    function last() { return Math.max(0, Math.round((track.scrollWidth - track.clientWidth) / step())); }
+    function go(i) {
+      var max = last();
+      if (i > max) i = 0;
+      if (i < 0) i = max;
+      track.scrollTo({ left: i * step(), behavior: reduced ? 'auto' : 'smooth' });
+    }
+
+    // Dots: one per position the track can stop at
+    var dots = [];
+    function buildDots() {
+      if (!dotsBox) return;
+      dotsBox.innerHTML = '';
+      dots = [];
+      for (var i = 0; i <= last(); i++) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.setAttribute('aria-label', 'Show card ' + (i + 1));
+        b.addEventListener('click', go.bind(null, i));
+        dotsBox.appendChild(b);
+        dots.push(b);
+      }
+      mark();
+    }
+    function mark() {
+      var at = Math.min(index(), dots.length - 1);
+      dots.forEach(function (d, i) { d.classList.toggle('on', i === at); });
+    }
+
+    var prev = slider.querySelector('[data-prev]');
+    var next = slider.querySelector('[data-next]');
+    if (prev) prev.addEventListener('click', function () { go(index() - 1); });
+    if (next) next.addEventListener('click', function () { go(index() + 1); });
+
+    var scrollTimer;
+    track.addEventListener('scroll', function () { clearTimeout(scrollTimer); scrollTimer = setTimeout(mark, 80); }, { passive: true });
+    track.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight') { e.preventDefault(); go(index() + 1); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); go(index() - 1); }
+    });
+
+    slider.addEventListener('mouseenter', function () { paused = true; });
+    slider.addEventListener('mouseleave', function () { paused = false; });
+    slider.addEventListener('focusin', function () { paused = true; });
+    slider.addEventListener('focusout', function () { paused = false; });
+    track.addEventListener('touchstart', function () { paused = true; }, { passive: true });
+    track.addEventListener('touchend', function () { setTimeout(function () { paused = false; }, 3000); }, { passive: true });
+
+    var resizeTimer;
+    window.addEventListener('resize', function () { clearTimeout(resizeTimer); resizeTimer = setTimeout(buildDots, 150); });
+    buildDots();
+
+    if (!reduced) {
+      setInterval(function () {
+        if (!paused && document.visibilityState === 'visible') go(index() + 1);
+      }, EVERY);
+    }
+  });
+})();

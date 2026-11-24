@@ -122,7 +122,21 @@ public class SchoolController : ControllerBase
 
     /// <summary>GET /api/school/times — the school day's timings (staff: check-in/out defaults).</summary>
     [HttpGet("times")]
-    public async Task<IActionResult> GetTimes() => Ok(SchoolTimes.From(await _settings.GetAsync()).ToDto());
+    public async Task<IActionResult> GetTimes()
+    {
+        // The editable Company Settings values, plus the session hours of the price list in force
+        var s = await _settings.GetAsync();
+        var t = await SchoolTimes.LoadAsync(_db, s);
+        var own = SchoolTimes.From(s);
+        return Ok(new
+        {
+            start = own.Start.ToString("HH:mm"), lateAfter = own.LateAfter.ToString("HH:mm"), absentAfter = own.AbsentAfter.ToString("HH:mm"),
+            halfDayEnd = own.HalfDayEnd.ToString("HH:mm"), fullDayEnd = own.FullDayEnd.ToString("HH:mm"), daycareEnd = own.DaycareEnd.ToString("HH:mm"),
+            autoCheckOutAt = own.AutoCheckOutAt.ToString("HH:mm"), auto = own.Auto,
+            priceList = t.PriceList,
+            sessions = t.Sessions.Select(x => new { sessionType = x.Key, start = x.Value.Start.ToString("HH:mm"), end = x.Value.End.ToString("HH:mm") })
+        });
+    }
 
     /// <summary>
     /// PUT /api/school/times — start, late after, absent after, each session's end, the evening

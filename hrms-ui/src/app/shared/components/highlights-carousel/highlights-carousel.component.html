@@ -1,0 +1,30 @@
+@if (cards.length) {
+  <section class="highlights" aria-roledescription="carousel" aria-label="Highlights"
+           (mouseenter)="pause(true)" (mouseleave)="pause(false)" (focusin)="pause(true)" (focusout)="pause(false)">
+    <div class="track" #track (scroll)="onScroll()" (touchstart)="pause(true)" (touchend)="touchEnd()">
+      @for (c of cards; track c.key) {
+        <article class="hl-card" [ngClass]="'tone-' + c.tone" [class.clickable]="!!c.page" (click)="open(c)">
+          <span class="kind">{{ c.group === 'school' ? 'School' : 'HR' }} · {{ toneLabel(c) }}</span>
+          <i class="bi art" [ngClass]="icon(c)" aria-hidden="true"></i>
+          <h3>{{ c.title }}</h3>
+          <p>{{ c.text }}</p>
+          @if (c.page && c.action) {
+            <button type="button" class="cta" (click)="open(c); $event.stopPropagation()">
+              {{ c.action }} <i class="bi bi-arrow-right"></i>
+            </button>
+          }
+        </article>
+      }
+    </div>
+
+    @if (stops > 1) {
+      <button type="button" class="nav prev" (click)="go(index - 1)" aria-label="Previous"><i class="bi bi-chevron-left"></i></button>
+      <button type="button" class="nav next" (click)="go(index + 1)" aria-label="Next"><i class="bi bi-chevron-right"></i></button>
+      <div class="dots">
+        @for (d of dotList(); track d) {
+          <button type="button" [class.on]="d === index" (click)="go(d)" [attr.aria-label]="'Show card ' + (d + 1)"></button>
+        }
+      </div>
+    }
+  </section>
+}

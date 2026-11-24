@@ -149,3 +149,90 @@ public class FeePaymentClaim
 
     public FeeInvoice Invoice { get; set; } = null!;
 }
+
+// ── Price lists: one per academic year ("Price & Terms 2027"), changed by the office every year ──
+
+/// <summary>
+/// A year's prices and session times, e.g. "2027", used for invoices from <see cref="EffectiveFrom"/>
+/// (until the next price list starts). Older price lists are kept, so past invoices keep their prices.
+/// </summary>
+public class FeePriceList
+{
+    public int       Id            { get; set; }
+    /// <summary>"2027" or "2027 / 2028".</summary>
+    public string    Name          { get; set; } = string.Empty;
+    /// <summary>First day these prices apply (invoices for that month on).</summary>
+    public DateTime  EffectiveFrom { get; set; }
+    /// <summary>Months the "twice a year" charges are billed, e.g. "1,7" (January and July).</summary>
+    public string    TwiceAYearMonths { get; set; } = "1,7";
+    /// <summary>Terms printed under the price list ("Fees are collected monthly…").</summary>
+    public string?   Terms         { get; set; }
+    public DateTime  CreatedAt     { get; set; } = DateTime.UtcNow;
+    public DateTime  UpdatedAt     { get; set; } = DateTime.UtcNow;
+
+    public List<FeePriceSession> Sessions { get; set; } = new();
+    public List<FeePriceCharge>  Charges  { get; set; } = new();
+}
+
+/// <summary>A session in a price list: its hours, meals and monthly fee (Half day 8:00–12:00, RM 930).</summary>
+public class FeePriceSession
+{
+    public int      Id            { get; set; }
+    public int      PriceListId   { get; set; }
+    /// <summary>"Half day", "Full day" or "Daycare" (<see cref="Student.SessionTypes"/>).</summary>
+    public string   SessionType   { get; set; } = Student.FullDay;
+    /// <summary>The school offers this session this year (Daycare is optional).</summary>
+    public bool     Offered       { get; set; } = true;
+    /// <summary>"07:30"</summary>
+    public string   Start         { get; set; } = "08:00";
+    /// <summary>"18:30"</summary>
+    public string   End           { get; set; } = "16:30";
+    /// <summary>"breakfast, lunch & tea-break"</summary>
+    public string?  MealsIncluded { get; set; }
+    public decimal  MonthlyFee    { get; set; }
+
+    public FeePriceList PriceList { get; set; } = null!;
+}
+
+/// <summary>
+/// A charge besides the monthly fee: one-time at registration (registration, uniform, bedding),
+/// twice a year (supplies), or a refundable deposit (billed in the child's second month).
+/// </summary>
+public class FeePriceCharge
+{
+    public const string OneTime = "OneTime", TwiceAYear = "TwiceAYear", Deposit = "Deposit";
+    public static readonly string[] Kinds = { OneTime, TwiceAYear, Deposit };
+
+    public int      Id          { get; set; }
+    public int      PriceListId { get; set; }
+    public string   Name        { get; set; } = string.Empty;
+    public string   Kind        { get; set; } = OneTime;
+    public decimal  Amount      { get; set; }
+    /// <summary>Only for this session ("Bedding" — Full day); null = every child.</summary>
+    public string?  SessionType { get; set; }
+    public int      SortOrder   { get; set; }
+
+    public FeePriceList PriceList { get; set; } = null!;
+}
+
+/// <summary>A refundable deposit the school holds for a child, until refunded or deducted from an invoice.</summary>
+public class StudentDeposit
+{
+    public const string Held = "Held", Refunded = "Refunded", Deducted = "Deducted";
+
+    public int       Id               { get; set; }
+    public int       StudentId        { get; set; }
+    public string    Description      { get; set; } = "Deposit";
+    public decimal   Amount           { get; set; }
+    /// <summary>The invoice it was billed on.</summary>
+    public int?      InvoiceId        { get; set; }
+    public string    Status           { get; set; } = Held;
+    public DateTime  CreatedAt        { get; set; } = DateTime.UtcNow;
+    public DateTime? SettledAt        { get; set; }
+    public string?   SettledByName    { get; set; }
+    /// <summary>Refunded: "Bank transfer 12 Dec"; deducted: the invoice it was taken off.</summary>
+    public string?   Note             { get; set; }
+    public int?      DeductedInvoiceId { get; set; }
+
+    public Student Student { get; set; } = null!;
+}

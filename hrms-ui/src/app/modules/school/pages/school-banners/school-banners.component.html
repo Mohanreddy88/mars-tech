@@ -1,0 +1,185 @@
+<div class="school-page">
+
+  <div class="page-header">
+    <div>
+      <h3>Banners</h3>
+      <p>Advert-style slides at the top of the parent home, on the website and in the app — events, offers, reminders.</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-outline-primary" (click)="addSamples()" [disabled]="busy"><i class="bi bi-magic"></i> Add sample banners</button>
+      <button class="btn btn-primary" (click)="add()"><i class="bi bi-plus-lg"></i> New banner</button>
+    </div>
+  </div>
+
+  @if (loading) {
+    <div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div></div>
+  } @else if (banners.length === 0) {
+    <div class="table-card empty-state">
+      <i class="bi bi-image"></i>
+      <h5>No banners yet</h5>
+      <p>Until you add your own, parents see general cards about the school (a day of learning, play areas, meals, teachers).
+        Click <strong>Add sample banners</strong> to turn them into banners you can change and add your own photos to.</p>
+    </div>
+  } @else {
+    <div class="table-card">
+      <table class="table align-middle mb-0">
+        <thead><tr><th style="width: 52px">Order</th><th>Banner</th><th>Shown to</th><th>Dates</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>
+          @for (b of banners; track b.id; let first = $first; let last = $last) {
+            <tr>
+              <td class="order-cell">
+                <button class="btn btn-sm btn-link p-0" (click)="move(b, true)" [disabled]="first" aria-label="Move up"><i class="bi bi-chevron-up"></i></button>
+                <button class="btn btn-sm btn-link p-0" (click)="move(b, false)" [disabled]="last" aria-label="Move down"><i class="bi bi-chevron-down"></i></button>
+              </td>
+              <td>
+                <div class="cell-main">
+                  <div class="thumb" [ngClass]="'theme-' + b.theme">
+                    @if (images[b.id]) { <img [src]="images[b.id]" alt=""> }
+                  </div>
+                  <div>
+                    <strong>{{ b.title }}</strong>
+                    @if (b.text) { <div class="cell-sub">{{ b.text }}</div> }
+                    @if (b.link) { <div class="cell-sub"><i class="bi bi-hand-index"></i> {{ b.buttonText }} → {{ linkLabel(b) }}</div> }
+                  </div>
+                </div>
+              </td>
+              <td>{{ audience(b) }}</td>
+              <td class="cell-sub">
+                @if (!b.startsOn && !b.endsOn) { Always }
+                @else {
+                  {{ b.startsOn ? (b.startsOn | date: 'd MMM yyyy') : '…' }} – {{ b.endsOn ? (b.endsOn | date: 'd MMM yyyy') : '…' }}
+                }
+              </td>
+              <td>
+                <span class="tag" [class.ok]="b.status === 'Live'" [class.warn]="b.status === 'Scheduled'" [class.bad]="b.status === 'Ended'">{{ b.status }}</span>
+              </td>
+              <td class="actions-cell">
+                <button class="btn btn-sm btn-outline-primary me-1" (click)="edit(b)"><i class="bi bi-pencil"></i> Edit</button>
+                <button class="btn btn-sm btn-outline-secondary me-1" (click)="toggle(b)">{{ b.isActive ? 'Switch off' : 'Switch on' }}</button>
+                <button class="btn btn-sm btn-outline-danger" (click)="deleting = b" aria-label="Delete"><i class="bi bi-trash"></i></button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
+
+@if (form; as f) {
+  <div class="modal-overlay" (click)="close()">
+    <div class="modal-box wide" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <h5>{{ f.id ? 'Edit banner' : 'New banner' }}</h5>
+        <button class="btn-close-modal" (click)="close()" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="modal-form">
+        <div class="section-title">Preview</div>
+        <app-banner-carousel [banners]="preview(f)" [autoplay]="false" [preview]="true" />
+
+        <div class="form-grid">
+          <div class="form-group span-2">
+            <label for="bn-title">Headline</label>
+            <input id="bn-title" type="text" maxlength="80" [(ngModel)]="f.title" placeholder="e.g. Holiday camp — register now">
+          </div>
+          <div class="form-group span-2">
+            <label for="bn-text">Text (optional)</label>
+            <input id="bn-text" type="text" maxlength="200" [(ngModel)]="f.text" placeholder="e.g. 7–18 December · art, swimming and science fun">
+          </div>
+
+          <div class="form-group span-2">
+            <label>Colour</label>
+            <div class="swatches">
+              @for (t of themes; track t) {
+                <button type="button" class="swatch" [ngClass]="'theme-' + t" [class.on]="f.theme === t" (click)="f.theme = t" [attr.aria-label]="t"></button>
+              }
+            </div>
+          </div>
+
+          <div class="form-group span-2">
+            <label>Picture (optional)</label>
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+              <label class="btn btn-outline-primary btn-sm mb-0">
+                <i class="bi bi-image"></i> {{ f.imageUrl ? 'Change picture' : 'Choose picture' }}
+                <input type="file" accept="image/jpeg,image/png" hidden (change)="pickImage($event)">
+              </label>
+              @if (f.imageUrl) { <button type="button" class="btn btn-outline-danger btn-sm" (click)="removeImage()">Remove</button> }
+            </div>
+            <div class="hint">JPG or PNG, up to 3 MB. Wide photos look best; the picture fades into the colour behind the text.</div>
+          </div>
+
+          <div class="form-group">
+            <label for="bn-button">Button</label>
+            <select id="bn-button" [(ngModel)]="f.buttonKind">
+              <option value="none">No button</option>
+              <option value="page">Opens a page in the parent portal / app</option>
+              <option value="web">Opens a web address</option>
+            </select>
+          </div>
+          @if (f.buttonKind !== 'none') {
+            <div class="form-group">
+              <label for="bn-label">Button text</label>
+              <input id="bn-label" type="text" maxlength="30" [(ngModel)]="f.buttonText" placeholder="Find out more">
+            </div>
+            @if (f.buttonKind === 'page') {
+              <div class="form-group span-2">
+                <label for="bn-page">Page</label>
+                <select id="bn-page" [(ngModel)]="f.page">
+                  @for (p of pages; track p.key) { <option [value]="p.key">{{ p.label }}</option> }
+                </select>
+              </div>
+            } @else {
+              <div class="form-group span-2">
+                <label for="bn-web">Web address</label>
+                <input id="bn-web" type="text" maxlength="300" [(ngModel)]="f.web" placeholder="https://forms.gle/… or https://wa.me/60…">
+              </div>
+            }
+          }
+
+          <div class="section-title">Who and when</div>
+          <div class="form-group span-2">
+            <label for="bn-class">Shown to</label>
+            <select id="bn-class" [(ngModel)]="f.classId">
+              <option [ngValue]="null">All parents</option>
+              @for (c of classes; track c.id) { <option [ngValue]="c.id">Parents of {{ c.name }}</option> }
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="bn-start">From (optional)</label>
+            <input id="bn-start" type="date" [(ngModel)]="f.startsOn">
+          </div>
+          <div class="form-group">
+            <label for="bn-end">Until (optional)</label>
+            <input id="bn-end" type="date" [(ngModel)]="f.endsOn">
+          </div>
+          <div class="form-group span-2">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="bn-active" [(ngModel)]="f.isActive">
+              <label class="form-check-label" for="bn-active">Show this banner</label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer-row">
+        <button class="btn btn-secondary" (click)="close()">Cancel</button>
+        <button class="btn btn-primary" (click)="save()" [disabled]="busy">{{ busy ? 'Saving…' : 'Save' }}</button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (deleting) {
+  <div class="modal-overlay" (click)="deleting = null">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <h5>Delete "{{ deleting.title }}"?</h5>
+        <button class="btn-close-modal" (click)="deleting = null" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="modal-form"><p class="mb-0">Parents stop seeing it straight away. To hide it for now, switch it off instead.</p></div>
+      <div class="modal-footer-row">
+        <button class="btn btn-secondary" (click)="deleting = null">Cancel</button>
+        <button class="btn btn-danger" (click)="confirmDelete()" [disabled]="busy">Delete</button>
+      </div>
+    </div>
+  </div>
+}

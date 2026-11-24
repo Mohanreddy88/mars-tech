@@ -7,12 +7,13 @@ import { SchoolService } from '../../../../core/services/school.service';
 import { SchoolFeesService, InvoiceDetail, PaymentClaim, PAYMENT_METHODS, rm } from '../../../../core/services/school-fees.service';
 import { schoolToday } from '../../../../core/services/school-day.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { PriceTermsComponent } from '../../components/price-terms/price-terms.component';
 
 /** Parent portal → Fees: my children's invoices, what's still to pay, receipts. */
 @Component({
   selector: 'app-parent-fees',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule, PriceTermsComponent],
   templateUrl: './parent-fees.component.html',
   styleUrls: ['../../school-shared.scss', './parent-fees.component.scss']
 })

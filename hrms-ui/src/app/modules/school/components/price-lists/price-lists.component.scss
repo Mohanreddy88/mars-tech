@@ -1,0 +1,29 @@
+.price-lists { display: flex; flex-direction: column; gap: 14px; }
+.pl-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+.pl-years {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  button {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 14px; border-radius: 12px;
+    border: 1px solid #d1d5db; background: #fff; min-width: 130px;
+    small { color: #6b7280; }
+    &.active { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, .15); }
+  }
+}
+
+.pl-card {
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 18px;
+  h5 { margin: 18px 0 8px; font-size: 16px; font-weight: 700; }
+  input[type=text], input[type=time], input[type=date], input[type=number], select, textarea {
+    width: 100%; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;
+  }
+  input.num { max-width: 130px; }
+  input[type=checkbox] { width: auto; }
+  td { min-width: 90px; }
+}
+
+.pl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px;
+  label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #374151; } }
+
+.months { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.pl-actions { display: flex; gap: 8px; margin-top: 18px; flex-wrap: wrap; }

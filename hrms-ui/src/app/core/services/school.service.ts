@@ -13,6 +13,9 @@ export interface SchoolTimesSetting {
   autoCheckOutAt: string;
   /** 9:00 reminder to parents, 9:30 automatic absent, evening automatic check-out. */
   auto: boolean;
+  /** Session hours come from this price list (School → Fees → Price lists), when there is one. */
+  priceList?: string | null;
+  sessions?: { sessionType: string; start: string; end: string }[];
 }
 
 // ── Models ────────────────────────────────────────────────────────────────

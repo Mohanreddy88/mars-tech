@@ -236,8 +236,20 @@ public class FeesController : ControllerBase
         if (req.Month is < 1 or > 12 || req.Year is < 2020 or > 2100) return BadRequest(new { message = "Choose a valid month." });
         var settings = await _settings.GetAsync();
         var items = await _db.FeeItems.AsNoTracking().Where(i => i.IsActive).ToListAsync();
-        if (!items.Any(i => i.Kind == FeeItem.Session))
-            return BadRequest(new { message = "Add the monthly fee for each session first (Fees → Fee items)." });
+        // This year's price list (monthly fee per session, one-time / twice-a-year / deposit charges);
+        // without one, the session fees under Fee items are used as before
+        var prices = await FeePrices.ForDateAsync(_db, new DateTime(req.Year, req.Month, 1));
+        if (prices == null && !items.Any(i => i.Kind == FeeItem.Session))
+            return BadRequest(new { message = "Add this year's price list first (Fees → Price lists)." });
+
+        // Each child's earlier invoices: how many, and the month of the first (registration / deposit / supplies)
+        var thisMonthKey = req.Year * 12 + req.Month;
+        var history = (await _db.FeeInvoices.AsNoTracking()
+                .Where(i => i.Status != FeeInvoice.Void && (i.Year * 12 + i.Month) < thisMonthKey)
+                .Select(i => new { i.StudentId, key = i.Year * 12 + i.Month }).ToListAsync())
+            .GroupBy(x => x.StudentId)
+            .ToDictionary(g => g.Key, g => (count: g.Count(), first: g.Min(x => x.key)));
+        var depositLines = new List<(FeeInvoice inv, int studentId, string name, decimal amount)>();
 
         var children = await _db.Students.AsNoTracking().Where(s => s.IsActive)
             .Select(s => new
@@ -277,8 +289,13 @@ public class FeesController : ControllerBase
         var skipped = new List<object>();
         foreach (var c in children.Where(c => !already.Contains(c.Id)).OrderBy(c => c.FullName))
         {
-            var session = items.FirstOrDefault(i => i.Kind == FeeItem.Session && i.SessionType == c.SessionType);
-            if (session == null) { skipped.Add(new { c.FullName, reason = $"no fee set for {c.SessionType}" }); continue; }
+            var priceSession = prices?.Sessions.FirstOrDefault(s => s.SessionType == c.SessionType && s.Offered);
+            var session = priceSession == null ? items.FirstOrDefault(i => i.Kind == FeeItem.Session && i.SessionType == c.SessionType) : null;
+            if (priceSession == null && session == null)
+            {
+                skipped.Add(new { c.FullName, reason = $"no fee set for {c.SessionType}" + (prices != null ? $" in the {prices.Name} price list" : "") });
+                continue;
+            }
 
             var inv = new FeeInvoice
             {
@@ -286,7 +303,10 @@ public class FeesController : ControllerBase
                 IssueDate = issue, DueDate = due, CreatedByName = staffName
             };
             var order = 0;
-            inv.Lines.Add(new FeeInvoiceLine { Description = $"{session.Name} — {monthName}", Amount = session.Amount, FeeItemId = session.Id, SortOrder = order++ });
+            if (priceSession != null)
+                inv.Lines.Add(new FeeInvoiceLine { Description = $"{priceSession.SessionType} school fees — {monthName}", Amount = priceSession.MonthlyFee, SortOrder = order++ });
+            else
+                inv.Lines.Add(new FeeInvoiceLine { Description = $"{session!.Name} — {monthName}", Amount = session.Amount, FeeItemId = session.Id, SortOrder = order++ });
             foreach (var addOn in items.Where(i => i.Kind == FeeItem.AddOn && c.addOnIds.Contains(i.Id)).OrderBy(i => i.SortOrder).ThenBy(i => i.Name))
                 inv.Lines.Add(new FeeInvoiceLine { Description = addOn.Name, Amount = addOn.Amount, FeeItemId = addOn.Id, SortOrder = order++ });
             if (rank[c.Id] > 0 && settings.SiblingDiscountPercent > 0)
@@ -294,13 +314,35 @@ public class FeesController : ControllerBase
                 var subtotal = inv.Lines.Sum(l => l.Amount);
                 var off = Math.Round(subtotal * settings.SiblingDiscountPercent / 100m, 2, MidpointRounding.AwayFromZero);
                 if (off > 0)
-                    inv.Lines.Add(new FeeInvoiceLine { Description = $"Sibling discount ({settings.SiblingDiscountPercent:0.##}%)", Amount = -off, SortOrder = order });
+                    inv.Lines.Add(new FeeInvoiceLine { Description = $"Sibling discount ({settings.SiblingDiscountPercent:0.##}%)", Amount = -off, SortOrder = order++ });
+            }
+
+            // Registration, supplies and deposit from the price list (no sibling discount on these)
+            if (prices != null)
+            {
+                var h = history.TryGetValue(c.Id, out var x) ? x : (count: 0, first: 0);
+                foreach (var charge in FeePrices.ExtraCharges(prices, c.SessionType, req.Year, req.Month, h.count, h.count == 0 ? null : h.first))
+                {
+                    var label = charge.Kind switch
+                    {
+                        FeePriceCharge.Deposit => $"{charge.Name} (refundable)",
+                        FeePriceCharge.TwiceAYear => $"{charge.Name} (twice a year)",
+                        _ => charge.Name
+                    };
+                    inv.Lines.Add(new FeeInvoiceLine { Description = label, Amount = charge.Amount, SortOrder = order++ });
+                    if (charge.Kind == FeePriceCharge.Deposit) depositLines.Add((inv, c.Id, charge.Name, charge.Amount));
+                }
             }
             inv.Recalculate();
             created.Add(inv);
         }
         _db.FeeInvoices.AddRange(created);
         await _db.SaveChangesAsync();
+
+        // Deposits billed now are held for the child until refunded
+        foreach (var (inv, studentId, name, amount) in depositLines)
+            _db.StudentDeposits.Add(new StudentDeposit { StudentId = studentId, Description = name, Amount = amount, InvoiceId = inv.Id });
+        if (depositLines.Count > 0) await _db.SaveChangesAsync();
 
         await Audit("Created", "FeeInvoice", 0, $"Generated {created.Count} invoice(s) for {monthName}" +
             (skipped.Count > 0 ? $"; {skipped.Count} skipped" : ""));
@@ -350,6 +392,8 @@ public class FeesController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.Reason)) return BadRequest(new { message = "Give a reason, e.g. \"Child left the school\".", field = "reason" });
         inv.Status = FeeInvoice.Void;
         inv.VoidReason = req.Reason.Trim().Length > 300 ? req.Reason.Trim()[..300] : req.Reason.Trim();
+        // A deposit billed on this invoice is no longer held (unless already refunded / deducted)
+        _db.StudentDeposits.RemoveRange(await _db.StudentDeposits.Where(d => d.InvoiceId == inv.Id && d.Status == StudentDeposit.Held).ToListAsync());
         await _db.SaveChangesAsync();
         await Audit("Updated", "FeeInvoice", inv.Id, $"Voided invoice {inv.InvoiceNo}: {inv.VoidReason}");
         return NoContent();

@@ -5,12 +5,14 @@ import { Subscription } from 'rxjs';
 import { SchoolService, SchoolMe, Announcement, ChildSummary, ageText, utc } from '../../../../core/services/school.service';
 import { CompanySettingsService, CompanyBranding } from '../../../../core/services/company-settings.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { BannersService, BannerView } from '../../../../core/services/banners.service';
+import { BannerCarouselComponent } from '../../../../shared/components/banner-carousel/banner-carousel.component';
 
-/** Parent portal home: my children, quick messages to the teacher/office, latest announcements. */
+/** Parent portal home: the school's banners, my children, quick messages to the teacher/office, latest announcements. */
 @Component({
   selector: 'app-parent-home',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, BannerCarouselComponent],
   templateUrl: './parent-home.component.html',
   styleUrls: ['../../school-shared.scss', './parent-home.component.scss']
 })
@@ -20,7 +22,10 @@ export class ParentHomeComponent implements OnInit, OnDestroy {
   private toast = inject(ToastService);
   private router = inject(Router);
   private cdr = inject(ChangeDetectorRef);
+  private bannersApi = inject(BannersService);
   private subs = new Subscription();
+
+  banners: BannerView[] = [];
 
   readonly age = ageText;
   readonly utc = utc;
@@ -41,8 +46,15 @@ export class ParentHomeComponent implements OnInit, OnDestroy {
     this.school.loadMe(true).subscribe(me => {
       this.me = me;
       this.loading = false;
-      if (me?.enabled) this.loadAnnouncements();
+      if (me?.enabled) { this.loadAnnouncements(); this.loadBanners(); }
       this.cdr.markForCheck();
+    });
+  }
+
+  loadBanners(): void {
+    this.bannersApi.current().subscribe({
+      next: b => { this.banners = b; this.cdr.markForCheck(); },
+      error: () => {}
     });
   }
 

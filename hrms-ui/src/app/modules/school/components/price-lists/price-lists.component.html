@@ -1,0 +1,139 @@
+<div class="price-lists">
+  <div class="pl-top">
+    <p class="text-muted mb-0">One price list per academic year: session hours, meals, monthly fees and the other charges.
+      Invoices use the price list in force for their month; the session hours also set the school timings.</p>
+    <button class="btn btn-primary" (click)="startNew()"><i class="bi bi-plus-lg"></i> New year's price list</button>
+  </div>
+
+  @if (loading) {
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+  } @else if (!lists.length) {
+    <div class="table-card empty-state">
+      <i class="bi bi-tags"></i>
+      <h5>No price list yet</h5>
+      <p>Create this year's price list: the sessions' hours and fees, registration, supplies, deposit…</p>
+      <button class="btn btn-primary" (click)="startNew()"><i class="bi bi-plus-lg"></i> Create price list</button>
+    </div>
+  } @else {
+    <div class="pl-years">
+      @for (l of lists; track l.id) {
+        <button [class.active]="edit?.id === l.id" (click)="select(l)">
+          <strong>{{ l.name }}</strong>
+          <small>from {{ l.effectiveFrom | date: 'd MMM yyyy' }}</small>
+          @if (l.current) { <span class="tag ok">In force</span> }
+        </button>
+      }
+    </div>
+
+    @if (edit) {
+      <div class="pl-card">
+        @if (error) { <div class="alert alert-danger py-2">{{ error }}</div> }
+
+        <div class="pl-grid">
+          <label>Name <input type="text" [(ngModel)]="edit.name" maxlength="50" placeholder="2027" /></label>
+          <label>Prices apply from <input type="date" [(ngModel)]="edit.effectiveFrom" /></label>
+        </div>
+
+        <h5>Sessions</h5>
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead><tr><th>Session</th><th>Offered</th><th>Starts</th><th>Ends</th><th>Meals included</th><th>Monthly fee (RM)</th><th class="text-end">Upon registration</th><th class="text-end">2nd month</th></tr></thead>
+            <tbody>
+              @for (s of edit.sessions; track s.sessionType) {
+                <tr [class.text-muted]="!s.offered">
+                  <td><strong>{{ s.sessionType }}</strong></td>
+                  <td><input type="checkbox" [(ngModel)]="s.offered" [attr.aria-label]="'Offer ' + s.sessionType" /></td>
+                  <td><input type="time" [(ngModel)]="s.start" [disabled]="!s.offered" /></td>
+                  <td><input type="time" [(ngModel)]="s.end" [disabled]="!s.offered" /></td>
+                  <td><input type="text" [(ngModel)]="s.mealsIncluded" [disabled]="!s.offered" maxlength="200" placeholder="breakfast, lunch & tea-break" /></td>
+                  <td><input type="number" min="0" step="0.01" [(ngModel)]="s.monthlyFee" [disabled]="!s.offered" class="num" /></td>
+                  <td class="text-end">{{ s.offered ? rm(upon(s.sessionType, s.monthlyFee)) : '—' }}</td>
+                  <td class="text-end">{{ s.offered ? rm(second(s.sessionType, s.monthlyFee)) : '—' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <h5>Other charges</h5>
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead><tr><th>Name</th><th>When</th><th>Amount (RM)</th><th>For</th><th></th></tr></thead>
+            <tbody>
+              @for (c of edit.charges; track $index) {
+                <tr>
+                  <td><input type="text" [(ngModel)]="c.name" maxlength="100" placeholder="e.g. Registration" /></td>
+                  <td>
+                    <select [(ngModel)]="c.kind">
+                      @for (k of kinds; track k.value) { <option [value]="k.value">{{ k.label }}</option> }
+                    </select>
+                  </td>
+                  <td><input type="number" min="0" step="0.01" [(ngModel)]="c.amount" class="num" /></td>
+                  <td>
+                    <select [(ngModel)]="c.sessionType">
+                      <option [ngValue]="null">Every child</option>
+                      @for (s of edit.sessions; track s.sessionType) { <option [ngValue]="s.sessionType">{{ s.sessionType }} only</option> }
+                    </select>
+                  </td>
+                  <td><button class="btn btn-sm btn-outline-danger" (click)="removeCharge(c)" title="Remove"><i class="bi bi-trash"></i></button></td>
+                </tr>
+              } @empty {
+                <tr><td colspan="5" class="text-muted">No other charges.</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <button class="btn btn-sm btn-outline-primary" (click)="addCharge()"><i class="bi bi-plus-lg"></i> Add charge</button>
+
+        <h5 class="mt-4">Twice-a-year charges are billed in</h5>
+        <div class="months">
+          @for (m of months; track $index) {
+            <label class="check"><input type="checkbox" [checked]="monthOn($index + 1)" (change)="toggleMonth($index + 1, $any($event.target).checked)" /> {{ m }}</label>
+          }
+        </div>
+        <div class="cell-sub">Also at registration. A child who joined in the last 3 months isn't charged again.</div>
+
+        <h5 class="mt-4">Terms (printed under the prices)</h5>
+        <textarea rows="3" maxlength="2000" [(ngModel)]="edit.terms"
+                  placeholder="e.g. School fees are collected monthly. The deposit is returned after completing an academic year (December)."></textarea>
+
+        <div class="pl-actions">
+          <button class="btn btn-primary" (click)="save()" [disabled]="saving">
+            @if (saving) { <span class="spinner-border spinner-border-sm me-1"></span> } Save price list
+          </button>
+          <button class="btn btn-outline-secondary" (click)="pdf()"><i class="bi bi-file-earmark-pdf"></i> Price &amp; Terms PDF</button>
+          @if (future) { <button class="btn btn-outline-danger ms-auto" (click)="remove()"><i class="bi bi-trash"></i> Delete</button> }
+        </div>
+      </div>
+    }
+  }
+</div>
+
+@if (showNew) {
+  <div class="modal-overlay" (click)="showNew = false">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <h5>New year's price list</h5>
+        <button class="btn-close-modal" (click)="showNew = false" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="modal-form">
+        <div class="form-grid">
+          <div class="form-group"><label for="pl-name">Name</label><input id="pl-name" type="text" [(ngModel)]="newName" maxlength="50" /></div>
+          <div class="form-group"><label for="pl-from">Prices apply from</label><input id="pl-from" type="date" [(ngModel)]="newFrom" /></div>
+          <div class="form-group span-2">
+            <label for="pl-copy">Copy from</label>
+            <select id="pl-copy" [(ngModel)]="newCopyFrom">
+              <option [ngValue]="null">Start fresh</option>
+              @for (l of lists; track l.id) { <option [ngValue]="l.id">{{ l.name }}</option> }
+            </select>
+            <div class="hint">Copies the sessions and charges — then change only the new prices.</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer-row">
+        <button class="btn btn-secondary" (click)="showNew = false">Cancel</button>
+        <button class="btn btn-primary" (click)="create()" [disabled]="!newName.trim() || !newFrom">Create</button>
+      </div>
+    </div>
+  </div>
+}

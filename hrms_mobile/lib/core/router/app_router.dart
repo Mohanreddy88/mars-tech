@@ -50,6 +50,7 @@ import '../../features/school/presentation/announcements_screen.dart';
 import '../../features/school/presentation/child_day_screen.dart';
 import '../../features/assistant/presentation/assistant_screen.dart';
 import '../../features/assistant/presentation/chatbot_admin_screen.dart';
+import '../../features/school/presentation/banners_screen.dart';
 import '../../features/school/presentation/fees_admin_screens.dart';
 import '../../features/school/presentation/fees_screens.dart';
 import '../../features/school/presentation/messages_screens.dart';
@@ -130,6 +131,7 @@ class Routes {
   static const schoolParents = '/school/parents';
   static const schoolFamilies = '/school/families';
   static const schoolPickupPeople = '/school/pickup-people';
+  static const schoolBanners = '/school/banners';
 
   static const _employeeOnly = [dashboard, payslips, leave, attendance, profile,
       applyLeave, attendancePeriod, editProfile];
@@ -158,7 +160,7 @@ class Routes {
 
   /// Pages a parent login may open.
   static const _parentPages = [parentHome, schoolChat, schoolChild, notifications, changePassword, assistant];
-  static const _adminSchool = [schoolFees, schoolInvoice, schoolClasses, schoolChildren, schoolParents, schoolFamilies, schoolPickupPeople];
+  static const _adminSchool = [schoolFees, schoolInvoice, schoolClasses, schoolChildren, schoolParents, schoolFamilies, schoolPickupPeople, schoolBanners];
 
   /// The app screen for a page link from a notification (web paths, e.g. "/parent/fees",
   /// "/parent/child/5?date=2026-11-21", "/school/messages?c=12"). Null = no matching screen.
@@ -288,6 +290,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.schoolParents, builder: (context, state) => const ParentsScreen()),
       GoRoute(path: Routes.schoolFamilies, builder: (context, state) => const FamiliesScreen()),
       GoRoute(path: Routes.schoolPickupPeople, builder: (context, state) => const PickupPeopleScreen()),
+      GoRoute(path: Routes.schoolBanners, builder: (context, state) => const BannersScreen()),
       GoRoute(
         path: '${Routes.schoolInvoice}/:id',
         builder: (context, state) => InvoiceScreen(invoiceId: int.parse(state.pathParameters['id']!)),
