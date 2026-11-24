@@ -11,6 +11,7 @@ import '../data/school_admin.dart';
 import '../data/school_models.dart';
 import '../data/school_repository.dart';
 import 'fees_screens.dart' show ClaimsScreen;
+import 'price_lists_screens.dart';
 import 'school_widgets.dart';
 
 /// Admin → Fees, like the web page: Invoices (create, select and send, send again, remind),
@@ -21,13 +22,15 @@ class AdminFeesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 5,
+      length: 7,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Fees'),
           bottom: const TabBar(isScrollable: true, tabAlignment: TabAlignment.start, tabs: [
             Tab(text: 'Invoices'),
             Tab(text: 'To confirm'),
+            Tab(text: 'Price lists'),
+            Tab(text: 'Deposits'),
             Tab(text: 'Fee items'),
             Tab(text: 'Add-ons'),
             Tab(text: 'Settings'),
@@ -36,6 +39,8 @@ class AdminFeesScreen extends StatelessWidget {
         body: const TabBarView(children: [
           _InvoicesTab(),
           ClaimsScreen(embedded: true),
+          PriceListsTab(),
+          DepositsTab(),
           _FeeItemsTab(),
           _AddOnsTab(),
           _SettingsTab(),

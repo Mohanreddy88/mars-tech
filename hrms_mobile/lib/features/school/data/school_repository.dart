@@ -296,6 +296,8 @@ class SchoolRepository {
 
   Future<Uint8List> invoicePdf(int id) => _bytes('school/fees/invoices/$id/pdf');
   Future<Uint8List> receiptPdf(int paymentId) => _bytes('school/fees/payments/$paymentId/receipt');
+  /// "Price & Terms" PDF of a price list (parents: the one in force).
+  Future<Uint8List> priceListPdf(int id) => _bytes('school/fees/price-lists/$id/pdf');
 }
 
 final schoolRepositoryProvider = Provider<SchoolRepository>((ref) => SchoolRepository(ref.watch(dioProvider)));

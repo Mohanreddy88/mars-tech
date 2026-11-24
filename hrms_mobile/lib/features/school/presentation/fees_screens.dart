@@ -7,7 +7,9 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/error_view.dart';
 import '../data/school_models.dart';
 import '../data/school_repository.dart';
+import '../data/price_lists.dart' show currentPriceListProvider;
 import 'fees_admin_screens.dart';
+import 'price_lists_screens.dart' show PriceTermsCard;
 import 'school_widgets.dart';
 
 String _due(String ymd) => ymd.isEmpty ? '' : DateFormat('d MMM yyyy').format(ymdToDate(ymd));
@@ -31,7 +33,10 @@ class ParentFeesScreen extends ConsumerWidget {
           final unpaid = f.invoices.where((i) => i.balance > 0).toList();
           final paid = f.invoices.where((i) => i.balance <= 0).toList();
           return RefreshIndicator(
-            onRefresh: () => ref.refresh(myFeesProvider.future),
+            onRefresh: () {
+              ref.invalidate(currentPriceListProvider);
+              return ref.refresh(myFeesProvider.future);
+            },
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -83,6 +88,9 @@ class ParentFeesScreen extends ConsumerWidget {
                   Text('Paid', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
                   for (final i in paid) _InvoiceTile(i: i),
                 ],
+                // This year's Price & Terms (from the school's price list)
+                const SizedBox(height: 16),
+                const PriceTermsCard(),
               ],
             ),
           );
