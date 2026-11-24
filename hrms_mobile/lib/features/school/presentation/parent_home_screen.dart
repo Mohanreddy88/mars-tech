@@ -10,8 +10,10 @@ import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/home_tiles.dart';
 import '../../assistant/presentation/assistant_screen.dart';
 import '../../notifications/presentation/notifications_screen.dart';
+import '../data/banners.dart';
 import '../data/school_models.dart';
 import '../data/school_repository.dart';
+import 'banner_carousel.dart';
 import 'messages_screens.dart';
 import 'school_widgets.dart';
 
@@ -69,6 +71,7 @@ class ParentHomeScreen extends ConsumerWidget {
               ref.invalidate(schoolUnreadProvider);
               ref.invalidate(_todayProvider(child.id));
               ref.invalidate(_feesDueProvider);
+              ref.invalidate(currentBannersProvider);
               ref.invalidate(schoolMeProvider);
               await ref.read(schoolMeProvider.future);
             },
@@ -77,6 +80,7 @@ class ParentHomeScreen extends ConsumerWidget {
               padding: const EdgeInsets.only(bottom: 24),
               children: [
                 _ChildHeader(child: child, all: me.children, school: me.school),
+                const BannerCarousel(),
                 const _Counters(),
                 const Divider(height: 1),
                 Padding(

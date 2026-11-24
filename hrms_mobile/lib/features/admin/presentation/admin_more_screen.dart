@@ -97,6 +97,7 @@ class AdminMoreScreen extends ConsumerWidget {
                     badge: unread),
                 HomeTile('Announce', Icons.campaign_outlined, TileColors.news, () => open(Routes.schoolAnnouncements)),
                 HomeTile('Fees', Icons.receipt_long_outlined, TileColors.fees, () => open(Routes.schoolFees), badge: claims),
+                HomeTile('Banners', Icons.view_carousel_outlined, TileColors.report, () => open(Routes.schoolBanners)),
               ]),
             ],
             const HomeSectionTitle('Attendance & leave'),

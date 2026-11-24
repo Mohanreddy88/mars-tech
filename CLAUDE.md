@@ -56,7 +56,7 @@ School features (per company, `CompanySettings.SchoolFeaturesEnabled`, endpoints
 classes, children, parents, announcements, parent ↔ teacher/office conversations (many per child, each with a subject;
 parents or staff start them, staff close them, a reply reopens), attendance (check-in/out, parents'
 absence/pickup notes), daily reports with photos, monthly fees (invoices, sibling discount, receipts, parents'
-"I've paid" claims confirmed by the office). School dates use Malaysia time (`SchoolClock`). Phone numbers are
+"I've paid" claims confirmed by the office), advert-style banners on the parent home (School → Banners, `BannersController`; button opens a parent page key or an https:// address). School dates use Malaysia time (`SchoolClock`). Phone numbers are
 stored as +60… (`PhoneNumbers`). The mobile app has the parent area and staff school screens. `Parent` logins are managed under
 School → Parents (hidden from Master → Users); class teachers are employees named on a class. Decide access with
 `SchoolViewer` (admin / class teacher / parent) loaded from the database, never from ids the client sends. Live

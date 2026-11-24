@@ -184,6 +184,7 @@ class _SchoolTiles extends ConsumerWidget {
       HomeTile('Pick-up people', Icons.how_to_reg_outlined, TileColors.note, () => open(Routes.schoolPickupPeople),
           badge: ref.watch(pendingPickupPeopleProvider).valueOrNull?.length ?? 0),
       HomeTile('Classes', Icons.class_outlined, TileColors.school, () => open(Routes.schoolClasses)),
+      HomeTile('Banners', Icons.view_carousel_outlined, TileColors.report, () => open(Routes.schoolBanners)),
     ]);
   }
 }
