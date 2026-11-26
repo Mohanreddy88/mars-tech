@@ -1,0 +1,56 @@
+<div class="day-chips" role="tablist">
+  @for (d of shownDays; track d.n) {
+    <button type="button" role="tab" [class.active]="day === d.n" [class.today]="week?.dayOfWeek === d.n" (click)="day = d.n; noting = null">
+      {{ d.short }}
+    </button>
+  }
+</div>
+
+@if (daySlots.length === 0) {
+  <div class="empty"><i class="bi bi-calendar-x"></i> No periods on this day.</div>
+} @else {
+  <ol class="periods">
+    @for (s of daySlots; track s.id) {
+      <li [class.now]="isNow(s)">
+        <div class="time">
+          <strong>{{ s.startTime }}</strong>
+          <span>{{ s.endTime }}</span>
+        </div>
+        <div class="body">
+          <div class="subject">
+            {{ s.subject }}
+            @if (isNow(s)) { <span class="now-pill">Now</span> }
+          </div>
+          <div class="meta">
+            @if (showClass) { <span><i class="bi bi-easel2"></i> {{ s.className }}</span> }
+            @if (s.teacherName) { <span><i class="bi bi-person"></i> {{ s.teacherName }}</span> }
+          </div>
+          @if (s.notes) { <div class="plan"><i class="bi bi-info-circle"></i> {{ s.notes }}</div> }
+
+          @if (isLogDay) {
+            @if (noting === s.id) {
+              <div class="note-edit">
+                <textarea rows="2" maxlength="1000" [(ngModel)]="noteText" placeholder="What did the children do / learn in this period?"></textarea>
+                <div class="d-flex gap-2 mt-1">
+                  <button class="btn btn-sm btn-primary" (click)="saveNote(s)" [disabled]="saving">
+                    @if (saving) { <span class="spinner-border spinner-border-sm me-1"></span> } Save
+                  </button>
+                  <button class="btn btn-sm btn-outline-secondary" (click)="noting = null">Cancel</button>
+                </div>
+              </div>
+            } @else if (s.log) {
+              <div class="covered">
+                <span class="label">What we covered</span>
+                <p>{{ s.log.note }}</p>
+                <span class="by">{{ s.log.updatedByName }}</span>
+                @if (s.canWriteLog) { <button class="btn btn-sm btn-link p-0" (click)="startNote(s)">Edit</button> }
+              </div>
+            } @else if (s.canWriteLog) {
+              <button class="btn btn-sm btn-outline-primary mt-1" (click)="startNote(s)"><i class="bi bi-pencil"></i> Add what we covered</button>
+            }
+          }
+        </div>
+      </li>
+    }
+  </ol>
+}

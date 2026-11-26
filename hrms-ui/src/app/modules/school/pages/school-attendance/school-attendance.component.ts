@@ -208,6 +208,9 @@ export class SchoolAttendanceComponent implements OnInit, OnDestroy {
   /** A parent said the child won't come (highlighted until the teacher marks the day). */
   hasAbsence(r: AttendanceRow): boolean { return r.notes.some(n => n.kind === 'Absence'); }
 
+  /** Check in / out / absent / undo: teachers only today, and not once the child is absent. */
+  canChange(r: AttendanceRow): boolean { return (this.data?.canEdit ?? true) && !r.locked; }
+
   seen(n: ParentNoteInfo): void {
     this.day.markNoteSeen(n.id).subscribe({ next: () => this.load(true), error: () => {} });
   }

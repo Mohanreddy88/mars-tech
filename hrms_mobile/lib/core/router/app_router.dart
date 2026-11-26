@@ -46,6 +46,10 @@ import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/school/presentation/admin_setup_screens.dart';
 import '../../features/school/presentation/families_screen.dart';
 import '../../features/school/presentation/pickup_people_screen.dart';
+import '../../features/school/presentation/stories_screens.dart';
+import '../../features/school/presentation/timetable_screen.dart';
+import '../../features/school/presentation/class_timetable_screen.dart';
+import '../../features/school/presentation/admin_timetable_screen.dart';
 import '../../features/school/presentation/announcements_screen.dart';
 import '../../features/school/presentation/child_day_screen.dart';
 import '../../features/assistant/presentation/assistant_screen.dart';
@@ -132,6 +136,10 @@ class Routes {
   static const schoolFamilies = '/school/families';
   static const schoolPickupPeople = '/school/pickup-people';
   static const schoolBanners = '/school/banners';
+  static const schoolStories = '/school/stories'; // staff and parents
+  static const schoolTimetable = '/school/timetable'; // ?student=ID (parents) or my timetable
+  static const schoolClassTimetable = '/school/class-timetable'; // class teachers set up their class's week
+  static const schoolAdminTimetable = '/school/admin-timetable'; // admins: weekly plan + daily record
 
   static const _employeeOnly = [dashboard, payslips, leave, attendance, profile,
       applyLeave, attendancePeriod, editProfile];
@@ -159,7 +167,7 @@ class Routes {
       isTab(location) ? router.go(location) : router.push(location);
 
   /// Pages a parent login may open.
-  static const _parentPages = [parentHome, schoolChat, schoolChild, notifications, changePassword, assistant];
+  static const _parentPages = [parentHome, schoolChat, schoolChild, schoolStories, schoolTimetable, notifications, changePassword, assistant];
   static const _adminSchool = [schoolFees, schoolInvoice, schoolClasses, schoolChildren, schoolParents, schoolFamilies, schoolPickupPeople, schoolBanners];
 
   /// The app screen for a page link from a notification (web paths, e.g. "/parent/fees",
@@ -185,6 +193,7 @@ class Routes {
     // Pick-up people: the office approves, the parent hears back
     if (uri.path == '/school/pickup-people') return s.isAdmin ? schoolPickupPeople : null;
     if (uri.path == '/parent/account') return s.isParent ? parentAccount : null;
+    if (uri.path == '/parent/stories' || uri.path == '/school/stories') return schoolStories;
     return null;
   }
 
@@ -279,6 +288,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.chatbotAdmin, builder: (context, state) => const ChatbotAdminScreen()),
       GoRoute(path: Routes.schoolMessages, builder: (context, state) => const ConversationsScreen()),
       GoRoute(path: Routes.schoolAnnouncements, builder: (context, state) => const AnnouncementsScreen()),
+      GoRoute(path: Routes.schoolStories, builder: (context, state) => const StoriesScreen()),
+      GoRoute(path: Routes.schoolClassTimetable, builder: (context, state) => const ClassTimetableScreen()),
+      GoRoute(path: Routes.schoolAdminTimetable, builder: (context, state) => const AdminTimetableScreen()),
+      GoRoute(
+        path: Routes.schoolTimetable,
+        builder: (context, state) => TimetableScreen(studentId: int.tryParse(state.uri.queryParameters['student'] ?? '')),
+      ),
       GoRoute(
         path: Routes.schoolAttendance,
         builder: (context, state) => SchoolAttendanceScreen(date: state.uri.queryParameters['date']),

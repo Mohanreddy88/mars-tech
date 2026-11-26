@@ -37,7 +37,7 @@ COPY deploy/start.sh /app/start.sh
 
 # Strip CRLF in case the script was saved on Windows; create uploads dir (volume mount point)
 RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh \
- && mkdir -p /app/api/wwwroot/uploads/profiles
+ && mkdir -p /app/api/wwwroot/uploads/profiles /app/api/media
 
 ENV ASPNETCORE_URLS=http://127.0.0.1:5000 \
     ASPNETCORE_ENVIRONMENT=Production \

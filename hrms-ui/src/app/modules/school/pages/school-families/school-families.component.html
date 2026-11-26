@@ -1,13 +1,11 @@
-<div class="school-page">
+<div class="school-page" [class.embedded]="embedded">
 
   <div class="page-header">
     <div>
-      <h3>Families</h3>
+      @if (!embedded) { <h3>Families</h3> }
       <p>Set the mother and father once for all their children. A half-brother or sister is a separate family that shares the parent.</p>
     </div>
     <div class="header-actions">
-      <a class="btn btn-outline-primary" routerLink="/school/parents"><i class="bi bi-people"></i> Parents</a>
-      <a class="btn btn-outline-primary" routerLink="/school/students"><i class="bi bi-emoji-smile"></i> Children</a>
       <button class="btn btn-primary" (click)="openCreate()"><i class="bi bi-plus-lg"></i> Add Family</button>
     </div>
   </div>
@@ -79,7 +77,7 @@
         <div class="form-grid">
           <div class="section-title">Parents</div>
           <div class="hint span-2" style="margin-top:-4px">Mother and father are required. For a single parent, tick "No … on record".
-            New parents are added under <a routerLink="/school/parents" (click)="showModal = false">School → Parents</a>.</div>
+            New parents are added under the <a routerLink="/school/registrations/parents" (click)="showModal = false">Parents</a> tab or with New registration.</div>
 
           <div class="form-group">
             <label for="fa-mother">Mother *</label>
@@ -135,7 +133,7 @@
               </select>
               <button class="btn btn-outline-primary" (click)="addChild()" [disabled]="!addChildId"><i class="bi bi-plus-lg"></i> Add</button>
             </div>
-            <div class="hint">New children are added under <a routerLink="/school/students" (click)="showModal = false">School → Children</a>.</div>
+            <div class="hint">New children are added with <strong>New registration</strong> or under the <a routerLink="/school/registrations/children" (click)="showModal = false">Children</a> tab.</div>
           </div>
         </div>
       </div>

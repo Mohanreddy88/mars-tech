@@ -51,17 +51,13 @@
               <i class="bi bi-easel2"></i>
               <span>Classes</span>
             </li>
-            <li routerLink="/school/students" routerLinkActive="active-submenu">
-              <i class="bi bi-emoji-smile"></i>
-              <span>Children</span>
+            <li routerLink="/school/timetable" routerLinkActive="active-submenu">
+              <i class="bi bi-clock-history"></i>
+              <span>Timetable</span>
             </li>
-            <li routerLink="/school/parents" routerLinkActive="active-submenu">
-              <i class="bi bi-people"></i>
-              <span>Parents</span>
-            </li>
-            <li routerLink="/school/families" routerLinkActive="active-submenu">
-              <i class="bi bi-diagram-3"></i>
-              <span>Families</span>
+            <li routerLink="/school/registrations" routerLinkActive="active-submenu">
+              <i class="bi bi-person-vcard"></i>
+              <span>Registrations</span>
             </li>
             <li routerLink="/school/pickup-people" routerLinkActive="active-submenu">
               <i class="bi bi-person-check"></i>
@@ -74,6 +70,10 @@
             <li routerLink="/school/announcements" routerLinkActive="active-submenu">
               <i class="bi bi-megaphone"></i>
               <span>Announcements</span>
+            </li>
+            <li routerLink="/school/stories" routerLinkActive="active-submenu">
+              <i class="bi bi-images"></i>
+              <span>Stories</span>
             </li>
             <li routerLink="/school/banners" routerLinkActive="active-submenu">
               <i class="bi bi-images"></i>
@@ -283,6 +283,10 @@
               <i class="bi bi-calendar2-check"></i>
               <span>Attendance &amp; Reports</span>
             </li>
+            <li routerLink="/school/timetable" routerLinkActive="active-submenu">
+              <i class="bi bi-calendar3-week"></i>
+              <span>Class Timetable</span>
+            </li>
             <li routerLink="/school/messages" routerLinkActive="active-submenu">
               <i class="bi bi-chat-dots"></i>
               <span>Messages</span>
@@ -292,8 +296,19 @@
               <i class="bi bi-megaphone"></i>
               <span>Announcements</span>
             </li>
+            <li routerLink="/school/stories" routerLinkActive="active-submenu">
+              <i class="bi bi-images"></i>
+              <span>Stories</span>
+            </li>
           </ul>
         }
+      }
+
+      @if (school) {
+        <li routerLink="/school/my-timetable" routerLinkActive="active-menu">
+          <i class="bi bi-clock-history"></i>
+          <span>My Timetable</span>
+        </li>
       }
 
       <!-- 2. My Profile -->
@@ -343,6 +358,10 @@
         <i class="bi bi-megaphone-fill"></i>
         <span>Announcements</span>
         @if (unreadAnnouncements > 0) { <span class="pending-badge">{{ unreadAnnouncements }}</span> }
+      </li>
+      <li routerLink="/parent/stories" routerLinkActive="active-menu">
+        <i class="bi bi-images"></i>
+        <span>Stories</span>
       </li>
       <li routerLink="/parent/fees" routerLinkActive="active-menu">
         <i class="bi bi-cash-coin"></i>

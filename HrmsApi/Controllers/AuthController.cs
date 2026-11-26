@@ -46,7 +46,7 @@ public class AuthController : ControllerBase
         // elsewhere is signed out on its next request.
         user.CurrentSessionId = Guid.NewGuid().ToString("N");
         // The refresh token belongs to this session: issuing it replaces any older device's token.
-        var (refreshToken, refreshExpiresAt) = _tokenService.IssueRefreshToken(user);
+        var (refreshToken, refreshExpiresAt) = _tokenService.IssueRefreshToken(user, IsMobileApp);
         await _db.SaveChangesAsync();
 
         return Ok(await SessionResponseAsync(user, refreshToken, refreshExpiresAt));
@@ -68,7 +68,7 @@ public class AuthController : ControllerBase
             || user.RefreshTokenExpiresAt <= DateTime.UtcNow)
             throw new UnauthorizedAccessException("Your session has expired. Please sign in again.");
 
-        var (refreshToken, refreshExpiresAt) = _tokenService.IssueRefreshToken(user);
+        var (refreshToken, refreshExpiresAt) = _tokenService.IssueRefreshToken(user, IsMobileApp);
         await _db.SaveChangesAsync();
 
         return Ok(await SessionResponseAsync(user, refreshToken, refreshExpiresAt));
@@ -96,6 +96,10 @@ public class AuthController : ControllerBase
         }
         return NoContent();
     }
+
+    /// <summary>The Mars HRMS mobile app sends <c>X-Client: mobile</c>; its sessions last longer than the web's.</summary>
+    private bool IsMobileApp =>
+        string.Equals(Request.Headers["X-Client"].ToString(), "mobile", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Access token for the user's current session plus the login details the apps need.</summary>
     private async Task<LoginResponse> SessionResponseAsync(User user, string refreshToken, DateTime refreshExpiresAt)

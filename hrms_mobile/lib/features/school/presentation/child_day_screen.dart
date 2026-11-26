@@ -358,7 +358,7 @@ class _AttendanceCard extends StatelessWidget {
               ),
               child: Text(
                 'Note: ${n.isAbsence ? 'absent' : '${n.pickupName} picks up${n.pickupTime != null ? ' at ${n.pickupTime}' : ''}'}'
-                '${n.seenByName != null ? ' · seen by ${n.seenByName}' : ''}',
+                '${n.seenByName != null ? ' · ${n.isAbsence ? 'approved' : 'seen'} by ${n.seenByName}' : ''}',
               ),
             ),
         ]),
@@ -468,7 +468,7 @@ class _MyNotes extends ConsumerWidget {
                 : '${n.pickupName} picks up · ${noteWhen(n)}${n.pickupTime != null ? ' at ${n.pickupTime}' : ''}'),
             subtitle: Text([
               if (n.message != null) n.message!,
-              n.cancelled ? 'Withdrawn' : (n.seenByName != null ? 'Seen by ${n.seenByName}' : 'Sent'),
+              n.cancelled ? 'Withdrawn' : (n.seenByName != null ? '${n.isAbsence ? 'Approved' : 'Seen'} by ${n.seenByName}' : 'Sent'),
             ].join('\n')),
             trailing: canWithdraw
                 ? TextButton(

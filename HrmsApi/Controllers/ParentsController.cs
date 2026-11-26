@@ -36,7 +36,7 @@ public class ParentsController : ControllerBase
             .OrderBy(p => p.FullName)
             .Select(p => new
             {
-                p.Id, p.FullName, p.Email, p.Phone, p.Relationship, p.IsActive, p.CreatedAt,
+                p.Id, p.FullName, p.Email, p.Phone, p.Relationship, p.IsActive, p.CreatedAt, p.PhotoUpdatedAt,
                 hasLogin    = p.UserId != null,
                 username    = p.User != null ? p.User.Username : null,
                 loginActive = p.User != null && p.User.IsActive,

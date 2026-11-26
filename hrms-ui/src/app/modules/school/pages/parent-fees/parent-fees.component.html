@@ -8,7 +8,15 @@
     </div>
   </div>
 
-  @if (loading) {
+  <div class="tabs">
+    <button [class.active]="tab === 'invoices'" (click)="tab = 'invoices'"><i class="bi bi-receipt"></i> My invoices</button>
+    <button [class.active]="tab === 'terms'" (click)="tab = 'terms'"><i class="bi bi-card-list"></i> Fees &amp; terms</button>
+  </div>
+
+  @if (tab === 'terms') {
+    <!-- This year's Price & Terms (from the school's price list) -->
+    <app-price-terms />
+  } @else if (loading) {
     <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
   } @else {
     <div class="due-card" [class.clear]="outstanding <= 0">
@@ -31,6 +39,16 @@
         <i class="bi bi-receipt"></i>
         <h5>No invoices yet</h5>
         <p>The school's invoices appear here.</p>
+      </div>
+    } @else {
+      <div class="filter-chips" role="group" aria-label="Show invoices">
+        @for (f of filters; track f.key) {
+          @if (f.key === 'all' || count(f.key) > 0) {
+            <button type="button" [class.active]="filter === f.key" (click)="filter = f.key">
+              {{ f.label }} <span>{{ count(f.key) }}</span>
+            </button>
+          }
+        }
       </div>
     }
 
@@ -98,9 +116,6 @@
       }
     }
   }
-
-  <!-- This year's Price & Terms (from the school's price list) -->
-  <app-price-terms />
 </div>
 
 @if (paying) {

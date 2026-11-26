@@ -263,6 +263,7 @@ builder.Services.AddScoped<ITimesheetService, TimesheetService>();
 builder.Services.AddScoped<ILeaveService, LeaveService>();
 builder.Services.AddScoped<IPayrollCalculationService, PayrollCalculationService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
+builder.Services.AddScoped<IMediaStore, MediaStore>();   // class story photos / videos on disk (media volume)
 builder.Services.AddScoped<ICompanySettingsService, CompanySettingsService>();
 builder.Services.AddSingleton<IPushService, PushService>();   // off until Firebase credentials are configured
 builder.Services.AddSingleton<IAssistantAi, AssistantAi>();   // AI chatbot answers: off until ANTHROPIC_API_KEY is set

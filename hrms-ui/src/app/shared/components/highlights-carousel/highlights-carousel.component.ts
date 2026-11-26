@@ -28,7 +28,7 @@ const PAGES: Record<string, string> = {
   'chatbot': '/master/chatbot',
   'holidays': '/master/public-holidays',
   'employees': '/employees',
-  'school-children': '/school/students'
+  'school-children': '/school/registrations/children'
 };
 
 const ICONS: Record<string, string> = {

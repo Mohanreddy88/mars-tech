@@ -3,9 +3,15 @@ import { CommonModule } from '@angular/common';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { PHONE_COUNTRIES, phoneCountryName, MALAYSIA, splitPhone, formatNational, phoneProblem } from '../../phone';
 
+/** The number as shown in the box next to the country code: no leading 0 (+60 already says Malaysia). */
+const inBox = (country: string, national: string) => {
+  const s = formatNational(country, national);
+  return country === MALAYSIA && s.startsWith('0') ? s.substring(1) : s;
+};
+
 /**
- * Phone box with a country picker (Malaysia by default). Shows the number in the local format
- * while typing (012-345 6789) and gives the form the stored form (+60123456789).
+ * Phone box with a country picker (Malaysia by default). Shows the number after the code without
+ * its leading 0 (+60 | 12-345 6789) and gives the form the stored form (+60123456789).
  * Use with [(ngModel)]; the API checks the number again.
  */
 @Component({
@@ -20,7 +26,7 @@ import { PHONE_COUNTRIES, phoneCountryName, MALAYSIA, splitPhone, formatNational
         @for (c of countries; track c.code) { <option [value]="c.code">{{ c.label }}</option> }
       </select>
       <input type="tel" [id]="inputId" [value]="display" (input)="onType($any($event.target))" (blur)="onBlur()"
-             [placeholder]="country === malaysia ? '012-345 6789' : 'Phone number'" [disabled]="disabled"
+             [placeholder]="country === malaysia ? '12-345 6789' : 'Phone number'" [disabled]="disabled"
              inputmode="tel" autocomplete="tel-national" maxlength="20" />
     </div>
     @if (showHint && showProblem && problem) { <div class="phone-problem">{{ problem }}</div> }
@@ -74,7 +80,7 @@ export class PhoneInputComponent implements ControlValueAccessor {
     const { country, national } = splitPhone(value);
     this.country = country || MALAYSIA;
     this.national = national;
-    this.display = formatNational(this.country, national);
+    this.display = inBox(this.country, national);
     this.showProblem = !!national;          // an old, badly typed number is pointed out straight away
     this.cdr.markForCheck();
   }
@@ -85,7 +91,7 @@ export class PhoneInputComponent implements ControlValueAccessor {
 
   setCountry(code: string): void {
     this.country = code;
-    this.display = formatNational(code, this.national);
+    this.display = inBox(code, this.national);
     this.emit();
   }
 
@@ -98,8 +104,8 @@ export class PhoneInputComponent implements ControlValueAccessor {
     }
     // Malaysia: the leading 0 of 012… is not stored (+60 12…)
     this.national = this.country === MALAYSIA && digits.startsWith('0') ? digits.substring(1) : digits;
-    // A lone "0" (start of 012…) stays visible
-    this.display = this.national ? formatNational(this.country, this.national) : digits.startsWith('0') ? '0' : '';
+    // A typed or pasted 0 (012…) is dropped: the +60 box already stands for it
+    this.display = inBox(this.country, this.national);
     el.value = this.display;              // keep the caret at the end while formatting
     this.emit();
   }

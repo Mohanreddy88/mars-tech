@@ -23,3 +23,6 @@ hrms-ui/build-output.txt
 hrms-ui/build_errors.txt
 hrms-ui/errors.txt
 HrmsApi/$null
+
+# Local class story photos / videos (API media folder)
+HrmsApi/media/

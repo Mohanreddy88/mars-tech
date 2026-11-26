@@ -26,12 +26,16 @@ public class TokenService
     }
 
     /// <summary>
-    /// New refresh token for the user's current session (Jwt:RefreshDays, default 30). Only its
+    /// New refresh token for the user's current session — web: Jwt:RefreshDays (default 30); the mobile
+    /// app: Jwt:MobileRefreshDays (default 180). Renewed on every refresh, so a user who opens the app
+    /// at least once in that window stays signed in until they log out. Only its
     /// SHA-256 is stored on the user, replacing any previous one; the caller saves the change.
     /// </summary>
-    public (string token, DateTime expiresAt) IssueRefreshToken(User user)
+    public (string token, DateTime expiresAt) IssueRefreshToken(User user, bool mobile = false)
     {
-        var days      = int.TryParse(_config["Jwt:RefreshDays"], out var d) && d > 0 ? d : 30;
+        var days      = mobile
+            ? (int.TryParse(_config["Jwt:MobileRefreshDays"], out var md) && md > 0 ? md : 180)
+            : (int.TryParse(_config["Jwt:RefreshDays"], out var d) && d > 0 ? d : 30);
         var token     = Base64UrlEncoder.Encode(RandomNumberGenerator.GetBytes(32));
         var expiresAt = DateTime.UtcNow.AddDays(days);
         user.RefreshTokenHash      = HashRefreshToken(token);

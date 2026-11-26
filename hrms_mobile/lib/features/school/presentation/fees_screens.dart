@@ -14,32 +14,92 @@ import 'school_widgets.dart';
 
 String _due(String ymd) => ymd.isEmpty ? '' : DateFormat('d MMM yyyy').format(ymdToDate(ymd));
 
-/// Parent → Fees: what's still to pay, how to pay, each invoice with its receipts.
-class ParentFeesScreen extends ConsumerWidget {
+/// Parent → Fees: two tabs — "My invoices" (what's still to pay, how to pay, each invoice with
+/// its receipts and payment reports) and "Fees & terms" (this year's price list).
+class ParentFeesScreen extends StatelessWidget {
   const ParentFeesScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Fees'),
+          bottom: const TabBar(tabs: [Tab(text: 'My invoices'), Tab(text: 'Fees & terms')]),
+        ),
+        body: const TabBarView(children: [_ParentInvoicesTab(), _PriceTermsTab()]),
+      ),
+    );
+  }
+}
+
+class _PriceTermsTab extends ConsumerWidget {
+  const _PriceTermsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => RefreshIndicator(
+        onRefresh: () async => ref.invalidate(currentPriceListProvider),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          children: const [PriceTermsCard()],
+        ),
+      );
+}
+
+enum _InvFilter { all, toPay, waiting, rejected, paid }
+
+extension on _InvFilter {
+  String get label => switch (this) {
+        _InvFilter.all => 'All',
+        _InvFilter.toPay => 'To pay',
+        _InvFilter.waiting => 'Waiting for school',
+        _InvFilter.rejected => 'Not confirmed',
+        _InvFilter.paid => 'Paid',
+      };
+
+  bool matches(Invoice i) => switch (this) {
+        _InvFilter.all => true,
+        _InvFilter.toPay => i.balance > 0 && i.waitingClaim == null,
+        _InvFilter.waiting => i.waitingClaim != null,
+        _InvFilter.rejected => i.rejectedClaim != null,
+        _InvFilter.paid => i.balance <= 0,
+      };
+}
+
+class _ParentInvoicesTab extends ConsumerStatefulWidget {
+  const _ParentInvoicesTab();
+
+  @override
+  ConsumerState<_ParentInvoicesTab> createState() => _ParentInvoicesTabState();
+}
+
+class _ParentInvoicesTabState extends ConsumerState<_ParentInvoicesTab> with AutomaticKeepAliveClientMixin {
+  _InvFilter _filter = _InvFilter.all;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
     final fees = ref.watch(myFeesProvider);
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Fees')),
-      body: fees.when(
+    return fees.when(
         skipLoadingOnRefresh: true,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(myFeesProvider)),
         data: (f) {
-          final unpaid = f.invoices.where((i) => i.balance > 0).toList();
-          final paid = f.invoices.where((i) => i.balance <= 0).toList();
+          final shown = f.invoices.where(_filter.matches).toList();
+          final unpaid = shown.where((i) => i.balance > 0).toList();
+          final paid = shown.where((i) => i.balance <= 0).toList();
           return RefreshIndicator(
-            onRefresh: () {
-              ref.invalidate(currentPriceListProvider);
-              return ref.refresh(myFeesProvider.future);
-            },
+            onRefresh: () => ref.refresh(myFeesProvider.future),
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               children: [
                 Container(
                   padding: const EdgeInsets.all(18),
@@ -78,6 +138,24 @@ class ParentFeesScreen extends ConsumerWidget {
                 ],
                 if (f.invoices.isEmpty)
                   const Padding(padding: EdgeInsets.all(40), child: Center(child: Text('No invoices yet.'))),
+                if (f.invoices.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(children: [
+                      for (final k in _InvFilter.values)
+                        if (k == _InvFilter.all || f.invoices.any(k.matches))
+                          Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: ChoiceChip(
+                              label: Text('${k.label} ${f.invoices.where(k.matches).length}'),
+                              selected: _filter == k,
+                              onSelected: (_) => setState(() => _filter = k),
+                            ),
+                          ),
+                    ]),
+                  ),
+                ],
                 if (unpaid.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   Text('To pay', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
@@ -88,14 +166,10 @@ class ParentFeesScreen extends ConsumerWidget {
                   Text('Paid', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
                   for (final i in paid) _InvoiceTile(i: i),
                 ],
-                // This year's Price & Terms (from the school's price list)
-                const SizedBox(height: 16),
-                const PriceTermsCard(),
               ],
             ),
           );
         },
-      ),
     );
   }
 }

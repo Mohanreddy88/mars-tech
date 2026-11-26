@@ -62,6 +62,8 @@ class _InvoicesTab extends ConsumerStatefulWidget {
 class _InvoicesTabState extends ConsumerState<_InvoicesTab> with AutomaticKeepAliveClientMixin {
   late DateTime _month = DateTime(ymdToDate(schoolToday()).year, ymdToDate(schoolToday()).month);
   String? _status;
+  /// null = all, true = sent to parents, false = not sent yet (filters the loaded list).
+  bool? _sentFilter;
   int? _classId;
   List<ClassItem> _classes = [];
   final Set<int> _selected = {};
@@ -144,6 +146,8 @@ class _InvoicesTabState extends ConsumerState<_InvoicesTab> with AutomaticKeepAl
       builder: (context, snap) {
         final m = snap.data;
         final notSent = m?.invoices.where((i) => !i.sent && i.status != 'Void').length ?? 0;
+        final shown = m?.invoices.where((i) => _sentFilter == null
+                || (_sentFilter! ? i.sent : !i.sent && i.status != 'Void')).toList() ?? const [];
         return Scaffold(
           floatingActionButton: _selected.isNotEmpty
               ? FloatingActionButton.extended(
@@ -175,6 +179,21 @@ class _InvoicesTabState extends ConsumerState<_InvoicesTab> with AutomaticKeepAl
                           label: Text(switch (s) { null => 'All', 'Partial' => 'Part paid', 'ToConfirm' => 'To confirm', _ => s }),
                           selected: _status == s,
                           onSelected: (_) { _status = s; _reload(); },
+                        ),
+                      ),
+                  ]),
+                ),
+                const SizedBox(height: 4),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(children: [
+                    for (final s in [null, true, false])
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ChoiceChip(
+                          label: Text(switch (s) { null => 'Sent & not sent', true => 'Sent', false => 'Not sent yet${notSent > 0 ? ' ($notSent)' : ''}' }),
+                          selected: _sentFilter == s,
+                          onSelected: (_) => setState(() => _sentFilter = s),
                         ),
                       ),
                   ]),
@@ -211,8 +230,10 @@ class _InvoicesTabState extends ConsumerState<_InvoicesTab> with AutomaticKeepAl
                     _Stat('Outstanding', Fmt.money(m.outstanding), '${m.overdue} overdue'),
                   ]),
                   if (m.invoices.isEmpty)
-                    const Padding(padding: EdgeInsets.all(32), child: Text('No invoices here. Use "Create invoices" for this month.', textAlign: TextAlign.center)),
-                  for (final i in m.invoices)
+                    const Padding(padding: EdgeInsets.all(32), child: Text('No invoices here. Use "Create invoices" for this month.', textAlign: TextAlign.center))
+                  else if (shown.isEmpty)
+                    const Padding(padding: EdgeInsets.all(32), child: Text('No invoices match this filter.', textAlign: TextAlign.center)),
+                  for (final i in shown)
                     Card(
                       margin: const EdgeInsets.only(bottom: 6),
                       child: ListTile(
@@ -229,11 +250,18 @@ class _InvoicesTabState extends ConsumerState<_InvoicesTab> with AutomaticKeepAl
                         },
                         title: Text(i.studentName, style: const TextStyle(fontWeight: FontWeight.w600)),
                         subtitle: Text('${i.invoiceNo} · ${i.className ?? 'No class'}'
-                            '${i.sent ? '' : ' · not sent'}${i.pendingClaim ? ' · paid? confirm' : ''}'),
+                            '${i.pendingClaim ? ' · paid? confirm' : ''}'),
                         trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
                           Text(Fmt.money(i.balance > 0 ? i.balance : i.total), style: const TextStyle(fontWeight: FontWeight.w700)),
                           const SizedBox(height: 2),
-                          Pill(i.statusLabel, tone: invoiceTone(i)),
+                          Row(mainAxisSize: MainAxisSize.min, children: [
+                            if (i.status != 'Void')
+                              Padding(
+                                padding: const EdgeInsets.only(right: 4),
+                                child: Pill(i.sent ? 'Sent' : 'Not sent', tone: i.sent ? PillTone.info : PillTone.warn),
+                              ),
+                            Pill(i.statusLabel, tone: invoiceTone(i)),
+                          ]),
                         ]),
                       ),
                     ),

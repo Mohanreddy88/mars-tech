@@ -79,6 +79,7 @@ public class SchoolDayController : ControllerBase
         {
             var a = attendance.FirstOrDefault(x => x.StudentId == k.Id);
             var r = reports.FirstOrDefault(x => x.StudentId == k.Id);
+            var approvedAbsence = notes.Any(n => n.StudentId == k.Id && n.Kind == ParentNote.Absence && n.CancelledAt == null && n.SeenAt != null);
             return new
             {
                 studentId = k.Id, k.FullName, k.ClassId, k.className, k.SessionType, k.MedicalNotes,
@@ -88,7 +89,9 @@ public class SchoolDayController : ControllerBase
                 })).ToList(),
                 attendance = a == null ? null : AttendanceDto(a),
                 notes = notes.Where(n => n.StudentId == k.Id).Select(NoteDto).ToList(),
-                report = r == null ? null : new { published = r.PublishedAt != null, r.photos, r.Mood }
+                report = r == null ? null : new { published = r.PublishedAt != null, r.photos, r.Mood },
+                // Teachers can't check in / out a child who is absent (staff-marked or parent-reported and approved)
+                locked = !me.IsAdmin && (approvedAbsence || (a != null && a.Status == StudentAttendance.Absent && !a.AutoAbsent))
             };
         }).ToList();
 
@@ -96,6 +99,8 @@ public class SchoolDayController : ControllerBase
         {
             date = day.ToString("yyyy-MM-dd"),
             today = SchoolClock.Today.ToString("yyyy-MM-dd"),
+            // Teachers change only today's attendance; admins any day
+            canEdit = me.IsAdmin || day == SchoolClock.Today,
             // Check-out suggests the session's end time; "late after" / "absent after" for the list
             times = (await SchoolTimes.LoadAsync(_db)).ToDto(),
             rows,
@@ -120,6 +125,7 @@ public class SchoolDayController : ControllerBase
         if (error != null) return error;
         var (day, at, problem) = DayAndTime(req.Date, req.Time);
         if (problem != null) return BadRequest(new { message = problem });
+        if (await TeacherLockAsync(me!, child!, day) is { } locked) return BadRequest(new { message = locked });
 
         var a = await RecordAsync(studentId, day);
         a.Status        = StudentAttendance.Present;
@@ -148,6 +154,7 @@ public class SchoolDayController : ControllerBase
         if (error != null) return error;
         var (day, at, problem) = DayAndTime(req.Date, req.Time);
         if (problem != null) return BadRequest(new { message = problem });
+        if (await TeacherLockAsync(me!, child!, day) is { } locked) return BadRequest(new { message = locked });
         var by = req.PickedUpBy?.Trim();
         if (string.IsNullOrEmpty(by)) return BadRequest(new { message = "Who picked the child up?", field = "pickedUpBy" });
 
@@ -177,6 +184,7 @@ public class SchoolDayController : ControllerBase
         if (error != null) return error;
         var (day, _, problem) = DayAndTime(req.Date, null);
         if (problem != null) return BadRequest(new { message = problem });
+        if (await TeacherLockAsync(me!, child!, day, changingAbsence: true) is { } locked) return BadRequest(new { message = locked });
 
         var a = await RecordAsync(studentId, day);
         a.Status        = StudentAttendance.Absent;
@@ -192,9 +200,10 @@ public class SchoolDayController : ControllerBase
     [HttpDelete("attendance/{studentId:int}")]
     public async Task<IActionResult> ClearAttendance(int studentId, [FromQuery] DateTime? date)
     {
-        var (_, _, error) = await StaffChildAsync(studentId);
+        var (me, child, error) = await StaffChildAsync(studentId);
         if (error != null) return error;
         var day = (date ?? SchoolClock.Today).Date;
+        if (await TeacherLockAsync(me!, child!, day) is { } locked) return BadRequest(new { message = locked });
         var a = await _db.StudentAttendance.FirstOrDefaultAsync(x => x.StudentId == studentId && x.Date == day);
         if (a != null) { _db.StudentAttendance.Remove(a); await _db.SaveChangesAsync(); }
         return NoContent();
@@ -306,6 +315,21 @@ public class SchoolDayController : ControllerBase
         {
             note.SeenAt = DateTime.UtcNow;
             note.SeenByName = me.Name;
+            // Approving an absence that covers today marks the child absent now (unless already checked in);
+            // later days are marked by the school-day automation, and teachers can't check the child in.
+            var today = SchoolClock.Today;
+            if (note.Kind == ParentNote.Absence && note.CancelledAt == null && note.FromDate <= today && note.ToDate >= today)
+            {
+                var a = await RecordAsync(note.StudentId, today);
+                if (!(a.Status == StudentAttendance.Present && a.CheckInAt != null))
+                {
+                    a.Status = StudentAttendance.Absent;
+                    a.AbsenceReason = "Reported by parent" + (note.Message != null ? $": {note.Message}" : "");
+                    a.CheckInAt = null; a.CheckInBy = null; a.CheckOutAt = null; a.CheckOutBy = null; a.PickedUpBy = null;
+                    a.IsLate = false; a.AutoAbsent = false; a.AutoCheckOut = false;
+                    a.UpdatedAt = DateTime.UtcNow;
+                }
+            }
             await _db.SaveChangesAsync();
             var parents = await SchoolParticipants.ParentUserIdsAsync(_db, note.StudentId);
             await _live.SendAsync(parents, "note", new { note.Id, note.StudentId });
@@ -524,6 +548,28 @@ public class SchoolDayController : ControllerBase
     }
 
     /// <summary>The signed-in staff member and the child, or the error to return.</summary>
+    /// <summary>
+    /// Teachers may change only today's attendance, and not check a child in or out once the child is
+    /// absent — marked absent by staff, or reported absent by a parent and approved by the school.
+    /// (An automatic "not checked in by …" absence can still be undone by a late arrival.) Admins may
+    /// correct any day. Returns the reason it is refused, or null.
+    /// </summary>
+    private async Task<string?> TeacherLockAsync(SchoolViewer me, Student child, DateTime day, bool changingAbsence = false)
+    {
+        if (me.IsAdmin) return null;
+        if (day != SchoolClock.Today)
+            return "Teachers can change only today's attendance. Ask the office to correct an earlier day.";
+        if (changingAbsence) return null;
+        var a = await _db.StudentAttendance.AsNoTracking().FirstOrDefaultAsync(x => x.StudentId == child.Id && x.Date == day);
+        var approved = await _db.ParentNotes.AsNoTracking().AnyAsync(n => n.StudentId == child.Id && n.Kind == ParentNote.Absence
+            && n.CancelledAt == null && n.SeenAt != null && n.FromDate <= day && n.ToDate >= day);
+        if (approved)
+            return $"{child.FullName} is reported absent by the parent today (approved). Ask the office if this is a mistake.";
+        if (a != null && a.Status == StudentAttendance.Absent && !a.AutoAbsent)
+            return $"{child.FullName} is marked absent today. Ask the office if this is a mistake.";
+        return null;
+    }
+
     private async Task<(SchoolViewer? me, Student? child, IActionResult? error)> StaffChildAsync(int studentId)
     {
         var me = await SchoolViewer.LoadAsync(_db, User);

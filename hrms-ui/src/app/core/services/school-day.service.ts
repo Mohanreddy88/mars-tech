@@ -49,11 +49,15 @@ export interface AttendanceRow {
   attendance: AttendanceInfo | null;
   notes: ParentNoteInfo[];
   report: { published: boolean; photos: number; mood: string | null } | null;
+  /** Teachers can't check this child in / out: absent (staff-marked, or parent-reported and approved). */
+  locked?: boolean;
 }
 
 export interface AttendanceDay {
   date: string;
   today: string;
+  /** Teachers change only today's attendance; admins any day. */
+  canEdit?: boolean;
   rows: AttendanceRow[];
   summary: { total: number; present: number; checkedOut: number; absent: number; notMarked: number; reportsPublished: number; late?: number };
   /** School timings ("HH:mm"): check-out suggests the session's end. */

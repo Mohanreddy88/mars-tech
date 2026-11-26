@@ -19,7 +19,8 @@ final dioProvider = Provider<Dio>((ref) {
       baseUrl: ref.watch(apiBaseUrlProvider),
       connectTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 30),
-      headers: {'Accept': 'application/json'},
+      // X-Client: mobile → the API gives the app a long sign-in (Jwt:MobileRefreshDays).
+      headers: {'Accept': 'application/json', 'X-Client': 'mobile'},
     ),
   );
 

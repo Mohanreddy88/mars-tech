@@ -9,6 +9,8 @@ import { schoolToday } from '../../../../core/services/school-day.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { PriceTermsComponent } from '../../components/price-terms/price-terms.component';
 
+type InvoiceFilter = 'all' | 'topay' | 'waiting' | 'rejected' | 'paid';
+
 /** Parent portal → Fees: my children's invoices, what's still to pay, receipts. */
 @Component({
   selector: 'app-parent-fees',
@@ -42,8 +44,33 @@ export class ParentFeesComponent implements OnInit, OnDestroy {
   loading = true;
   open = new Set<number>();
 
-  get unpaid(): InvoiceDetail[] { return this.invoices.filter(i => i.balance > 0); }
-  get paid(): InvoiceDetail[] { return this.invoices.filter(i => i.balance <= 0); }
+  /** Invoices tab or the school's price list (Fees & terms). */
+  tab: 'invoices' | 'terms' = 'invoices';
+  /** Invoice filter chips. */
+  filter: InvoiceFilter = 'all';
+  readonly filters: { key: InvoiceFilter; label: string }[] = [
+    { key: 'all', label: 'All' },
+    { key: 'topay', label: 'To pay' },
+    { key: 'waiting', label: 'Waiting for school' },
+    { key: 'rejected', label: 'Not confirmed' },
+    { key: 'paid', label: 'Paid' },
+  ];
+
+  count(f: InvoiceFilter): number { return this.invoices.filter(i => this.matches(i, f)).length; }
+
+  private matches(i: InvoiceDetail, f: InvoiceFilter): boolean {
+    switch (f) {
+      case 'topay': return i.balance > 0 && !this.pendingClaim(i);
+      case 'waiting': return !!this.pendingClaim(i);
+      case 'rejected': return !!this.rejectedClaim(i);
+      case 'paid': return i.balance <= 0;
+      default: return true;
+    }
+  }
+
+  private get shown(): InvoiceDetail[] { return this.invoices.filter(i => this.matches(i, this.filter)); }
+  get unpaid(): InvoiceDetail[] { return this.shown.filter(i => i.balance > 0); }
+  get paid(): InvoiceDetail[] { return this.shown.filter(i => i.balance <= 0); }
 
   ngOnInit(): void {
     this.subs.add(this.school.liveFees$.subscribe(() => this.load(true)));

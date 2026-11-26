@@ -47,6 +47,11 @@
         <option value="ToConfirm">Payment to confirm</option>
         <option value="Void">Void</option>
       </select>
+      <select [(ngModel)]="sentFilter" aria-label="Sent to parents">
+        <option value="">Sent &amp; not sent</option>
+        <option value="sent">Sent to parents</option>
+        <option value="unsent">Not sent yet</option>
+      </select>
       <select [(ngModel)]="classId" (ngModelChange)="loadInvoices()" aria-label="Class">
         <option [ngValue]="null">All classes</option>
         @for (c of classes; track c.id) { <option [ngValue]="c.id">{{ c.name }}</option> }
@@ -80,6 +85,11 @@
         <div class="stat"><span>Billed</span><strong>{{ rm(summary.billed) }}</strong><small>{{ summary.count }} invoices</small></div>
         <div class="stat ok"><span>Collected</span><strong>{{ rm(summary.collected) }}</strong><small>{{ summary.paid }} fully paid</small></div>
         <div class="stat warn"><span>Outstanding</span><strong>{{ rm(summary.outstanding) }}</strong><small>{{ summary.overdue }} overdue</small></div>
+        @if (summary.notSent > 0) {
+          <button type="button" class="stat warn stat-link" (click)="showUnsent()" title="Show only these">
+            <span>Not sent yet</span><strong>{{ summary.notSent }}</strong><small>parents can't see them</small>
+          </button>
+        }
         @if (summary.childrenWithoutInvoice > 0) {
           <div class="stat muted"><span>No invoice yet</span><strong>{{ summary.childrenWithoutInvoice }}</strong><small>active children</small></div>
         }
@@ -88,6 +98,12 @@
 
     @if (loading) {
       <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+    } @else if (invoices.length > 0 && shownInvoices.length === 0) {
+      <div class="table-card empty-state">
+        <i class="bi bi-funnel"></i>
+        <h5>No invoices match these filters</h5>
+        <button class="btn btn-outline-secondary" (click)="sentFilter = ''; search = ''">Show all</button>
+      </div>
     } @else if (invoices.length === 0) {
       <div class="table-card empty-state">
         <i class="bi bi-receipt"></i>
@@ -110,6 +126,7 @@
               <th class="text-end">Paid</th>
               <th class="text-end">Balance</th>
               <th>Due</th>
+              <th>Sent</th>
               <th>Status</th>
               <th></th>
             </tr>
@@ -126,8 +143,6 @@
                 <td>
                   <strong>{{ i.invoiceNo }}</strong>
                   <div>
-                    @if (!i.sentAt && i.status !== 'Void') { <span class="tag muted">Not sent</span> }
-                    @else if (i.sendCount > 1) { <span class="tag muted" [title]="'Last sent ' + (i.lastSentAt | date: 'd MMM, h:mm a')">Sent {{ i.sendCount }}×</span> }
                     @if (i.pendingClaim) { <span class="tag warn" title="A parent reported paying; check and confirm">Paid? confirm</span> }
                   </div>
                 </td>
@@ -136,6 +151,15 @@
                 <td class="text-end">{{ rm(i.amountPaid) }}</td>
                 <td class="text-end"><strong>{{ rm(i.balance) }}</strong></td>
                 <td>{{ i.dueDate | date: 'd MMM' }}</td>
+                <td>
+                  @if (i.sentAt) {
+                    <span class="tag ok" [title]="'Last sent ' + (i.lastSentAt ?? i.sentAt | date: 'd MMM, h:mm a')">
+                      <i class="bi bi-check2"></i> {{ i.sentAt | date: 'd MMM' }}@if (i.sendCount > 1) { · {{ i.sendCount }}× }
+                    </span>
+                  } @else if (i.status !== 'Void') {
+                    <span class="tag warn">Not sent</span>
+                  } @else { <span class="cell-sub">—</span> }
+                </td>
                 <td>
                   <span class="pay-pill" [ngClass]="i.overdue ? 'overdue' : i.status.toLowerCase()">
                     {{ i.overdue ? 'Overdue' : i.status === 'Partial' ? 'Part paid' : i.status }}

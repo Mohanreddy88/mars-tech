@@ -58,6 +58,8 @@ public class Student
     public string?   Notes                 { get; set; }
     public bool      IsActive              { get; set; } = true;
     public DateTime  CreatedAt             { get; set; } = DateTime.UtcNow;
+    /// <summary>When the profile photo (<see cref="ProfilePhoto"/>) last changed; null = no photo. Used to refresh cached images.</summary>
+    public DateTime? PhotoUpdatedAt { get; set; }
     /// <summary>
     /// The office confirmed there is no mother / father to record (single parent), so the missing
     /// parent is not a mistake. Cleared when a mother / father is linked.
@@ -83,6 +85,8 @@ public class Parent
     public int?     UserId       { get; set; }
     public bool     IsActive     { get; set; } = true;
     public DateTime CreatedAt    { get; set; } = DateTime.UtcNow;
+    /// <summary>When the profile photo (<see cref="ProfilePhoto"/>) last changed; null = no photo. Used to refresh cached images.</summary>
+    public DateTime? PhotoUpdatedAt { get; set; }
 
     public User? User { get; set; }
     public List<StudentParent> Children { get; set; } = new();
