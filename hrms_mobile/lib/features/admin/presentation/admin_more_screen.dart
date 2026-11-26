@@ -98,6 +98,8 @@ class AdminMoreScreen extends ConsumerWidget {
                 HomeTile('Announce', Icons.campaign_outlined, TileColors.news, () => open(Routes.schoolAnnouncements)),
                 HomeTile('Fees', Icons.receipt_long_outlined, TileColors.fees, () => open(Routes.schoolFees), badge: claims),
                 HomeTile('Banners', Icons.view_carousel_outlined, TileColors.report, () => open(Routes.schoolBanners)),
+                HomeTile('Stories', Icons.collections_outlined, TileColors.today, () => open(Routes.schoolStories)),
+                HomeTile('Timetable', Icons.calendar_view_week_outlined, TileColors.teacher, () => open(Routes.schoolAdminTimetable)),
               ]),
             ],
             const HomeSectionTitle('Attendance & leave'),

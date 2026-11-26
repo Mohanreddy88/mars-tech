@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef, inject } from '@angular/core';
+import { Component, Input, OnInit, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -7,6 +7,8 @@ import { ToastService } from '../../../../core/services/toast.service';
 import { ConfirmModalComponent } from '../../../../shared/components/confirm-modal/confirm-modal.component';
 import { PhoneInputComponent } from '../../../../shared/components/phone-input/phone-input.component';
 import { formatPhone, splitPhone, phoneProblem } from '../../../../shared/phone';
+import { SchoolAvatarComponent } from '../../../../shared/components/school-avatar/school-avatar.component';
+import { PhotoPickerComponent } from '../../../../shared/components/school-avatar/photo-picker.component';
 
 /**
  * School → Children. Admins add and edit children; a class teacher sees their own classes
@@ -15,11 +17,14 @@ import { formatPhone, splitPhone, phoneProblem } from '../../../../shared/phone'
 @Component({
   selector: 'app-school-students',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, ConfirmModalComponent, PhoneInputComponent],
+  imports: [CommonModule, FormsModule, RouterModule, ConfirmModalComponent, PhoneInputComponent, SchoolAvatarComponent, PhotoPickerComponent],
   templateUrl: './school-students.component.html',
   styleUrls: ['../../school-shared.scss']
 })
 export class SchoolStudentsComponent implements OnInit {
+  /** Shown as a tab inside School → Registrations (no page title). */
+  @Input() embedded = false;
+
   private school = inject(SchoolService);
   private toast = inject(ToastService);
   private route = inject(ActivatedRoute);
@@ -212,6 +217,14 @@ export class SchoolStudentsComponent implements OnInit {
     this.modalError = '';
     this.duplicateQuestion = '';
     this.showModal = true;
+  }
+
+  /** New photo saved from the edit form: show it in the list straight away. */
+  photoChanged(id: number, version: string | null): void {
+    const s = this.students.find(x => x.id === id);
+    if (s) s.photoUpdatedAt = version;
+    if (this.editing?.id === id) this.editing.photoUpdatedAt = version;
+    this.cdr.markForCheck();
   }
 
   saveAnyway(): void { this.save(true); }

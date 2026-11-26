@@ -11,6 +11,7 @@ import '../data/parent_account.dart';
 import '../data/school_models.dart';
 import '../data/school_repository.dart';
 import 'child_day_screen.dart' show ParentNoteSheet;
+import 'school_avatar.dart';
 import 'school_widgets.dart';
 import 'setup_widgets.dart';
 
@@ -47,7 +48,9 @@ class ParentAccountScreen extends ConsumerWidget {
           child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), children: [
             _Section(title: 'My profile', children: [
               _Row(
-                leading: CircleAvatar(child: Text(a.fullName.isEmpty ? '?' : a.fullName[0].toUpperCase())),
+                // Tap the photo to add / change it
+                leading: EditableAvatar(kind: 'parents', id: a.id, version: a.photoUpdatedAt, name: a.fullName, radius: 22,
+                    onChanged: (_) => ref.invalidate(parentAccountProvider)),
                 title: a.fullName,
                 subtitle: '${a.relationship} · ${a.phone == null ? 'no phone yet' : phoneText(a.phone)}',
               ),
@@ -60,10 +63,11 @@ class ParentAccountScreen extends ConsumerWidget {
               if (a.children.isEmpty) const _Row(title: 'No child linked yet. Please contact the school office.'),
               for (final c in a.children)
                 _Row(
-                  leading: CircleAvatar(
-                    backgroundColor: const Color(0xFF38BDF8),
-                    child: Text(c.fullName.isEmpty ? '?' : c.fullName[0].toUpperCase(), style: const TextStyle(color: Colors.white)),
-                  ),
+                  leading: EditableAvatar(kind: 'students', id: c.id, version: c.photoUpdatedAt, name: c.fullName, radius: 22,
+                      onChanged: (_) {
+                        ref.invalidate(parentAccountProvider);
+                        ref.invalidate(schoolMeProvider);
+                      }),
                   title: c.fullName,
                   subtitle: [if (c.className != null) 'Class ${c.className}', c.sessionType].join(' · '),
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => _ChildDetailsScreen(child: c))),
@@ -284,7 +288,7 @@ class _PickupPassSection extends ConsumerWidget {
           _Row(
             icon: Icons.directions_car_outlined,
             title: '${n.pickupName ?? ''}${n.pickupTime != null ? ' · ${n.pickupTime}' : ''}',
-            subtitle: [noteWhen(n), if (names.length > 1) names[n.studentId] ?? '', n.seenByName != null ? 'Seen by ${n.seenByName}' : 'Sent']
+            subtitle: [noteWhen(n), if (names.length > 1) names[n.studentId] ?? '', n.seenByName != null ? '${n.isAbsence ? 'Approved' : 'Seen'} by ${n.seenByName}' : 'Sent']
                 .where((s) => s.isNotEmpty)
                 .join(' · '),
             trailing: TextButton(

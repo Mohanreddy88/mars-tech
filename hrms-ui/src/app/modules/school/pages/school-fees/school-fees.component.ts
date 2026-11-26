@@ -57,6 +57,8 @@ export class SchoolFeesComponent implements OnInit {
   working = false;
   confirmGenerate = false;
   search = '';
+  /** Sent to parents or not ('' = all) — filters the loaded list. */
+  sentFilter: '' | 'sent' | 'unsent' = '';
 
   detail: InvoiceDetail | null = null;
   detailLines: InvoiceLine[] = [];
@@ -97,8 +99,15 @@ export class SchoolFeesComponent implements OnInit {
 
   get shownInvoices(): InvoiceRow[] {
     const q = this.search.trim().toLowerCase();
-    return !q ? this.invoices : this.invoices.filter(i =>
-      i.studentName.toLowerCase().includes(q) || i.invoiceNo.toLowerCase().includes(q) || i.parents.some(p => p.toLowerCase().includes(q)));
+    return this.invoices.filter(i =>
+      (this.sentFilter === '' || (this.sentFilter === 'sent' ? !!i.sentAt : !i.sentAt && i.status !== 'Void'))
+      && (!q || i.studentName.toLowerCase().includes(q) || i.invoiceNo.toLowerCase().includes(q) || i.parents.some(p => p.toLowerCase().includes(q))));
+  }
+
+  /** Shows only the invoices not sent to parents yet. */
+  showUnsent(): void {
+    this.sentFilter = 'unsent';
+    if (this.status) { this.status = ''; this.loadInvoices(); }
   }
 
   get sessionItems(): FeeItem[] { return this.items.filter(i => i.kind === 'Session'); }

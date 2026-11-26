@@ -1,5 +1,6 @@
 import { Component, OnDestroy, OnInit, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { SchoolAvatarComponent } from '../../../../shared/components/school-avatar/school-avatar.component';
 import { Router, RouterModule } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { SchoolService, SchoolMe, Announcement, ChildSummary, ageText, utc } from '../../../../core/services/school.service';
@@ -12,7 +13,7 @@ import { BannerCarouselComponent } from '../../../../shared/components/banner-ca
 @Component({
   selector: 'app-parent-home',
   standalone: true,
-  imports: [CommonModule, RouterModule, BannerCarouselComponent],
+  imports: [CommonModule, RouterModule, BannerCarouselComponent, SchoolAvatarComponent],
   templateUrl: './parent-home.component.html',
   styleUrls: ['../../school-shared.scss', './parent-home.component.scss']
 })

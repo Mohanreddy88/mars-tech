@@ -34,6 +34,10 @@
     </div>
   </div>
 
+  @if (data && !loading && data.canEdit === false) {
+    <div class="alert alert-info py-2"><i class="bi bi-lock"></i> Earlier days are read-only for teachers. Ask the office to correct a past day.</div>
+  }
+
   @if (data && !loading) {
     <div class="summary-chips">
       <span class="chip ok"><i class="bi bi-check-circle-fill"></i> {{ data.summary.present }} present</span>
@@ -87,9 +91,13 @@
                     <i class="bi" [class.bi-thermometer-half]="n.kind === 'Absence'" [class.bi-car-front-fill]="n.kind === 'Pickup'"></i>
                     <span>{{ noteText(n) }} <small>— {{ n.createdByName }}</small></span>
                     @if (!n.seenAt) {
-                      <button class="btn btn-sm btn-link p-0 ms-1" (click)="seen(n)" title="Mark as seen (the parent sees it)">Mark seen</button>
+                      @if (n.kind === 'Absence') {
+                        <button class="btn btn-sm btn-link p-0 ms-1" (click)="seen(n)" title="Approve: the child is marked absent and can't be checked in">Approve</button>
+                      } @else {
+                        <button class="btn btn-sm btn-link p-0 ms-1" (click)="seen(n)" title="Mark as seen (the parent sees it)">Mark seen</button>
+                      }
                     } @else {
-                      <i class="bi bi-check2-all seen" [title]="'Seen by ' + n.seenByName"></i>
+                      <i class="bi bi-check2-all seen" [title]="(n.kind === 'Absence' ? 'Approved by ' : 'Seen by ') + n.seenByName"></i>
                     }
                   </div>
                 } @empty { <span class="text-muted">—</span> }
@@ -100,7 +108,7 @@
                   <span class="tag bad">Absent</span>
                   @if (r.attendance?.autoAbsent) { <span class="tag auto" title="Not checked in by {{ data?.times?.absentAfter }}">automatic</span> }
                   @if (r.attendance?.absenceReason) { <div class="cell-sub">{{ r.attendance?.absenceReason }}</div> }
-                  @if (r.attendance?.autoAbsent) {
+                  @if (r.attendance?.autoAbsent && canChange(r)) {
                     <!-- Arrived after all: checking in makes the child present (late) -->
                     <button class="btn btn-sm btn-link p-0" (click)="checkIn(r)" [disabled]="busy === r.studentId">Arrived — check in</button>
                   }
@@ -108,6 +116,11 @@
                   <strong>{{ r.attendance?.checkIn }}</strong>
                   @if (r.attendance?.isLate) { <span class="tag late" title="After {{ data?.times?.lateAfter }}">Late</span> }
                   <div class="cell-sub">by {{ r.attendance?.checkInBy }}</div>
+                } @else if (r.locked) {
+                  <span class="tag bad">Absent</span>
+                  <div class="cell-sub">Reported by the parent (approved)</div>
+                } @else if (!canChange(r)) {
+                  <span class="text-muted">Not marked</span>
                 } @else {
                   <div class="btn-group-tight">
                     <button class="btn btn-sm btn-success" (click)="checkIn(r)" [disabled]="busy === r.studentId">
@@ -126,12 +139,12 @@
                     <span class="tag auto" title="Not checked out by the teacher: checked out at the session's end">automatic</span>
                   }
                   <div class="cell-sub">{{ r.attendance?.pickedUpBy }}</div>
-                } @else if (r.attendance?.checkIn) {
+                } @else if (r.attendance?.checkIn && canChange(r)) {
                   <button class="btn btn-sm btn-outline-primary" (click)="openDialog('out', r)" [disabled]="busy === r.studentId">
                     <i class="bi bi-box-arrow-right"></i> Check out
                   </button>
                 } @else { <span class="text-muted">—</span> }
-                @if (r.attendance) {
+                @if (r.attendance && canChange(r)) {
                   <div><button class="btn btn-sm btn-link p-0 undo" (click)="undo(r)" [disabled]="busy === r.studentId">Undo</button></div>
                 }
               </td>

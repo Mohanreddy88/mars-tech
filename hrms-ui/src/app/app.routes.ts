@@ -1,4 +1,4 @@
-import { Routes } from '@angular/router';
+import { Routes, Router, CanActivateFn } from '@angular/router';
 import { inject } from '@angular/core';
 import { AuthService } from './core/services/auth.service';
 
@@ -59,14 +59,23 @@ import { parentAreaGuard, parentOnlyGuard } from './core/guards/parent.guard';
 // School pages load on demand (only schools use them)
 const schoolClasses       = () => import('./modules/school/pages/school-classes/school-classes.component').then(m => m.SchoolClassesComponent);
 const schoolStudents      = () => import('./modules/school/pages/school-students/school-students.component').then(m => m.SchoolStudentsComponent);
-const schoolParents       = () => import('./modules/school/pages/school-parents/school-parents.component').then(m => m.SchoolParentsComponent);
-const schoolFamilies      = () => import('./modules/school/pages/school-families/school-families.component').then(m => m.SchoolFamiliesComponent);
 const schoolBanners       = () => import('./modules/school/pages/school-banners/school-banners.component').then(m => m.SchoolBannersComponent);
 const schoolPickupPeople  =() => import('./modules/school/pages/school-pickup-people/school-pickup-people.component').then(m => m.SchoolPickupPeopleComponent);
 const schoolAnnouncements = () => import('./modules/school/pages/school-announcements/school-announcements.component').then(m => m.SchoolAnnouncementsComponent);
 const schoolMessages      = () => import('./modules/school/pages/school-messages/school-messages.component').then(m => m.SchoolMessagesComponent);
 const schoolAttendance    = () => import('./modules/school/pages/school-attendance/school-attendance.component').then(m => m.SchoolAttendanceComponent);
 const schoolFees          = () => import('./modules/school/pages/school-fees/school-fees.component').then(m => m.SchoolFeesComponent);
+const schoolTimetable     = () => import('./modules/school/pages/school-timetable/school-timetable.component').then(m => m.SchoolTimetableComponent);
+const myTimetable         = () => import('./modules/school/pages/my-timetable/my-timetable.component').then(m => m.MyTimetableComponent);
+const schoolStories       = () => import('./modules/school/pages/school-stories/school-stories.component').then(m => m.SchoolStoriesComponent);
+const schoolRegistrations = () => import('./modules/school/pages/school-registrations/school-registrations.component').then(m => m.SchoolRegistrationsComponent);
+
+/** Admins: School → Children lives under Registrations now (teachers keep this page as "My Class"). */
+const childrenForAdmins: CanActivateFn = route =>
+  inject(AuthService).isAdmin()
+    ? inject(Router).createUrlTree(['/school/registrations/children'], { queryParams: route.queryParams })
+    : true;
+
 const parentChild         = () => import('./modules/school/pages/parent-child/parent-child.component').then(m => m.ParentChildComponent);
 const parentFees          = () => import('./modules/school/pages/parent-fees/parent-fees.component').then(m => m.ParentFeesComponent);
 const parentHome          = () => import('./modules/school/pages/parent-home/parent-home.component').then(m => m.ParentHomeComponent);
@@ -155,19 +164,25 @@ const companyRoutes: Routes = [
       
       // School (only when the company has school features on; the API enforces access)
       { path: 'school/classes',       loadComponent: schoolClasses,       canActivate: [adminGuard], title: 'Classes' },
-      { path: 'school/students',      loadComponent: schoolStudents,      title: 'Children' },
+      { path: 'school/registrations', redirectTo: 'school/registrations/children', pathMatch: 'full' },
+      { path: 'school/registrations/:tab', loadComponent: schoolRegistrations, canActivate: [adminGuard], title: 'Registrations' },
+      { path: 'school/students',      loadComponent: schoolStudents,      canActivate: [childrenForAdmins], title: 'Children' },
       { path: 'school/my-class',      loadComponent: schoolStudents,      title: 'My Class' },
-      { path: 'school/parents',       loadComponent: schoolParents,       canActivate: [adminGuard], title: 'Parents' },
-      { path: 'school/families',      loadComponent: schoolFamilies,      canActivate: [adminGuard], title: 'Families' },
+      { path: 'school/parents',       redirectTo: 'school/registrations/parents' },
+      { path: 'school/families',      redirectTo: 'school/registrations/families' },
       { path: 'school/pickup-people', loadComponent: schoolPickupPeople,  canActivate: [adminGuard], title: 'Pick-up People' },
       { path: 'school/banners',       loadComponent: schoolBanners,       canActivate: [adminGuard], title: 'Banners' },
       { path: 'school/announcements', loadComponent: schoolAnnouncements, title: 'Announcements' },
       { path: 'school/messages',      loadComponent: schoolMessages,      title: 'Messages' },
       { path: 'school/attendance',    loadComponent: schoolAttendance,    title: 'Attendance & Daily Reports' },
       { path: 'school/fees',          loadComponent: schoolFees,          canActivate: [adminGuard], title: 'Fees' },
+      { path: 'school/timetable',     loadComponent: schoolTimetable,     title: 'Timetable' },
+      { path: 'school/my-timetable',  loadComponent: myTimetable,         title: 'My Timetable' },
+      { path: 'school/stories',       loadComponent: schoolStories,       title: 'Stories' },
 
       // Parent portal (parent logins)
       { path: 'parent',               loadComponent: parentHome,          canActivate: [parentOnlyGuard], title: 'Parent Portal' },
+      { path: 'parent/stories',       loadComponent: schoolStories,       canActivate: [parentOnlyGuard], title: 'Stories' },
       { path: 'parent/announcements', loadComponent: schoolAnnouncements, canActivate: [parentOnlyGuard], title: 'Announcements' },
       { path: 'parent/messages',      loadComponent: schoolMessages,      canActivate: [parentOnlyGuard], title: 'Messages' },
       { path: 'parent/child/:id',     loadComponent: parentChild,         canActivate: [parentOnlyGuard], title: 'My Child' },

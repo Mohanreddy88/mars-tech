@@ -1,0 +1,43 @@
+.weekend-toggle { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: #374151; }
+
+.week { display: grid; gap: 10px; overflow-x: auto; padding-bottom: 8px; }
+
+.day-col {
+  background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 6px; min-height: 160px;
+  .day-head {
+    font-weight: 700; color: #1f2937; font-size: 14px; padding: 2px 4px 6px; display: flex; justify-content: space-between;
+    span { color: #6b7280; font-weight: 600; font-size: 12px; }
+  }
+}
+
+.period {
+  text-align: left; border: none; background: white; border-left: 4px solid #2563eb; border-radius: 8px; padding: 8px 10px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .08); display: flex; flex-direction: column; gap: 1px; cursor: pointer;
+  .time { font-size: 12px; color: #2563eb; font-weight: 700; }
+  strong { font-size: 14px; color: #1f2937; }
+  .who { font-size: 12px; color: #6b7280; }
+  &:hover { background: #eff6ff; }
+}
+
+.add-period {
+  border: 1px dashed #93c5fd; background: transparent; color: #2563eb; border-radius: 8px; padding: 6px; font-size: 13px; font-weight: 600; cursor: pointer;
+  &:hover { background: #eff6ff; }
+}
+
+.copy-days { display: flex; gap: 14px; flex-wrap: wrap; label { display: inline-flex; gap: 6px; align-items: center; } }
+
+.period.static { cursor: default; &:hover { background: white; } }
+.period .plan { font-size: 12px; color: #4b5563; margin-top: 2px; white-space: pre-line; }
+.no-periods { font-size: 12px; color: #9ca3af; padding: 4px; }
+
+.day-col.today { border-color: #16a34a; background: #f0fdf4; }
+.today-tag { font-style: normal; font-size: 11px; font-weight: 700; color: white; background: #16a34a; border-radius: 10px; padding: 1px 8px; margin-left: 6px; }
+
+.back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: #2563eb; text-decoration: none; margin-bottom: 8px; &:hover { text-decoration: underline; } }
+.title-sub { font-size: 15px; font-weight: 500; color: #6b7280; }
+.week-range { display: inline-flex; align-items: center; gap: 6px; background: #eff6ff; color: #1e40af; font-weight: 600; font-size: 14px; border-radius: 8px; padding: 4px 10px; margin: 4px 0 6px; }
+.day-date { display: block; font-size: 12px; font-weight: 500; color: #6b7280; }
+
+.tt-tabs { display: inline-flex; gap: 4px; background: #f3f4f6; border-radius: 10px; padding: 4px; margin-bottom: 14px;
+  button { border: none; background: transparent; border-radius: 8px; padding: 7px 16px; font-weight: 600; font-size: 14px; color: #4b5563; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+  button.on { background: white; color: #1d4ed8; box-shadow: 0 1px 3px rgba(0,0,0,.12); } }

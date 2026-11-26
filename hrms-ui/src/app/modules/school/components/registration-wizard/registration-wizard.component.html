@@ -1,0 +1,180 @@
+<div class="modal-overlay" (click)="close()">
+  <div class="modal-box wide" (click)="$event.stopPropagation()">
+    <div class="modal-header-row">
+      <h5>New registration</h5>
+      <button class="btn-close-modal" (click)="close()" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+    </div>
+
+    <ol class="steps">
+      <li [class.active]="step === 1" [class.done]="step > 1"><span>1</span> Child</li>
+      <li [class.active]="step === 2" [class.done]="step > 2"><span>2</span> Parents</li>
+      <li [class.active]="step === 3"><span>3</span> Check &amp; save</li>
+    </ol>
+
+    <div class="modal-form">
+      @if (error) { <div class="alert alert-danger py-2 mb-3">{{ error }}</div> }
+
+      <!-- ── Step 1: child ── -->
+      @if (step === 1) {
+        <div class="form-grid">
+          <div class="form-group span-2">
+            <label for="rg-name">Child's full name</label>
+            <input id="rg-name" type="text" [(ngModel)]="child.fullName" maxlength="150" autofocus />
+          </div>
+          <div class="form-group">
+            <label for="rg-dob">Date of birth</label>
+            <input id="rg-dob" type="date" [(ngModel)]="child.dateOfBirth" />
+          </div>
+          <div class="form-group">
+            <label for="rg-gender">Gender</label>
+            <select id="rg-gender" [(ngModel)]="child.gender">
+              <option [ngValue]="null">—</option>
+              <option value="Boy">Boy</option>
+              <option value="Girl">Girl</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="rg-class">Class</label>
+            <select id="rg-class" [(ngModel)]="child.classId">
+              <option [ngValue]="null">No class yet</option>
+              @for (c of classes; track c.id) { <option [ngValue]="c.id">{{ c.name }}</option> }
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="rg-session">Session</label>
+            <select id="rg-session" [(ngModel)]="child.sessionType">
+              @for (s of sessionTypes; track s) { <option [value]="s">{{ s }}</option> }
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="rg-adm">Admission no. (optional)</label>
+            <input id="rg-adm" type="text" [(ngModel)]="child.admissionNo" maxlength="30" />
+          </div>
+          <div class="form-group">
+            <label for="rg-joined">Joined on</label>
+            <input id="rg-joined" type="date" [(ngModel)]="child.joinedOn" />
+          </div>
+          <div class="form-group span-2">
+            <label for="rg-med">Medical notes / allergies (optional)</label>
+            <textarea id="rg-med" [(ngModel)]="child.medicalNotes" maxlength="1000" rows="2" placeholder="e.g. Peanut allergy — EpiPen in office"></textarea>
+          </div>
+          <div class="form-group">
+            <label for="rg-ecn">Emergency contact (optional)</label>
+            <input id="rg-ecn" type="text" [(ngModel)]="child.emergencyContactName" maxlength="150" placeholder="e.g. Grandmother" />
+          </div>
+          <div class="form-group">
+            <label for="rg-ecp">Emergency contact phone</label>
+            <app-phone-input inputId="rg-ecp" [(ngModel)]="child.emergencyContactPhone" />
+          </div>
+        </div>
+      }
+
+      <!-- ── Step 2: parents ── -->
+      @if (step === 2) {
+        @for (s of sides; track s) {
+          <div class="parent-block">
+            <div class="parent-head">
+              <strong>{{ s }}</strong>
+              @if (side[s].createdId == null) {
+                <div class="mode-switch" role="group" [attr.aria-label]="s">
+                  <button type="button" [class.active]="side[s].mode === 'new'" (click)="side[s].mode = 'new'">New parent</button>
+                  <button type="button" [class.active]="side[s].mode === 'existing'" (click)="side[s].mode = 'existing'">Already registered</button>
+                  <button type="button" [class.active]="side[s].mode === 'none'" (click)="side[s].mode = 'none'">No {{ s.toLowerCase() }} on record</button>
+                </div>
+              }
+            </div>
+
+            @if (side[s].createdId != null) {
+              <div class="cell-sub"><i class="bi bi-check-circle-fill text-success"></i> {{ side[s].fullName }} is saved.</div>
+            } @else if (side[s].mode === 'new') {
+              <div class="form-grid">
+                <div class="form-group">
+                  <label [for]="'rg-' + s + '-name'">Full name</label>
+                  <input [id]="'rg-' + s + '-name'" type="text" [(ngModel)]="side[s].fullName" maxlength="150" />
+                </div>
+                <div class="form-group">
+                  <label [for]="'rg-' + s + '-phone'">Phone</label>
+                  <app-phone-input [inputId]="'rg-' + s + '-phone'" [(ngModel)]="side[s].phone" [showHint]="false" />
+                </div>
+                <div class="form-group">
+                  <label [for]="'rg-' + s + '-email'">Email</label>
+                  <input [id]="'rg-' + s + '-email'" type="email" [(ngModel)]="side[s].email" maxlength="150" />
+                </div>
+                <div class="form-group checkbox-group">
+                  <label class="check">
+                    <input type="checkbox" class="form-check-input" [(ngModel)]="side[s].invite" />
+                    Send app login (email with a "Set my password" link)
+                  </label>
+                </div>
+              </div>
+            } @else if (side[s].mode === 'existing') {
+              <input type="search" class="form-control mb-2" [(ngModel)]="side[s].search"
+                     placeholder="Search name, phone, email or a sibling's name" [attr.aria-label]="'Search ' + s" />
+              <div class="pick-list">
+                @for (p of candidates(s); track p.id) {
+                  <label class="pick-row">
+                    <input type="radio" class="form-check-input" [name]="'rg-' + s" [value]="p.id" [(ngModel)]="side[s].existingId" />
+                    <span>
+                      <strong>{{ p.fullName }}</strong>
+                      <span class="cell-sub">
+                        {{ p.phone || p.email || '' }}
+                        @if (p.children.length) { · parent of {{ childNames(p) }} }
+                      </span>
+                    </span>
+                  </label>
+                } @empty {
+                  <div class="cell-sub p-2">No {{ s.toLowerCase() }} found. Use "New parent" to add one.</div>
+                }
+              </div>
+            } @else {
+              <div class="cell-sub">Single-parent family: no {{ s.toLowerCase() }} will be linked.</div>
+            }
+          </div>
+        }
+      }
+
+      <!-- ── Step 3: check ── -->
+      @if (step === 3) {
+        <div class="review">
+          <div class="review-row"><span>Child</span><strong>{{ child.fullName }}</strong></div>
+          <div class="review-row"><span>Class · session</span><strong>{{ className(child.classId) }} · {{ child.sessionType }}</strong></div>
+          @if (child.dateOfBirth) { <div class="review-row"><span>Date of birth</span><strong>{{ child.dateOfBirth | date: 'd MMM yyyy' }}</strong></div> }
+          @for (s of sides; track s) {
+            <div class="review-row">
+              <span>{{ s }}</span>
+              <strong>
+                @switch (side[s].mode) {
+                  @case ('existing') { {{ parentName(side[s].existingId) }} <span class="cell-sub">(already registered)</span> }
+                  @case ('new') {
+                    {{ side[s].fullName }}
+                    <span class="cell-sub">(new{{ side[s].invite && side[s].email ? ', app login invite to ' + side[s].email : '' }})</span>
+                  }
+                  @default { <span class="cell-sub">No {{ s.toLowerCase() }} on record</span> }
+                }
+              </strong>
+            </div>
+          }
+        </div>
+        @if (duplicateQuestion) {
+          <div class="alert alert-warning py-2 mt-3">
+            {{ duplicateQuestion }}
+            <button class="btn btn-sm btn-warning ms-2" (click)="save(true)" [disabled]="saving">Register anyway</button>
+          </div>
+        }
+      }
+    </div>
+
+    <div class="modal-footer-row">
+      @if (step > 1) { <button class="btn btn-secondary me-auto" (click)="back()" [disabled]="saving"><i class="bi bi-arrow-left"></i> Back</button> }
+      <button class="btn btn-outline-secondary" (click)="close()" [disabled]="saving">Cancel</button>
+      @if (step < 3) {
+        <button class="btn btn-primary" (click)="next()">Next <i class="bi bi-arrow-right"></i></button>
+      } @else {
+        <button class="btn btn-success" (click)="save()" [disabled]="saving">
+          @if (saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+          <i class="bi bi-check2-circle"></i> Save registration
+        </button>
+      }
+    </div>
+  </div>
+</div>

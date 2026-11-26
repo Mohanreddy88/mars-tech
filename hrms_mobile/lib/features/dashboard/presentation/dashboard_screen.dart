@@ -88,10 +88,14 @@ class _DashboardBody extends ConsumerWidget {
             HomeTile('Messages', Icons.forum_outlined, TileColors.messages, () => open(Routes.schoolMessages), badge: unread),
             HomeTile('Announce', Icons.campaign_outlined, TileColors.news, () => open(Routes.schoolAnnouncements)),
             HomeTile('My class', Icons.groups_outlined, TileColors.school, () => open(Routes.schoolMyClass)),
+            HomeTile('Stories', Icons.collections_outlined, TileColors.report, () => open(Routes.schoolStories)),
+            HomeTile('Class timetable', Icons.calendar_view_week_outlined, TileColors.teacher, () => open(Routes.schoolClassTimetable)),
           ]),
         ],
         const HomeSectionTitle('My work'),
         HomeTileGrid(tiles: [
+          if (me?.enabled == true)
+            HomeTile('My timetable', Icons.schedule_outlined, TileColors.teacher, () => open(Routes.schoolTimetable)),
           HomeTile('Apply leave', Icons.edit_calendar_outlined, TileColors.leave, () => open(Routes.applyLeave)),
           HomeTile('My leave', Icons.beach_access_outlined, TileColors.today, () => open(Routes.leave),
               badge: data.stats.pendingApprovals),

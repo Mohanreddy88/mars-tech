@@ -7,6 +7,8 @@ import { SchoolDayService, ParentNoteInfo, NoteSave, dayLabel, schoolToday } fro
 import { ToastService } from '../../../../core/services/toast.service';
 import { PhoneInputComponent } from '../../../../shared/components/phone-input/phone-input.component';
 import { formatPhone, splitPhone, phoneProblem } from '../../../../shared/phone';
+import { SchoolAvatarComponent } from '../../../../shared/components/school-avatar/school-avatar.component';
+import { PhotoPickerComponent } from '../../../../shared/components/school-avatar/photo-picker.component';
 
 type AccountChild = ParentAccount['children'][number];
 
@@ -19,7 +21,7 @@ type AccountChild = ParentAccount['children'][number];
 @Component({
   selector: 'app-parent-account',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, PhoneInputComponent],
+  imports: [CommonModule, FormsModule, RouterModule, PhoneInputComponent, SchoolAvatarComponent, PhotoPickerComponent],
   templateUrl: './parent-account.component.html',
   styleUrls: ['../../school-shared.scss', './parent-account.component.scss']
 })

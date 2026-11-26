@@ -1,0 +1,166 @@
+<div class="school-page">
+  <a class="back-link" [routerLink]="readOnly ? '/dashboard' : '/school/my-timetable'">
+    <i class="bi bi-arrow-left"></i> {{ readOnly ? 'Back to Dashboard' : 'Back to My Timetable' }}
+  </a>
+  <div class="page-header">
+    <div>
+      <h3>{{ readOnly ? 'Timetable' : 'Class Timetable' }} <span class="title-sub">· {{ tab === 'record' ? 'daily record' : 'weekly plan' }}</span></h3>
+      @if (tab === 'plan') { <div class="week-range"><i class="bi bi-calendar-week"></i> This week: {{ weekRange }}</div> }
+      @if (readOnly) {
+        @if (tab === 'record') {
+          <p>What each class had on any date, with the teachers' "what we covered" notes. Look back week by week or day by day.</p>
+        } @else {
+          <p>Each class's periods, as the class teachers set them up. The same periods repeat every week.</p>
+        }
+      } @else {
+        <p>The same periods repeat every week, so a change applies from today onwards. Your daily "what we covered" notes go under My Timetable.</p>
+      }
+    </div>
+    @if (!readOnly) {
+      <div class="header-actions">
+        <button class="btn btn-outline-primary" (click)="openCopy()" [disabled]="!slots.length"><i class="bi bi-copy"></i> Copy a day</button>
+      </div>
+    }
+  </div>
+
+  @if (!ready) {
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+  } @else if (!classes.length) {
+    <div class="table-card empty-state">
+      <i class="bi bi-easel2"></i>
+      <h5>No classes yet</h5>
+      <p>{{ readOnly ? 'Add classes under School → Classes first.' : 'You are not named as a teacher of any class yet — ask the office.' }}</p>
+    </div>
+  } @else {
+    @if (readOnly) {
+      <div class="tt-tabs" role="tablist">
+        <button type="button" role="tab" [class.on]="tab === 'plan'" (click)="setTab('plan')"><i class="bi bi-calendar3-week"></i> Weekly plan</button>
+        <button type="button" role="tab" [class.on]="tab === 'record'" (click)="setTab('record')"><i class="bi bi-journal-text"></i> Daily record</button>
+      </div>
+    }
+  }
+  @if (ready && classes.length && tab === 'record') {
+    <app-timetable-record [classes]="classes" />
+  } @else if (ready && classes.length) {
+    <div class="filters-row">
+      <select [(ngModel)]="classId" (ngModelChange)="load()" aria-label="Class">
+        @for (c of classes; track c.id) { <option [ngValue]="c.id">{{ c.name }}</option> }
+      </select>
+      <label class="weekend-toggle"><input type="checkbox" class="form-check-input" [(ngModel)]="weekend" /> Show weekend</label>
+    </div>
+
+    @if (loading) {
+      <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+    } @else {
+      <div class="week" [style.grid-template-columns]="'repeat(' + days.length + ', minmax(170px, 1fr))'">
+        @for (d of days; track d.n) {
+          <div class="day-col" [class.today]="d.n === todayDow">
+            <div class="day-head"><div>{{ d.long }}@if (d.n === todayDow) { <em class="today-tag">Today</em> }<small class="day-date">{{ dateOf(d.n) }}</small></div> <span>{{ slotsOn(d.n).length }}</span></div>
+            @for (s of slotsOn(d.n); track s.id) {
+              <button type="button" class="period" [class.static]="readOnly" (click)="open(s)">
+                <span class="time">{{ s.startTime }}–{{ s.endTime }}</span>
+                <strong>{{ s.subject }}</strong>
+                @if (s.teacherName) { <span class="who"><i class="bi bi-person"></i> {{ s.teacherName }}</span> }
+                @if (readOnly && s.notes) { <span class="plan">{{ s.notes }}</span> }
+              </button>
+            }
+            @if (!readOnly) { <button type="button" class="add-period" (click)="openAdd(d.n)"><i class="bi bi-plus-lg"></i> Add period</button> }
+            @else if (!slotsOn(d.n).length) { <span class="no-periods">No periods</span> }
+          </div>
+        }
+      </div>
+    }
+  }
+</div>
+
+@if (showModal) {
+  <div class="modal-overlay" (click)="showModal = false">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <h5>{{ editing ? 'Edit period' : 'Add period' }} · {{ className }}</h5>
+        <button class="btn-close-modal" (click)="showModal = false" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="modal-form">
+        @if (error) { <div class="alert alert-danger py-2 mb-3">{{ error }}</div> }
+        <div class="form-grid">
+          <div class="form-group span-2">
+            <label for="tt-day">Day</label>
+            <select id="tt-day" [(ngModel)]="form.dayOfWeek">
+              @for (d of allDays; track d.n) { <option [ngValue]="d.n">{{ d.long }}</option> }
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="tt-start">From</label>
+            <input id="tt-start" type="time" [(ngModel)]="form.startTime" />
+          </div>
+          <div class="form-group">
+            <label for="tt-end">To</label>
+            <input id="tt-end" type="time" [(ngModel)]="form.endTime" />
+          </div>
+          <div class="form-group span-2">
+            <label for="tt-subject">Subject / activity</label>
+            <input id="tt-subject" type="text" [(ngModel)]="form.subject" maxlength="100" placeholder="e.g. Phonics, Circle time, Outdoor play, Lunch" />
+          </div>
+          <div class="form-group span-2">
+            <label for="tt-teacher">Teacher</label>
+            <select id="tt-teacher" [(ngModel)]="form.teacherEmployeeId">
+              <option [ngValue]="null">The class teacher</option>
+              @for (t of teachers; track t.id) { <option [ngValue]="t.id">{{ t.name }}</option> }
+            </select>
+          </div>
+          <div class="form-group span-2">
+            <label for="tt-notes">Plan / notes (optional)</label>
+            <textarea id="tt-notes" rows="2" maxlength="500" [(ngModel)]="form.notes" placeholder="e.g. Letter sounds s, a, t — bring the sound cards"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer-row">
+        @if (editing) { <button class="btn btn-outline-danger me-auto" (click)="confirmDelete = editing"><i class="bi bi-trash"></i> Delete</button> }
+        <button class="btn btn-secondary" (click)="showModal = false">Cancel</button>
+        @if (!editing) { <button class="btn btn-outline-primary" (click)="saveAndNext()" [disabled]="saving">Save &amp; add next</button> }
+        <button class="btn btn-primary" (click)="save()" [disabled]="saving">
+          @if (saving) { <span class="spinner-border spinner-border-sm me-1"></span> } Save
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (showCopy) {
+  <div class="modal-overlay" (click)="showCopy = false">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <h5>Copy a day · {{ className }}</h5>
+        <button class="btn-close-modal" (click)="showCopy = false" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="modal-form">
+        <div class="form-group">
+          <label for="cp-from">Copy the periods of</label>
+          <select id="cp-from" [(ngModel)]="copyFrom">
+            @for (d of allDays; track d.n) { <option [ngValue]="d.n">{{ d.long }} ({{ slotsOn(d.n).length }})</option> }
+          </select>
+        </div>
+        <label class="d-block mb-1 fw-semibold">To</label>
+        <div class="copy-days">
+          @for (d of allDays; track d.n) {
+            @if (d.n !== copyFrom) {
+              <label><input type="checkbox" class="form-check-input" [checked]="copyTo.includes(d.n)" (change)="toggleCopyTo(d.n, $any($event.target).checked)" /> {{ d.short }}</label>
+            }
+          }
+        </div>
+        <div class="alert alert-warning py-2 mt-3 mb-0"><i class="bi bi-exclamation-triangle"></i> The chosen days' periods are replaced.</div>
+      </div>
+      <div class="modal-footer-row">
+        <button class="btn btn-secondary" (click)="showCopy = false">Cancel</button>
+        <button class="btn btn-primary" (click)="copy()" [disabled]="copying || !copyTo.length">
+          @if (copying) { <span class="spinner-border spinner-border-sm me-1"></span> } Copy
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (confirmDelete) {
+  <app-confirm-modal [show]="true" variant="danger" title="Delete period" [message]="'Delete ' + confirmDelete.subject + ' (' + dayName(confirmDelete.dayOfWeek) + ' ' + confirmDelete.startTime + ')?'"
+                     confirmText="Delete" (confirmed)="remove()" (cancelled)="confirmDelete = null" />
+}

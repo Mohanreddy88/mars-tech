@@ -1,13 +1,13 @@
-<div class="school-page">
+<div class="school-page" [class.embedded]="embedded">
 
   <div class="page-header">
-    <div>
-      <h3>Parents</h3>
-      <p>Parents and guardians, their children, and their parent-portal logins.</p>
-    </div>
+    @if (!embedded) {
+      <div>
+        <h3>Parents</h3>
+        <p>Parents and guardians, their children, and their parent-portal logins.</p>
+      </div>
+    }
     <div class="header-actions">
-      <a class="btn btn-outline-primary" routerLink="/school/students"><i class="bi bi-emoji-smile"></i> Children</a>
-      <a class="btn btn-outline-primary" routerLink="/school/families"><i class="bi bi-diagram-3"></i> Families</a>
       <button class="btn btn-primary" (click)="openCreate()"><i class="bi bi-plus-lg"></i> Add Parent</button>
     </div>
   </div>
@@ -57,7 +57,7 @@
             <tr>
               <td>
                 <div class="cell-main">
-                  <i class="bi bi-person-heart cell-icon"></i>
+                  <app-school-avatar kind="parents" [id]="p.id" [version]="p.photoUpdatedAt" [name]="p.fullName" [size]="38" />
                   <div><strong>{{ p.fullName }}</strong><div class="cell-sub">{{ p.relationship }}</div></div>
                 </div>
               </td>
@@ -112,6 +112,12 @@
       <div class="modal-form">
         @if (modalError) { <div class="alert alert-danger py-2 mb-3">{{ modalError }}</div> }
 
+        @if (editing) {
+          <div class="mb-3">
+            <app-photo-picker kind="parents" [id]="editing.id" [version]="editing.photoUpdatedAt" [name]="editing.fullName"
+                              (changed)="photoChanged(editing.id, $event)" />
+          </div>
+        }
         <div class="form-grid">
           <div class="form-group">
             <label for="pa-name">Full name</label>
@@ -144,7 +150,7 @@
                 </div>
               } @empty { <div class="text-muted">No child linked yet.</div> }
               <div class="hint">Children are linked on the child (Mother / Father) or under
-                <a routerLink="/school/families" (click)="showModal = false">School → Families</a>.</div>
+                <a routerLink="/school/registrations/families" (click)="showModal = false">Registrations → Families</a>.</div>
             </div>
           }
 

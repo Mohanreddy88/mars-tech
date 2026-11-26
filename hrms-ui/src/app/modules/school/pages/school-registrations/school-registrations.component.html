@@ -1,0 +1,30 @@
+<div class="school-page">
+  <div class="page-header">
+    <div>
+      <h3>Registrations</h3>
+      <p>Children, their parents and families. Use <strong>New registration</strong> to add a child with their mother and father in one go.</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-primary" (click)="wizard = true"><i class="bi bi-person-plus"></i> New registration</button>
+    </div>
+  </div>
+
+  <div class="reg-tabs" role="tablist">
+    @for (t of tabs; track t.key) {
+      <button role="tab" [class.active]="tab === t.key" [attr.aria-selected]="tab === t.key" (click)="setTab(t.key)">
+        <i class="bi" [ngClass]="t.icon"></i> {{ t.label }}
+      </button>
+    }
+  </div>
+
+  <!-- Re-created when `version` changes, so a new registration shows up -->
+  @for (v of [version]; track v) {
+    @switch (tab) {
+      @case ('children') { <app-school-students [embedded]="true" /> }
+      @case ('parents') { <app-school-parents [embedded]="true" /> }
+      @case ('families') { <app-school-families [embedded]="true" /> }
+    }
+  }
+</div>
+
+@if (wizard) { <app-registration-wizard (closed)="wizardClosed($event)" /> }

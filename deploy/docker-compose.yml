@@ -58,6 +58,8 @@ services:
       RESEND_FROM: ${RESEND_FROM:-}
     volumes:
       - uploads:/app/api/wwwroot/uploads
+      # Class story photos / videos (served only through the API, never as public files)
+      - media:/app/api/media
     expose:
       - "8080"
 
@@ -83,6 +85,7 @@ services:
 volumes:
   pgdata:
   uploads:
+  media:
   caddy_data:
   caddy_config:
 

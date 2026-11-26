@@ -65,7 +65,7 @@ class ChildContact {
 class AccountChild {
   const AccountChild({required this.id, required this.fullName, this.dateOfBirth, this.gender, required this.sessionType,
       this.joinedOn, this.admissionNo, this.medicalNotes, this.emergencyContactName, this.emergencyContactPhone,
-      this.className, this.classTeacher, required this.contacts, required this.pickupPeople});
+      this.className, this.classTeacher, required this.contacts, required this.pickupPeople, this.photoUpdatedAt});
   final int id;
   final String fullName;
   final String? dateOfBirth;
@@ -80,6 +80,8 @@ class AccountChild {
   final String? classTeacher;
   final List<ChildContact> contacts;
   final List<PickupPersonRec> pickupPeople;
+  /// Profile photo version (null = none).
+  final String? photoUpdatedAt;
 
   factory AccountChild.fromJson(Map<String, dynamic> j) => AccountChild(
         id: _i(j['id']),
@@ -102,27 +104,33 @@ class AccountChild {
               isMe: c['isMe'] == true,
             )),
         pickupPeople: _list(j['pickupPeople'], PickupPersonRec.fromJson),
+        photoUpdatedAt: _s(j['photoUpdatedAt']),
       );
 }
 
 class ParentAccount {
-  const ParentAccount({required this.fullName, this.email, this.phone, required this.relationship, this.username,
+  const ParentAccount({this.id = 0, required this.fullName, this.email, this.phone, required this.relationship, this.username, this.photoUpdatedAt,
       required this.children});
   final String fullName;
   final String? email;
   final String? phone;
   final String relationship;
   final String? username;
+  final int id;
+  /// Profile photo version (null = none).
+  final String? photoUpdatedAt;
   final List<AccountChild> children;
 
   factory ParentAccount.fromJson(Map<String, dynamic> j) {
     final p = j['parent'] as Map<String, dynamic>? ?? const {};
     return ParentAccount(
+      id: _i(p['id']),
       fullName: p['fullName'] as String? ?? '',
       email: _s(p['email']),
       phone: _s(p['phone']),
       relationship: p['relationship'] as String? ?? '',
       username: _s(p['username']),
+      photoUpdatedAt: _s(p['photoUpdatedAt']),
       children: _list(j['children'], AccountChild.fromJson),
     );
   }

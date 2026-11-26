@@ -40,6 +40,7 @@ export interface ChildSummary {
   classId: number | null;
   className: string | null;
   classTeacherName: string | null;
+  photoUpdatedAt?: string | null;
 }
 
 export interface SchoolClass {
@@ -64,6 +65,7 @@ export interface StudentParentInfo {
   email: string | null;
   hasLogin: boolean;
   isActive: boolean;
+  photoUpdatedAt?: string | null;
 }
 
 export interface Student {
@@ -86,6 +88,8 @@ export interface Student {
   /** Single parent confirmed by the office: no mother / father to record. */
   noMotherOnRecord?: boolean;
   noFatherOnRecord?: boolean;
+  /** Profile photo version (null = none). */
+  photoUpdatedAt?: string | null;
   /** Children sharing a parent (admins only). */
   siblings?: { id: number; fullName: string; className: string | null; isActive: boolean; via: string }[];
 }
@@ -105,6 +109,7 @@ export interface ParentRecord {
   relationship: string;
   isActive: boolean;
   createdAt: string;
+  photoUpdatedAt?: string | null;
   hasLogin: boolean;
   username: string | null;
   loginActive: boolean;
@@ -171,11 +176,11 @@ export interface PickupPerson {
 
 /** The parent's Account page (GET school/account). */
 export interface ParentAccount {
-  parent: { id: number; fullName: string; email: string | null; phone: string | null; relationship: string; username: string | null };
+  parent: { id: number; fullName: string; email: string | null; phone: string | null; relationship: string; username: string | null; photoUpdatedAt?: string | null };
   children: {
     id: number; fullName: string; dateOfBirth: string | null; gender: string | null; sessionType: string;
     joinedOn: string | null; admissionNo: string | null; medicalNotes: string | null;
-    emergencyContactName: string | null; emergencyContactPhone: string | null;
+    emergencyContactName: string | null; emergencyContactPhone: string | null; photoUpdatedAt?: string | null;
     className: string | null; classTeacher: string | null;
     contacts: { id: number; fullName: string; relationship: string; phone: string | null; isMe: boolean }[];
     pickupPeople: PickupPerson[];

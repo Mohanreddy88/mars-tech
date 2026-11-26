@@ -8,6 +8,8 @@ import {
   SchoolDayService, ChildDay, ParentNoteInfo, NoteSave, moodIcon, schoolToday, addDays, dayLabel
 } from '../../../../core/services/school-day.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { SchoolExtrasService, TimetableWeek } from '../../../../core/services/school-extras.service';
+import { TimetableViewComponent } from '../../components/timetable-view/timetable-view.component';
 import { PhoneInputComponent } from '../../../../shared/components/phone-input/phone-input.component';
 import { formatPhone } from '../../../../shared/phone';
 
@@ -18,13 +20,14 @@ import { formatPhone } from '../../../../shared/phone';
 @Component({
   selector: 'app-parent-child',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, PhoneInputComponent],
+  imports: [CommonModule, FormsModule, RouterModule, PhoneInputComponent, TimetableViewComponent],
   templateUrl: './parent-child.component.html',
   styleUrls: ['../../school-shared.scss', './parent-child.component.scss']
 })
 export class ParentChildComponent implements OnInit, OnDestroy {
   private school = inject(SchoolService);
   private dayApi = inject(SchoolDayService);
+  private extras = inject(SchoolExtrasService);
   private toast = inject(ToastService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -54,18 +57,33 @@ export class ParentChildComponent implements OnInit, OnDestroy {
   noteError = '';
 
   /** Which part of the child's day is shown (same four as the app's home tiles). */
-  view: 'today' | 'report' | 'attendance' | 'notes' = 'today';
-  readonly views: { key: 'today' | 'report' | 'attendance' | 'notes'; label: string; icon: string }[] = [
+  view: 'today' | 'report' | 'attendance' | 'notes' | 'timetable' = 'today';
+  readonly views: { key: 'today' | 'report' | 'attendance' | 'notes' | 'timetable'; label: string; icon: string }[] = [
     { key: 'today', label: 'Today', icon: 'bi-sun' },
     { key: 'report', label: 'Daily report', icon: 'bi-journal-heart' },
     { key: 'attendance', label: 'Attendance', icon: 'bi-calendar-check' },
-    { key: 'notes', label: 'Absence / pickup', icon: 'bi-pencil-square' }
+    { key: 'notes', label: 'Absence / pickup', icon: 'bi-pencil-square' },
+    { key: 'timetable', label: 'Timetable', icon: 'bi-clock-history' }
   ];
 
-  setView(v: 'today' | 'report' | 'attendance' | 'notes'): void {
+  setView(v: 'today' | 'report' | 'attendance' | 'notes' | 'timetable'): void {
     this.view = v;
     this.location.replaceState(`/parent/child/${this.childId}`, `date=${this.date}&view=${v}`);
     if (v === 'attendance') this.loadMonth();
+    if (v === 'timetable') this.loadTimetable();
+  }
+
+  // ── Timetable (the child's class week, with today's "what we covered" notes) ──
+  timetable: TimetableWeek | null = null;
+  timetableLoading = false;
+
+  loadTimetable(): void {
+    if (!this.childId) return;
+    this.timetableLoading = true;
+    this.extras.childTimetable(this.childId).subscribe({
+      next: w => { this.timetable = w; this.timetableLoading = false; this.cdr.markForCheck(); },
+      error: () => { this.timetableLoading = false; this.cdr.markForCheck(); }
+    });
   }
 
   // ── Attendance month ──
@@ -134,7 +152,7 @@ export class ParentChildComponent implements OnInit, OnDestroy {
     const d = this.route.snapshot.queryParamMap.get('date');
     if (d) this.date = d.substring(0, 10);
     const v = this.route.snapshot.queryParamMap.get('view');
-    if (v === 'report' || v === 'attendance' || v === 'notes') this.view = v;
+    if (v === 'report' || v === 'attendance' || v === 'notes' || v === 'timetable') this.view = v;
 
     this.subs.add(this.school.liveDay$.subscribe(e => { if (e.studentId === this.childId) { this.load(true); this.loadRecent(); } }));
     this.subs.add(this.school.liveNote$.subscribe(e => { if (e.studentId === this.childId) this.loadNotes(); }));
@@ -145,6 +163,7 @@ export class ParentChildComponent implements OnInit, OnDestroy {
       this.loadRecent();
       this.loadNotes();
       if (this.view === 'attendance') this.loadMonth();
+      if (this.view === 'timetable') this.loadTimetable();
     });
   }
 
@@ -188,6 +207,7 @@ export class ParentChildComponent implements OnInit, OnDestroy {
     this.childId = id;
     this.location.replaceState(`/parent/child/${id}`, `date=${this.date}&view=${this.view}`);
     if (this.view === 'attendance') this.loadMonth();
+    if (this.view === 'timetable') this.loadTimetable();
     this.load();
     this.loadRecent();
     this.loadNotes();

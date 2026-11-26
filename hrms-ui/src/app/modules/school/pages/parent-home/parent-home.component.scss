@@ -1,4 +1,4 @@
-.parent-home { max-width: 980px; }
+.parent-home { max-width: 1200px; }
 
 .hello {
   margin-bottom: 20px;
@@ -27,21 +27,49 @@
 .section { font-size: 16px; font-weight: 700; color: #374151; margin: 0 0 12px; }
 .section-row { display: flex; justify-content: space-between; align-items: baseline; margin-top: 28px; }
 
-.children { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+/* One wide card per child: who (left) · key details (middle) · actions (right); stacks on narrow screens */
+.children { display: flex; flex-direction: column; gap: 12px; }
 
 .child-card {
-  background: white; border-radius: 12px; padding: 18px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: white; border-radius: 14px; padding: 18px 20px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  display: grid; grid-template-columns: minmax(220px, 1.1fr) minmax(190px, .9fr) minmax(320px, 1.6fr); align-items: center;
 
-  .child-top { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
-  .child-avatar {
-    width: 48px; height: 48px; border-radius: 50%; background: #ffedd5; color: #c2410c;
-    display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700;
+  > div { padding: 0 18px; }
+  > div:first-child { padding-left: 0; }
+  > div:last-child { padding-right: 0; }
+  > div + div { border-left: 1px solid #eef0f3; }
+
+  .child-who { display: flex; gap: 14px; align-items: center; }
+  h5 { margin: 0 0 2px; font-size: 18px; font-weight: 700; color: #1f2937; }
+
+  .child-facts { display: flex; flex-direction: column; gap: 10px; }
+  .fact {
+    display: grid; grid-template-columns: 22px auto; column-gap: 8px; align-items: center; font-size: 14px;
+    i { grid-row: span 2; font-size: 18px; color: #16a34a; }
+    span { color: #6b7280; font-size: 12px; line-height: 1.2; }
+    strong { color: #1f2937; font-weight: 600; }
   }
-  h5 { margin: 0; font-size: 17px; font-weight: 700; color: #1f2937; }
-  dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 14px; margin: 0 0 14px; }
-  dt { color: #6b7280; font-weight: 500; }
-  dd { margin: 0; color: #1f2937; }
-  .child-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .child-do { display: flex; flex-direction: column; gap: 8px; }
+  .do-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .do-message { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding-top: 8px; border-top: 1px dashed #e5e7eb; }
+  .btn { white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+}
+
+@media (max-width: 1100px) {
+  .child-card {
+    grid-template-columns: 1fr 1fr; row-gap: 16px;
+    .child-do { grid-column: 1 / -1; border-left: none; padding: 14px 0 0; border-top: 1px solid #eef0f3; }
+  }
+}
+
+@media (max-width: 640px) {
+  .child-card {
+    grid-template-columns: 1fr;
+    > div { padding: 0; border-left: none !important; }
+    .child-facts { flex-direction: row; gap: 18px; }
+    .do-grid { grid-template-columns: repeat(2, 1fr); }
+  }
 }
 
 .latest { display: flex; flex-direction: column; gap: 8px; }

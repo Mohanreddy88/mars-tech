@@ -149,3 +149,9 @@
 .field-error { color: #b91c1c; font-size: 12px; margin-top: 4px; }
 select.is-invalid, input.is-invalid { border-color: #dc2626 !important; }
 .family-child { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 10px; margin-bottom: 6px; background: #fff; }
+
+// A page shown as a tab inside School → Registrations: no outer padding, no title
+.school-page.embedded {
+  padding: 16px 0 0;
+  > .page-header { margin-bottom: 16px; > .header-actions { margin-left: auto; } }
+}

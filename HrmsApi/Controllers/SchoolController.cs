@@ -536,10 +536,12 @@ public class SchoolController : ControllerBase
         SessionType = s.SessionType, JoinedOn = s.JoinedOn, MedicalNotes = s.MedicalNotes,
         EmergencyContactName = s.EmergencyContactName, EmergencyContactPhone = s.EmergencyContactPhone,
         Notes = s.Notes, IsActive = s.IsActive, NoMotherOnRecord = s.NoMotherOnRecord, NoFatherOnRecord = s.NoFatherOnRecord,
+        PhotoUpdatedAt = s.PhotoUpdatedAt,
         Parents = s.Parents.Select(sp => new StudentParentDto
         {
             Id = sp.Parent.Id, FullName = sp.Parent.FullName, Relationship = sp.Parent.Relationship,
             Phone = sp.Parent.Phone, Email = sp.Parent.Email, HasLogin = sp.Parent.UserId != null,
+            PhotoUpdatedAt = sp.Parent.PhotoUpdatedAt,
             IsActive = sp.Parent.IsActive
         }).ToList()
     };
@@ -547,7 +549,7 @@ public class SchoolController : ControllerBase
     /// <summary>What a parent sees about their own child.</summary>
     private static readonly System.Linq.Expressions.Expression<Func<Student, object>> StudentSummary = s => new
     {
-        s.Id, s.FullName, s.DateOfBirth, s.SessionType, s.ClassId,
+        s.Id, s.FullName, s.DateOfBirth, s.SessionType, s.ClassId, s.PhotoUpdatedAt,
         className        = s.Class != null ? s.Class.Name : null,
         classTeacherName = s.Class != null && s.Class.ClassTeacher != null ? s.Class.ClassTeacher.Name : null
     };
@@ -634,6 +636,8 @@ public class StudentDto
     public bool IsActive { get; set; }
     public bool NoMotherOnRecord { get; set; }
     public bool NoFatherOnRecord { get; set; }
+    /// <summary>Profile photo version (null = none): GET /api/school/students/{id}/photo?v=…</summary>
+    public DateTime? PhotoUpdatedAt { get; set; }
     public List<StudentParentDto> Parents { get; set; } = new();
     /// <summary>Children sharing a parent (admins only; empty for others).</summary>
     public List<SiblingDto> Siblings { get; set; } = new();
@@ -658,4 +662,5 @@ public class StudentParentDto
     public string? Email { get; set; }
     public bool HasLogin { get; set; }
     public bool IsActive { get; set; }
+    public DateTime? PhotoUpdatedAt { get; set; }
 }

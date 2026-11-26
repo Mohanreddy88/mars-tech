@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef, inject } from '@angular/core';
+import { Component, Input, OnInit, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
@@ -20,6 +20,9 @@ import { formatPhone } from '../../../../shared/phone';
   styleUrls: ['../../school-shared.scss']
 })
 export class SchoolFamiliesComponent implements OnInit {
+  /** Shown as a tab inside School → Registrations (no page title). */
+  @Input() embedded = false;
+
   private school = inject(SchoolService);
   private toast = inject(ToastService);
   private route = inject(ActivatedRoute);

@@ -1,0 +1,11 @@
+.reg-tabs {
+  display: flex; gap: 4px; border-bottom: 2px solid #e5e7eb; margin-bottom: 4px; flex-wrap: wrap;
+  button {
+    border: none; background: none; padding: 10px 16px; font-size: 14px; font-weight: 600; color: #6b7280;
+    border-bottom: 2px solid transparent; margin-bottom: -2px; cursor: pointer;
+    i { margin-right: 4px; }
+    &:hover { color: #1f2937; }
+    &.active { color: #2563eb; border-bottom-color: #2563eb; }
+  }
+}
+

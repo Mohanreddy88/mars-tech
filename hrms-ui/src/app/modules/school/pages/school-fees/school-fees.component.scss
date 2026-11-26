@@ -25,6 +25,7 @@
     &.ok { border-left-color: #16a34a; }
     &.warn { border-left-color: #f59e0b; }
     &.muted { border-left-color: #9ca3af; }
+    &.stat-link { border-top: 0; border-right: 0; border-bottom: 0; text-align: left; cursor: pointer; &:hover { background: #fffbeb; } }
   }
 }
 
@@ -87,6 +88,7 @@ tr.void td .pay-pill, tr.void td .tag { text-decoration: none; }
 th.pick, td.pick { width: 36px; }
 tr.picked td { background: #eff6ff; }
 .tag.warn { background: #fef3c7; color: #92400e; }
+.tag.ok { background: #dcfce7; color: #166534; white-space: nowrap; }
 .claim-box {
   display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;
   background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 10px 12px; margin: 8px 0;

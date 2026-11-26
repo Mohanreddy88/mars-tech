@@ -26,6 +26,10 @@
         <i class="bi bi-megaphone-fill"></i>
         <div><strong>Announcements</strong><span>Notices from the school</span></div>
       </a>
+      <a class="quick-card" routerLink="/parent/stories">
+        <i class="bi bi-images"></i>
+        <div><strong>Stories</strong><span>Class photos and videos</span></div>
+      </a>
       <a class="quick-card" routerLink="/parent/account">
         <i class="bi bi-person-vcard-fill"></i>
         <div><strong>My account</strong><span>Your details, contacts and pick-up people</span></div>
@@ -47,8 +51,9 @@
       <div class="children">
         @for (c of me!.children!; track c.id) {
           <div class="child-card">
-            <div class="child-top">
-              <div class="child-avatar">{{ c.fullName.charAt(0) }}</div>
+            <!-- Left: who the child is -->
+            <div class="child-who">
+              <app-school-avatar kind="students" [id]="c.id" [version]="c.photoUpdatedAt" [name]="c.fullName" [size]="72" />
               <div>
                 <h5>{{ c.fullName }}</h5>
                 <div class="cell-sub">
@@ -57,26 +62,32 @@
                 </div>
               </div>
             </div>
-            <dl>
-              <dt>Class teacher</dt><dd>{{ c.classTeacherName ?? '—' }}</dd>
-              <dt>Session</dt><dd>{{ c.sessionType }}</dd>
-            </dl>
-            <!-- Same four as the app's home tiles -->
-            <div class="child-actions">
-              <a class="btn btn-success btn-sm" [routerLink]="['/parent/child', c.id]"><i class="bi bi-sun"></i> Today</a>
-              <a class="btn btn-outline-success btn-sm" [routerLink]="['/parent/child', c.id]" [queryParams]="{ view: 'report' }"><i class="bi bi-journal-heart"></i> Daily report</a>
-              <a class="btn btn-outline-success btn-sm" [routerLink]="['/parent/child', c.id]" [queryParams]="{ view: 'attendance' }"><i class="bi bi-calendar-check"></i> Attendance</a>
-              <a class="btn btn-outline-danger btn-sm" [routerLink]="['/parent/child', c.id]" [queryParams]="{ view: 'notes' }"><i class="bi bi-pencil-square"></i> Absence / pickup</a>
+
+            <!-- Middle: key details -->
+            <div class="child-facts">
+              <div class="fact"><i class="bi bi-person-badge"></i><span>Class teacher</span><strong>{{ c.classTeacherName ?? '—' }}</strong></div>
+              <div class="fact"><i class="bi bi-clock"></i><span>Session</span><strong>{{ c.sessionType }}</strong></div>
             </div>
-            <div class="child-actions">
-              <button class="btn btn-primary btn-sm" (click)="message(c, 'Teacher')" [disabled]="opening !== null">
-                @if (opening === c.id + '-Teacher') { <span class="spinner-border spinner-border-sm"></span> }
-                <i class="bi bi-person-workspace"></i> Message teacher
-              </button>
-              <button class="btn btn-outline-secondary btn-sm" (click)="message(c, 'Office')" [disabled]="opening !== null">
-                @if (opening === c.id + '-Office') { <span class="spinner-border spinner-border-sm"></span> }
-                <i class="bi bi-building"></i> Message office
-              </button>
+
+            <!-- Right: what the parent can do (same as the app's home tiles) -->
+            <div class="child-do">
+              <div class="do-grid">
+                <a class="btn btn-success btn-sm" [routerLink]="['/parent/child', c.id]"><i class="bi bi-sun"></i> Today</a>
+                <a class="btn btn-outline-success btn-sm" [routerLink]="['/parent/child', c.id]" [queryParams]="{ view: 'report' }"><i class="bi bi-journal-heart"></i> Daily report</a>
+                <a class="btn btn-outline-success btn-sm" [routerLink]="['/parent/child', c.id]" [queryParams]="{ view: 'attendance' }"><i class="bi bi-calendar-check"></i> Attendance</a>
+                <a class="btn btn-outline-danger btn-sm" [routerLink]="['/parent/child', c.id]" [queryParams]="{ view: 'notes' }"><i class="bi bi-pencil-square"></i> Absence / pickup</a>
+                <a class="btn btn-outline-primary btn-sm" [routerLink]="['/parent/child', c.id]" [queryParams]="{ view: 'timetable' }"><i class="bi bi-clock-history"></i> Timetable</a>
+              </div>
+              <div class="do-message">
+                <button class="btn btn-primary btn-sm" (click)="message(c, 'Teacher')" [disabled]="opening !== null">
+                  @if (opening === c.id + '-Teacher') { <span class="spinner-border spinner-border-sm"></span> }
+                  <i class="bi bi-person-workspace"></i> Message teacher
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" (click)="message(c, 'Office')" [disabled]="opening !== null">
+                  @if (opening === c.id + '-Office') { <span class="spinner-border spinner-border-sm"></span> }
+                  <i class="bi bi-building"></i> Message office
+                </button>
+              </div>
             </div>
           </div>
         }

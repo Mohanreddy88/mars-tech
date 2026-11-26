@@ -106,6 +106,7 @@ class ChildSummary {
     this.classId,
     this.className,
     this.classTeacherName,
+    this.photoUpdatedAt,
   });
 
   final int id;
@@ -115,6 +116,8 @@ class ChildSummary {
   final int? classId;
   final String? className;
   final String? classTeacherName;
+  /// Profile photo version (null = none): school/students/{id}/photo?v=…
+  final String? photoUpdatedAt;
 
   factory ChildSummary.fromJson(Map<String, dynamic> j) => ChildSummary(
         id: _i(j['id']),
@@ -124,6 +127,7 @@ class ChildSummary {
         classId: (j['classId'] as num?)?.toInt(),
         className: _s(j['className']),
         classTeacherName: _s(j['classTeacherName']),
+        photoUpdatedAt: _s(j['photoUpdatedAt']),
       );
 }
 
@@ -530,7 +534,7 @@ class ChildDayMark {
 class AttendanceRow {
   const AttendanceRow({required this.studentId, required this.fullName, this.className, required this.sessionType,
       this.medicalNotes, required this.parents, this.attendance, required this.notes, this.reportPublished,
-      this.reportPhotos = 0, this.reportMood});
+      this.reportPhotos = 0, this.reportMood, this.locked = false});
   final int studentId;
   final String fullName;
   final String? className;
@@ -544,6 +548,9 @@ class AttendanceRow {
   final bool? reportPublished;
   final int reportPhotos;
   final String? reportMood;
+
+  /// Teachers can't check this child in / out: absent (staff-marked, or parent-reported and approved).
+  final bool locked;
 
   bool get expectedAbsent => attendance == null && notes.any((n) => n.isAbsence);
 
@@ -561,6 +568,7 @@ class AttendanceRow {
       reportPublished: r == null ? null : r['published'] as bool? ?? false,
       reportPhotos: _i(r?['photos']),
       reportMood: _s(r?['mood']),
+      locked: j['locked'] as bool? ?? false,
     );
   }
 }
@@ -568,9 +576,11 @@ class AttendanceRow {
 class AttendanceDay {
   const AttendanceDay({required this.date, required this.today, required this.rows, required this.present,
       required this.absent, required this.goneHome, required this.notMarked, required this.reportsSent,
-      this.times = const {}});
+      this.times = const {}, this.canEdit = true});
   final String date;
   final String today;
+  /// Teachers change only today's attendance; admins any day.
+  final bool canEdit;
   final List<AttendanceRow> rows;
   final int present;
   final int absent;
@@ -593,6 +603,7 @@ class AttendanceDay {
       date: j['date'] as String? ?? '',
       today: j['today'] as String? ?? '',
       rows: _list(j['rows'], AttendanceRow.fromJson),
+      canEdit: j['canEdit'] as bool? ?? true,
       present: _i(s['present']),
       absent: _i(s['absent']),
       goneHome: _i(s['checkedOut']),

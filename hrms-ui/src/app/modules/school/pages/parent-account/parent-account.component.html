@@ -16,7 +16,11 @@
     <section class="acc-card">
       <header>My profile</header>
       <div class="acc-row">
-        <div class="avatar">{{ account.parent.fullName.charAt(0) }}</div>
+        <app-photo-picker kind="parents" [id]="account.parent.id" [version]="account.parent.photoUpdatedAt" [name]="account.parent.fullName"
+                          [size]="64" (changed)="account.parent.photoUpdatedAt = $event" />
+      </div>
+      <div class="acc-row">
+        <i class="bi bi-person"></i>
         <div class="grow">
           <strong>{{ account.parent.fullName }}</strong>
           <div class="cell-sub">{{ account.parent.relationship }} · {{ account.parent.email ?? 'no email' }}</div>
@@ -51,11 +55,15 @@
       <header>{{ account.children.length === 1 ? 'Child details' : 'Children' }}</header>
       @for (c of account.children; track c.id) {
         <div class="acc-row link" (click)="openChild = openChild?.id === c.id ? null : c">
-          <div class="avatar child">{{ c.fullName.charAt(0) }}</div>
+          <app-school-avatar kind="students" [id]="c.id" [version]="c.photoUpdatedAt" [name]="c.fullName" [size]="44" />
           <div class="grow"><strong>{{ c.fullName }}</strong><div class="cell-sub">{{ c.className ? 'Class ' + c.className : 'No class yet' }} · {{ c.sessionType }}</div></div>
           <i class="bi" [class.bi-chevron-down]="openChild?.id !== c.id" [class.bi-chevron-up]="openChild?.id === c.id"></i>
         </div>
         @if (openChild?.id === c.id) {
+          <div class="child-photo">
+            <app-photo-picker kind="students" [id]="c.id" [version]="c.photoUpdatedAt" [name]="c.fullName"
+                              [size]="64" (changed)="c.photoUpdatedAt = $event" />
+          </div>
           <dl class="child-details">
             <dt>Class teacher</dt><dd>{{ c.classTeacher ?? '—' }}</dd>
             <dt>Date of birth</dt><dd>{{ date(c.dateOfBirth) }}</dd>
@@ -114,7 +122,7 @@
           <i class="bi bi-car-front"></i>
           <div class="grow">
             <strong>{{ n.pickupName }}{{ n.pickupTime ? ' · ' + n.pickupTime : '' }}</strong>
-            <div class="cell-sub">{{ dayLabel(n.fromDate) }}{{ many ? ' · ' + childName(n.studentId) : '' }} · {{ n.seenByName ? 'Seen by ' + n.seenByName : 'Sent' }}</div>
+            <div class="cell-sub">{{ dayLabel(n.fromDate) }}{{ many ? ' · ' + childName(n.studentId) : '' }} · {{ n.seenByName ? (n.kind === 'Absence' ? 'Approved by ' : 'Seen by ') + n.seenByName : 'Sent' }}</div>
           </div>
           <button class="btn btn-sm btn-link text-danger" (click)="withdraw(n)">Withdraw</button>
         </div>

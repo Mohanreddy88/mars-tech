@@ -59,6 +59,11 @@ public class HrmsDbContext : DbContext
     public DbSet<FeePriceSession>       FeePriceSessions      => Set<FeePriceSession>();
     public DbSet<FeePriceCharge>        FeePriceCharges       => Set<FeePriceCharge>();
     public DbSet<StudentDeposit>        StudentDeposits       => Set<StudentDeposit>();
+    public DbSet<TimetableSlot>         TimetableSlots        => Set<TimetableSlot>();
+    public DbSet<TimetableLog>          TimetableLogs         => Set<TimetableLog>();
+    public DbSet<ProfilePhoto>          ProfilePhotos         => Set<ProfilePhoto>();
+    public DbSet<Story>                 Stories               => Set<Story>();
+    public DbSet<StoryMedia>            StoryMedia            => Set<StoryMedia>();
     public DbSet<BotFaq>                BotFaqs               => Set<BotFaq>();
     public DbSet<BotUnanswered>         BotUnansweredQuestions => Set<BotUnanswered>();
     public DbSet<BotAiUsage>            BotAiUsageLog         => Set<BotAiUsage>();
@@ -621,6 +626,58 @@ public class HrmsDbContext : DbContext
             e.Property(x => x.Error).HasMaxLength(HrmsApi.Services.AiErrors.MaxLength);
             e.HasIndex(x => new { x.UserId, x.AskedAt });
             e.HasIndex(x => x.AskedAt);
+        });
+
+        // ── Timetable, profile photos, class stories ──
+        modelBuilder.Entity<TimetableSlot>(e =>
+        {
+            e.Property(x => x.Subject).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Notes).HasMaxLength(500);
+            e.Property(x => x.ActiveFrom).HasColumnType("date");
+            e.Property(x => x.RemovedOn).HasColumnType("date");
+            e.HasIndex(x => new { x.ClassId, x.DayOfWeek, x.StartTime });
+            e.HasIndex(x => x.TeacherEmployeeId);
+            e.HasOne(x => x.Class).WithMany().HasForeignKey(x => x.ClassId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Teacher).WithMany().HasForeignKey(x => x.TeacherEmployeeId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<TimetableLog>(e =>
+        {
+            e.Property(x => x.Date).HasColumnType("date");
+            e.Property(x => x.Note).IsRequired().HasMaxLength(1000);
+            e.Property(x => x.UpdatedByName).IsRequired().HasMaxLength(150);
+            e.Property(x => x.Subject).HasMaxLength(100);
+            e.Property(x => x.TeacherName).HasMaxLength(150);
+            e.HasIndex(x => new { x.SlotId, x.Date }).IsUnique();
+            e.HasIndex(x => x.Date);
+            e.HasOne(x => x.Slot).WithMany(s => s.Logs).HasForeignKey(x => x.SlotId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ProfilePhoto>(e =>
+        {
+            e.Property(x => x.ContentType).IsRequired().HasMaxLength(100);
+            e.HasIndex(x => x.StudentId).IsUnique();
+            e.HasIndex(x => x.ParentId).IsUnique();
+            e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Parent).WithMany().HasForeignKey(x => x.ParentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Story>(e =>
+        {
+            e.Property(x => x.Caption).HasMaxLength(2000);
+            e.Property(x => x.CreatedByName).IsRequired().HasMaxLength(150);
+            e.HasIndex(x => new { x.ClassId, x.PublishedAt });
+            e.HasIndex(x => x.CreatedAt);
+            e.HasOne(x => x.Class).WithMany().HasForeignKey(x => x.ClassId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<StoryMedia>(e =>
+        {
+            e.Property(x => x.Kind).IsRequired().HasMaxLength(10);
+            e.Property(x => x.FileName).IsRequired().HasMaxLength(255);
+            e.Property(x => x.ContentType).IsRequired().HasMaxLength(100);
+            e.Property(x => x.StoragePath).IsRequired().HasMaxLength(400);
+            e.HasOne(x => x.Story).WithMany(s => s.Media).HasForeignKey(x => x.StoryId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 

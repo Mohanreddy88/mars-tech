@@ -183,6 +183,11 @@ class _SchoolAttendanceScreenState extends ConsumerState<SchoolAttendanceScreen>
                 Pill('${d.notMarked} not marked'),
                 Pill('${d.reportsSent}/${d.rows.length} reports sent', tone: PillTone.info),
               ]),
+            if (d != null && !d.canEdit)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Text('🔒 Earlier days are read-only for teachers. Ask the office to correct a past day.'),
+              ),
             const SizedBox(height: 8),
             if (_loading)
               const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
@@ -193,13 +198,14 @@ class _SchoolAttendanceScreenState extends ConsumerState<SchoolAttendanceScreen>
             else
               for (final r in d.rows) _RowCard(
                 row: r,
+                canChange: d.canEdit && !r.locked,
                 busy: _busy == r.studentId,
                 onCheckIn: () => _checkIn(r),
                 onCheckOut: () => _checkOut(r),
                 onAbsent: () => _absent(r),
                 onUndo: () => _run(r, () => _repo.clearAttendance(r.studentId, _date), 'Cleared'),
                 onReport: () => _openReport(r),
-                onSeen: (n) => _run(r, () => _repo.markNoteSeen(n.id), 'Marked as seen'),
+                onSeen: (n) => _run(r, () => _repo.markNoteSeen(n.id), n.isAbsence ? 'Absence approved' : 'Marked as seen'),
               ),
           ],
         ),
@@ -209,9 +215,11 @@ class _SchoolAttendanceScreenState extends ConsumerState<SchoolAttendanceScreen>
 }
 
 class _RowCard extends StatelessWidget {
-  const _RowCard({required this.row, required this.busy, required this.onCheckIn, required this.onCheckOut,
+  const _RowCard({required this.row, required this.canChange, required this.busy, required this.onCheckIn, required this.onCheckOut,
       required this.onAbsent, required this.onUndo, required this.onReport, required this.onSeen});
   final AttendanceRow row;
+  /// Teachers: only today, and not once the child is absent.
+  final bool canChange;
   final bool busy;
   final VoidCallback onCheckIn, onCheckOut, onAbsent, onUndo, onReport;
   final ValueChanged<ParentNote> onSeen;
@@ -261,30 +269,34 @@ class _RowCard extends StatelessWidget {
                   ),
                 ),
                 n.seenByName == null
-                    ? TextButton(onPressed: () => onSeen(n), child: const Text('Seen'))
+                    ? TextButton(onPressed: () => onSeen(n), child: Text(n.isAbsence ? 'Approve' : 'Seen'))
                     : const Padding(padding: EdgeInsets.all(8), child: Icon(Icons.done_all, size: 18, color: Color(0xFF16A34A))),
               ]),
             ),
           const SizedBox(height: 8),
           Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-            if (a == null) ...[
+            if (a == null && row.locked) ...[
+              const Pill('Absent: reported by the parent (approved)', tone: PillTone.bad),
+            ] else if (a == null && !canChange) ...[
+              const Pill('Not marked'),
+            ] else if (a == null) ...[
               FilledButton.icon(onPressed: busy ? null : onCheckIn, icon: const Icon(Icons.login, size: 18), label: const Text('Check in')),
               OutlinedButton(onPressed: busy ? null : onAbsent, child: const Text('Absent')),
             ] else if (a.absent) ...[
               Pill('Absent${a.autoAbsent ? ' (automatic)' : ''}${a.absenceReason != null ? ': ${a.absenceReason}' : ''}',
                   tone: PillTone.bad),
               // Marked absent automatically but arrived after all: checking in makes them present (late)
-              if (a.autoAbsent)
+              if (a.autoAbsent && canChange)
                 TextButton.icon(onPressed: busy ? null : onCheckIn, icon: const Icon(Icons.login, size: 18), label: const Text('Arrived')),
             ] else ...[
               Pill('In ${a.checkIn}', tone: PillTone.good),
               if (a.isLate) const Pill('Late', tone: PillTone.warn),
               if (a.checkOut != null)
                 Pill('Home ${a.checkOut} · ${a.autoCheckOut ? 'automatic' : a.pickedUpBy ?? ''}', tone: PillTone.info)
-              else
+              else if (canChange)
                 OutlinedButton.icon(onPressed: busy ? null : onCheckOut, icon: const Icon(Icons.logout, size: 18), label: const Text('Check out')),
             ],
-            if (a != null) TextButton(onPressed: busy ? null : onUndo, child: const Text('Undo')),
+            if (a != null && canChange) TextButton(onPressed: busy ? null : onUndo, child: const Text('Undo')),
           ]),
           const Divider(height: 16),
           InkWell(

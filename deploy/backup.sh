@@ -18,6 +18,8 @@ for DB in $DATABASES; do
   docker compose exec -T db pg_dump -U "$POSTGRES_USER" -d "$DB" -Fc </dev/null > "$DEST/db-$DB-$STAMP.dump"
 done
 docker compose exec -T app tar -czf - -C /app/api/wwwroot uploads </dev/null > "$DEST/uploads-$STAMP.tar.gz"
+# Class story photos / videos (the media volume; may be missing on releases before stories)
+docker compose exec -T app sh -c '[ -d /app/api/media ] && tar -czf - -C /app/api media || true' </dev/null > "$DEST/media-$STAMP.tar.gz"
 
 find "$DEST" -type f -mtime +14 -delete
 echo "$(date) backup ok: $STAMP ($(echo $DATABASES | wc -w) databases: $(echo $DATABASES))"

@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef, inject } from '@angular/core';
+import { Component, Input, OnInit, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
@@ -7,6 +7,8 @@ import { ToastService } from '../../../../core/services/toast.service';
 import { ConfirmModalComponent } from '../../../../shared/components/confirm-modal/confirm-modal.component';
 import { PhoneInputComponent } from '../../../../shared/components/phone-input/phone-input.component';
 import { formatPhone, splitPhone, phoneProblem } from '../../../../shared/phone';
+import { SchoolAvatarComponent } from '../../../../shared/components/school-avatar/school-avatar.component';
+import { PhotoPickerComponent } from '../../../../shared/components/school-avatar/photo-picker.component';
 
 const phoneProblemOf = (v: string) => { const p = splitPhone(v); return phoneProblem(p.country, p.national); };
 
@@ -17,11 +19,14 @@ const phoneProblemOf = (v: string) => { const p = splitPhone(v); return phonePro
 @Component({
   selector: 'app-school-parents',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, ConfirmModalComponent, PhoneInputComponent],
+  imports: [CommonModule, FormsModule, RouterModule, ConfirmModalComponent, PhoneInputComponent, SchoolAvatarComponent, PhotoPickerComponent],
   templateUrl: './school-parents.component.html',
   styleUrls: ['../../school-shared.scss']
 })
 export class SchoolParentsComponent implements OnInit {
+  /** Shown as a tab inside School → Registrations (no page title). */
+  @Input() embedded = false;
+
   private school = inject(SchoolService);
   private toast = inject(ToastService);
   private cdr = inject(ChangeDetectorRef);
@@ -75,7 +80,7 @@ export class SchoolParentsComponent implements OnInit {
     const p = this.familyPrompt;
     this.familyPrompt = null;
     if (!p) return;
-    this.router.navigate(['/school/families'], {
+    this.router.navigate(['/school/registrations/families'], {
       queryParams: { add: 1, [p.relationship === 'Mother' ? 'motherId' : 'fatherId']: p.id }
     });
   }
@@ -114,6 +119,14 @@ export class SchoolParentsComponent implements OnInit {
     this.form = this.blank();
     this.modalError = '';
     this.showModal = true;
+  }
+
+  /** New photo saved from the edit form: show it in the list straight away. */
+  photoChanged(id: number, version: string | null): void {
+    const p = this.parents.find(x => x.id === id);
+    if (p) p.photoUpdatedAt = version;
+    if (this.editing?.id === id) this.editing.photoUpdatedAt = version;
+    this.cdr.markForCheck();
   }
 
   openEdit(p: ParentRecord): void {

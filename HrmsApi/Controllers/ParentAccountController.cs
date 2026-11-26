@@ -42,14 +42,14 @@ public class ParentAccountController : ControllerBase
         var me = await SchoolViewer.LoadAsync(_db, User);
         if (me?.ParentId == null) return Forbid();
         var parent = await _db.Parents.AsNoTracking().Where(p => p.Id == me.ParentId)
-            .Select(p => new { p.Id, p.FullName, p.Email, p.Phone, p.Relationship, username = p.User != null ? p.User.Username : null })
+            .Select(p => new { p.Id, p.FullName, p.Email, p.Phone, p.Relationship, p.PhotoUpdatedAt, username = p.User != null ? p.User.Username : null })
             .FirstAsync();
 
         var children = await _db.Students.AsNoTracking().Where(s => me.ChildIds.Contains(s.Id)).OrderBy(s => s.FullName)
             .Select(s => new
             {
                 s.Id, s.FullName, s.DateOfBirth, s.Gender, s.SessionType, s.JoinedOn, s.AdmissionNo,
-                s.MedicalNotes, s.EmergencyContactName, s.EmergencyContactPhone,
+                s.MedicalNotes, s.EmergencyContactName, s.EmergencyContactPhone, s.PhotoUpdatedAt,
                 className = s.Class != null ? s.Class.Name : null,
                 classTeacher = s.Class != null && s.Class.ClassTeacher != null ? s.Class.ClassTeacher.Name : null,
                 // Parents and guardians may always collect the child
@@ -70,7 +70,7 @@ public class ParentAccountController : ControllerBase
             children = children.Select(c => new
             {
                 c.Id, c.FullName, c.DateOfBirth, c.Gender, c.SessionType, c.JoinedOn, c.AdmissionNo, c.MedicalNotes,
-                c.EmergencyContactName, c.EmergencyContactPhone, c.className, c.classTeacher, c.contacts,
+                c.EmergencyContactName, c.EmergencyContactPhone, c.PhotoUpdatedAt, c.className, c.classTeacher, c.contacts,
                 pickupPeople = people.Where(p => p.StudentId == c.Id).Select(PersonDto)
             })
         });

@@ -1,0 +1,171 @@
+<div class="school-page">
+  <div class="page-header">
+    <div>
+      @if (isParent) { <a routerLink="/parent" class="back"><i class="bi bi-arrow-left"></i> Home</a> }
+      <h3>Stories</h3>
+      <p>{{ isParent ? 'Photos and videos from your child\'s class. Tap one to view it full size or download it.'
+                     : 'Share photos and videos with every parent of a class.' }}</p>
+    </div>
+    @if (canPost) {
+      <div class="header-actions">
+        <button class="btn btn-primary" (click)="openNew()"><i class="bi bi-plus-lg"></i> New story</button>
+      </div>
+    }
+  </div>
+
+  @if (!isParent && classes.length > 1) {
+    <div class="filters-row">
+      <select [(ngModel)]="filterClassId" (ngModelChange)="load()" aria-label="Class">
+        <option [ngValue]="null">All classes</option>
+        @for (c of classes; track c.id) { <option [ngValue]="c.id">{{ c.name }}</option> }
+      </select>
+    </div>
+  }
+
+  @if (loading) {
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+  } @else if (stories.length === 0) {
+    <div class="table-card empty-state">
+      <i class="bi bi-images"></i>
+      <h5>No stories yet</h5>
+      <p>{{ isParent ? 'When the teacher shares photos or videos of the class, they appear here.' : 'Press New story to share the first photos with parents.' }}</p>
+    </div>
+  } @else {
+    <div class="feed">
+      @for (s of stories; track s.id) {
+        <article class="story">
+          <header>
+            <div class="badge-class">{{ s.className ?? 'Whole school' }}</div>
+            <div class="who">
+              <strong>{{ s.createdByName }}</strong>
+              <span class="cell-sub">{{ (s.publishedAt ?? s.createdAt) | date: 'd MMM yyyy, h:mm a' }}</span>
+            </div>
+            @if (!s.publishedAt) { <span class="tag warn">Draft — parents can't see it</span> }
+            @if (s.canEdit) {
+              <div class="ms-auto d-flex gap-1">
+                @if (!s.publishedAt) { <button class="btn btn-sm btn-success" (click)="continueDraft(s)"><i class="bi bi-send"></i> Continue</button> }
+                <button class="btn btn-sm btn-outline-danger" (click)="confirmDeleteStory = s" title="Delete story"><i class="bi bi-trash"></i></button>
+              </div>
+            }
+          </header>
+          @if (s.caption) { <p class="caption">{{ s.caption }}</p> }
+          <div class="grid" [class.one]="s.media.length === 1" [class.two]="s.media.length === 2">
+            @for (m of s.media.slice(0, 6); track m.id; let i = $index) {
+              <button type="button" class="tile" (click)="open(s, i)" [attr.aria-label]="'Open ' + m.fileName">
+                @if (m.kind === 'Photo') {
+                  <img [src]="url(m)" [alt]="m.fileName" loading="lazy" />
+                } @else {
+                  <video [src]="url(m) + '#t=0.5'" preload="metadata" muted playsinline></video>
+                  <span class="play"><i class="bi bi-play-fill"></i></span>
+                }
+                @if (i === 5 && s.media.length > 6) { <span class="more">+{{ s.media.length - 6 }}</span> }
+              </button>
+            }
+          </div>
+          <footer class="cell-sub">
+            @if (count(s, 'Photo')) { <span><i class="bi bi-image"></i> {{ count(s, 'Photo') }}</span> }
+            @if (count(s, 'Video')) { <span><i class="bi bi-camera-video"></i> {{ count(s, 'Video') }}</span> }
+          </footer>
+        </article>
+      }
+    </div>
+    @if (hasMore) {
+      <div class="text-center my-3">
+        <button class="btn btn-outline-primary" (click)="more()" [disabled]="loadingMore">
+          @if (loadingMore) { <span class="spinner-border spinner-border-sm me-1"></span> } Show older stories
+        </button>
+      </div>
+    }
+  }
+</div>
+
+<!-- ── Viewer ── -->
+@if (viewing && current; as m) {
+  <div class="viewer" (click)="viewing = null">
+    <div class="viewer-top" (click)="$event.stopPropagation()">
+      <span>{{ viewing.index + 1 }} / {{ viewing.story.media.length }} · {{ viewing.story.className ?? 'Whole school' }}</span>
+      <div class="d-flex gap-2">
+        <a class="btn btn-sm btn-light" [href]="downloadUrl(m)" [attr.download]="m.fileName"><i class="bi bi-download"></i> Download</a>
+        @if (viewing.story.canEdit) {
+          <button class="btn btn-sm btn-outline-light" (click)="deleteMedia(m)" title="Remove this file"><i class="bi bi-trash"></i></button>
+        }
+        <button class="btn btn-sm btn-outline-light" (click)="viewing = null" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+    </div>
+    <div class="viewer-body" (click)="$event.stopPropagation()">
+      @if (viewing.story.media.length > 1) { <button class="nav prev" (click)="step(-1)" aria-label="Previous"><i class="bi bi-chevron-left"></i></button> }
+      @if (m.kind === 'Photo') {
+        <img [src]="url(m)" [alt]="m.fileName" />
+      } @else {
+        <video [src]="url(m)" controls autoplay playsinline></video>
+      }
+      @if (viewing.story.media.length > 1) { <button class="nav next" (click)="step(1)" aria-label="Next"><i class="bi bi-chevron-right"></i></button> }
+    </div>
+    @if (viewing.story.caption) { <div class="viewer-caption" (click)="$event.stopPropagation()">{{ viewing.story.caption }}</div> }
+  </div>
+}
+
+<!-- ── Composer ── -->
+@if (composing) {
+  <div class="modal-overlay" (click)="closeComposer()">
+    <div class="modal-box wide" (click)="$event.stopPropagation()">
+      <div class="modal-header-row">
+        <h5>{{ draftId ? 'Finish story' : 'New story' }}</h5>
+        <button class="btn-close-modal" (click)="closeComposer()" [disabled]="working" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="modal-form">
+        @if (composeError) { <div class="alert alert-danger py-2 mb-3">{{ composeError }}</div> }
+        <div class="form-grid">
+          <div class="form-group span-2">
+            <label for="st-class">Share with</label>
+            <select id="st-class" [(ngModel)]="classId" [disabled]="working">
+              @if (wholeSchool) { <option [ngValue]="null">Whole school (every parent)</option> }
+              @for (c of classes; track c.id) { <option [ngValue]="c.id">Parents of {{ c.name }}</option> }
+            </select>
+          </div>
+          <div class="form-group span-2">
+            <label for="st-caption">Caption (optional)</label>
+            <textarea id="st-caption" rows="2" maxlength="2000" [(ngModel)]="caption" [disabled]="working"
+                      placeholder="e.g. Sports day practice — everyone did a great job!"></textarea>
+          </div>
+        </div>
+
+        <label class="drop" [class.disabled]="working">
+          <i class="bi bi-cloud-arrow-up"></i>
+          <span><strong>Add photos and videos</strong><br /><small>Photos up to 10 MB, videos up to 100 MB · up to 20 per story</small></span>
+          <input type="file" multiple accept="image/jpeg,image/png,video/mp4,video/quicktime,video/webm" hidden (change)="pick($any($event.target))" [disabled]="working" />
+        </label>
+
+        @if (files.length) {
+          <ul class="pending">
+            @for (f of files; track $index; let i = $index) {
+              <li [class.error]="f.error" [class.done]="f.done">
+                @if (f.preview) { <img [src]="f.preview" alt="" /> } @else { <span class="ph"><i class="bi" [class.bi-camera-video]="f.file.type.startsWith('video/')" [class.bi-file-earmark]="!f.file.type.startsWith('video/')"></i></span> }
+                <div class="grow">
+                  <div class="name">{{ f.file.name }}</div>
+                  <div class="cell-sub">{{ size(f.file.size) }}@if (f.error) { · <span class="text-danger">{{ f.error }}</span> }@if (f.done) { · uploaded }</div>
+                  @if (working && !f.done && !f.error) {
+                    <div class="bar"><span [style.width.%]="f.progress"></span></div>
+                  }
+                </div>
+                @if (!working && !f.done) { <button class="btn btn-sm btn-link text-danger" (click)="removeFile(i)" aria-label="Remove"><i class="bi bi-x-lg"></i></button> }
+              </li>
+            }
+          </ul>
+        }
+      </div>
+      <div class="modal-footer-row">
+        <button class="btn btn-secondary" (click)="closeComposer()" [disabled]="working">{{ draftId ? 'Close (keep draft)' : 'Cancel' }}</button>
+        <button class="btn btn-success" (click)="publish()" [disabled]="working">
+          @if (working) { <span class="spinner-border spinner-border-sm me-1"></span> Uploading… } @else { <i class="bi bi-send"></i> Publish to parents }
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (confirmDeleteStory) {
+  <app-confirm-modal [show]="true" variant="danger" title="Delete story"
+                     message="Delete this story and all its photos and videos? Parents will no longer see them."
+                     confirmText="Delete" (confirmed)="deleteStory()" (cancelled)="confirmDeleteStory = null" />
+}

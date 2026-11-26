@@ -213,7 +213,7 @@ export class AssistantWidgetComponent {
           'change-password': '/self-service/change-password',
           // Staff and admin pages (the API only offers the ones this login may open)
           'school-attendance': '/school/attendance', 'school-messages': '/school/messages', 'my-class': '/school/my-class',
-          'school-fees': '/school/fees', 'school-children': '/school/students',
+          'school-fees': '/school/fees', 'school-children': '/school/registrations/children',
           'approvals': '/leave/requests', 'payroll': '/payroll/list', 'employees': '/employees'
         };
     return map[key] ?? null;

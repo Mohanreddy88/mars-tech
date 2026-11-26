@@ -56,7 +56,7 @@
                 @for (n of c.teacherNames ?? []; track n) { <div class="cell-sub">{{ n }}</div> }
               </td>
               <td>
-                <a class="count-badge text-decoration-none" [routerLink]="['/school/students']" [queryParams]="{ classId: c.id }">
+                <a class="count-badge text-decoration-none" [routerLink]="['/school/registrations/children']" [queryParams]="{ classId: c.id }">
                   <i class="bi bi-people-fill"></i> {{ c.studentCount }}
                 </a>
               </td>

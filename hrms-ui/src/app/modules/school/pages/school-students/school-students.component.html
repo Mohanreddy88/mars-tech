@@ -1,13 +1,15 @@
-<div class="school-page">
+<div class="school-page" [class.embedded]="embedded">
 
   <div class="page-header">
-    <div>
-      <h3>{{ isAdmin ? 'Children' : 'My Class' }}</h3>
-      <p>{{ isAdmin ? 'Every child, their class, session and parents.' : 'Children in your class, with their parents\' contact details.' }}</p>
-    </div>
+    @if (!embedded) {
+      <div>
+        <h3>{{ isAdmin ? 'Children' : 'My Class' }}</h3>
+        <p>{{ isAdmin ? 'Every child, their class, session and parents.' : 'Children in your class, with their parents\' contact details.' }}</p>
+      </div>
+    }
     @if (isAdmin) {
       <div class="header-actions">
-        <a class="btn btn-outline-primary" routerLink="/school/parents"><i class="bi bi-people"></i> Parents</a>
+        @if (!embedded) { <a class="btn btn-outline-primary" routerLink="/school/registrations/parents"><i class="bi bi-people"></i> Parents</a> }
         <button class="btn btn-primary" (click)="openCreate()">
           <i class="bi bi-plus-lg"></i> Add Child
         </button>
@@ -66,7 +68,7 @@
             <tr>
               <td>
                 <div class="cell-main">
-                  <i class="bi bi-person-circle cell-icon"></i>
+                  <app-school-avatar kind="students" [id]="s.id" [version]="s.photoUpdatedAt" [name]="s.fullName" [size]="38" />
                   <div>
                     <strong>{{ s.fullName }}</strong>
                     <div class="cell-sub">
@@ -142,6 +144,12 @@
           </div>
         }
 
+        @if (editing && isAdmin) {
+          <div class="mb-3">
+            <app-photo-picker kind="students" [id]="editing.id" [version]="editing.photoUpdatedAt" [name]="editing.fullName"
+                              (changed)="photoChanged(editing.id, $event)" />
+          </div>
+        }
         <div class="form-grid">
           <div class="form-group span-2">
             <label for="st-name">Full name</label>

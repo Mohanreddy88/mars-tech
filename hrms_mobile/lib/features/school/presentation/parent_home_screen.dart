@@ -15,6 +15,7 @@ import '../data/school_models.dart';
 import '../data/school_repository.dart';
 import 'banner_carousel.dart';
 import 'messages_screens.dart';
+import 'school_avatar.dart';
 import 'school_widgets.dart';
 
 /// The child shown on the parent home (parents with several children switch between them).
@@ -128,11 +129,14 @@ class _ChildHeader extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        CircleAvatar(
+        // Tap to add / change the child's photo (refreshes "me" so every screen shows it)
+        EditableAvatar(
+          kind: 'students',
+          id: child.id,
+          version: child.photoUpdatedAt,
+          name: child.fullName,
           radius: 30,
-          backgroundColor: scheme.primary,
-          child: Text(child.fullName.isEmpty ? '?' : child.fullName[0].toUpperCase(),
-              style: text.headlineSmall?.copyWith(color: scheme.onPrimary, fontWeight: FontWeight.w600)),
+          onChanged: (_) => ref.invalidate(schoolMeProvider),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -164,7 +168,7 @@ class _ChildHeader extends ConsumerWidget {
                   child: ListView(shrinkWrap: true, children: [
                     for (final c in all)
                       ListTile(
-                        leading: CircleAvatar(child: Text(c.fullName.isEmpty ? '?' : c.fullName[0])),
+                        leading: SchoolAvatar(kind: 'students', id: c.id, version: c.photoUpdatedAt, name: c.fullName),
                         title: Text(c.fullName),
                         subtitle: Text(c.className == null ? 'No class yet' : 'Class ${c.className}'),
                         trailing: c.id == child.id ? Icon(Icons.check, color: scheme.primary) : null,
@@ -214,6 +218,8 @@ class _Tiles extends ConsumerWidget {
       HomeTile('Daily report', Icons.photo_library_outlined, TileColors.report, () => context.push('$dayRoute?view=report')),
       HomeTile('Attendance', Icons.event_available_outlined, TileColors.attendance, () => context.push('$dayRoute?view=attendance')),
       HomeTile('Absence / pickup', Icons.edit_note_outlined, TileColors.note, () => context.push('$dayRoute?view=notes')),
+      HomeTile('Timetable', Icons.schedule_outlined, TileColors.teacher, () => context.push('${Routes.schoolTimetable}?student=${child.id}')),
+      HomeTile('Stories', Icons.collections_outlined, TileColors.report, () => context.push(Routes.schoolStories)),
       HomeTile('Messages', Icons.forum_outlined, TileColors.messages, () => context.go(Routes.parentMessages),
           badge: unread?.messages ?? 0),
       HomeTile('Message teacher', Icons.person_outline, TileColors.teacher,

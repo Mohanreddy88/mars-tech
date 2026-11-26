@@ -61,6 +61,19 @@
     </div>
   }
 
+  @if (view === 'timetable') {
+    @if (timetableLoading && !timetable) {
+      <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+    } @else if (timetable && !timetable.classId) {
+      <p class="text-muted">Your child is not in a class yet, so there is no timetable.</p>
+    } @else if (timetable && timetable.slots.length === 0) {
+      <p class="text-muted">The school hasn't set up the timetable for {{ timetable.className }} yet.</p>
+    } @else if (timetable) {
+      <p class="cell-sub mb-2">Class {{ timetable.className }} · today's periods show what the children covered once the teacher adds it.</p>
+      <app-timetable-view [week]="timetable" />
+    }
+  }
+
   @if (view === 'notes') {
     <div class="d-flex gap-2 mb-3">
       <button class="btn btn-outline-danger" (click)="openNote('Absence')"><i class="bi bi-thermometer-half"></i> Report absence</button>
@@ -106,7 +119,7 @@
             <i class="bi" [class.bi-thermometer-half]="n.kind === 'Absence'" [class.bi-car-front-fill]="n.kind === 'Pickup'"></i>
             <span>
               Your note: {{ n.kind === 'Absence' ? 'absent' : n.pickupName + ' picks up' + (n.pickupTime ? ' at ' + n.pickupTime : '') }}
-              @if (n.seenByName) { <small class="seen"><i class="bi bi-check2-all"></i> Seen by {{ n.seenByName }}</small> }
+              @if (n.seenByName) { <small class="seen"><i class="bi bi-check2-all"></i> {{ n.kind === 'Absence' ? 'Approved' : 'Seen' }} by {{ n.seenByName }}</small> }
             </span>
           </div>
         }
@@ -182,7 +195,7 @@
                   @if (n.kind === 'Pickup') { {{ n.pickupName }}{{ n.pickupTime ? ' at ' + n.pickupTime : '' }}{{ n.pickupPhone ? ' · ' + phone(n.pickupPhone) : '' }} }
                   @if (n.message) { <div class="cell-sub">{{ n.message }}</div> }
                 </td>
-                <td>@if (n.seenByName) { <span class="tag ok">Seen by {{ n.seenByName }}</span> } @else { <span class="tag muted">Sent</span> }</td>
+                <td>@if (n.seenByName) { <span class="tag ok">{{ n.kind === 'Absence' ? 'Approved' : 'Seen' }} by {{ n.seenByName }}</span> } @else { <span class="tag muted">Sent</span> }</td>
                 <td class="text-end"><button class="btn btn-sm btn-link text-danger" (click)="cancelNote(n)">Withdraw</button></td>
               </tr>
             }
@@ -202,7 +215,7 @@
               <td><span class="tag muted">{{ n.kind === 'Absence' ? 'Absence' : 'Pickup' }}</span></td>
               <td>{{ noteWhen(n) }}</td>
               <td>@if (n.kind === 'Pickup') { {{ n.pickupName }} } @if (n.message) { <div class="cell-sub">{{ n.message }}</div> }</td>
-              <td>{{ n.cancelled ? 'Withdrawn' : (n.seenByName ? 'Seen by ' + n.seenByName : 'Sent') }}</td>
+              <td>{{ n.cancelled ? 'Withdrawn' : (n.seenByName ? (n.kind === 'Absence' ? 'Approved by ' : 'Seen by ') + n.seenByName : 'Sent') }}</td>
             </tr>
           }
         </tbody>

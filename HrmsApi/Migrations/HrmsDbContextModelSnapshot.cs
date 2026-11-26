@@ -1679,6 +1679,9 @@ namespace HrmsApi.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
 
+                    b.Property<DateTime?>("PhotoUpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<string>("Relationship")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -2075,6 +2078,43 @@ namespace HrmsApi.Migrations
                     b.ToTable("PickupPeople", (string)null);
                 });
 
+            modelBuilder.Entity("HrmsApi.Models.ProfilePhoto", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<int?>("ParentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("StudentId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParentId")
+                        .IsUnique();
+
+                    b.HasIndex("StudentId")
+                        .IsUnique();
+
+                    b.ToTable("ProfilePhotos");
+                });
+
             modelBuilder.Entity("HrmsApi.Models.PublicHoliday", b =>
                 {
                     b.Property<int>("Id")
@@ -2313,6 +2353,91 @@ namespace HrmsApi.Migrations
                     b.ToTable("StatutoryRateSets", (string)null);
                 });
 
+            modelBuilder.Entity("HrmsApi.Models.Story", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Caption")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("ClassId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedByName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("ClassId", "PublishedAt");
+
+                    b.ToTable("Stories");
+                });
+
+            modelBuilder.Entity("HrmsApi.Models.StoryMedia", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
+                    b.Property<int>("StoryId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoryId");
+
+                    b.ToTable("StoryMedia");
+                });
+
             modelBuilder.Entity("HrmsApi.Models.Student", b =>
                 {
                     b.Property<int>("Id")
@@ -2370,6 +2495,9 @@ namespace HrmsApi.Migrations
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("PhotoUpdatedAt")
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("SessionType")
                         .IsRequired()
@@ -2592,6 +2720,107 @@ namespace HrmsApi.Migrations
                         .IsUnique();
 
                     b.ToTable("Timesheets");
+                });
+
+            modelBuilder.Entity("HrmsApi.Models.TimetableLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<TimeSpan?>("EndTime")
+                        .HasColumnType("interval");
+
+                    b.Property<string>("Note")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int>("SlotId")
+                        .HasColumnType("integer");
+
+                    b.Property<TimeSpan?>("StartTime")
+                        .HasColumnType("interval");
+
+                    b.Property<string>("Subject")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("TeacherName")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedByName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Date");
+
+                    b.HasIndex("SlotId", "Date")
+                        .IsUnique();
+
+                    b.ToTable("TimetableLogs");
+                });
+
+            modelBuilder.Entity("HrmsApi.Models.TimetableSlot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("ActiveFrom")
+                        .HasColumnType("date");
+
+                    b.Property<int>("ClassId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("DayOfWeek")
+                        .HasColumnType("integer");
+
+                    b.Property<TimeSpan>("EndTime")
+                        .HasColumnType("interval");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("RemovedOn")
+                        .HasColumnType("date");
+
+                    b.Property<TimeSpan>("StartTime")
+                        .HasColumnType("interval");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int?>("TeacherEmployeeId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TeacherEmployeeId");
+
+                    b.HasIndex("ClassId", "DayOfWeek", "StartTime");
+
+                    b.ToTable("TimetableSlots");
                 });
 
             modelBuilder.Entity("HrmsApi.Models.User", b =>
@@ -3042,6 +3271,23 @@ namespace HrmsApi.Migrations
                     b.Navigation("Student");
                 });
 
+            modelBuilder.Entity("HrmsApi.Models.ProfilePhoto", b =>
+                {
+                    b.HasOne("HrmsApi.Models.Parent", "Parent")
+                        .WithMany()
+                        .HasForeignKey("ParentId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("HrmsApi.Models.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Parent");
+
+                    b.Navigation("Student");
+                });
+
             modelBuilder.Entity("HrmsApi.Models.SchoolBanner", b =>
                 {
                     b.HasOne("HrmsApi.Models.SchoolClass", "Class")
@@ -3079,6 +3325,27 @@ namespace HrmsApi.Migrations
                     b.Navigation("Class");
 
                     b.Navigation("Employee");
+                });
+
+            modelBuilder.Entity("HrmsApi.Models.Story", b =>
+                {
+                    b.HasOne("HrmsApi.Models.SchoolClass", "Class")
+                        .WithMany()
+                        .HasForeignKey("ClassId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Class");
+                });
+
+            modelBuilder.Entity("HrmsApi.Models.StoryMedia", b =>
+                {
+                    b.HasOne("HrmsApi.Models.Story", "Story")
+                        .WithMany("Media")
+                        .HasForeignKey("StoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Story");
                 });
 
             modelBuilder.Entity("HrmsApi.Models.Student", b =>
@@ -3162,6 +3429,35 @@ namespace HrmsApi.Migrations
                     b.Navigation("Employee");
                 });
 
+            modelBuilder.Entity("HrmsApi.Models.TimetableLog", b =>
+                {
+                    b.HasOne("HrmsApi.Models.TimetableSlot", "Slot")
+                        .WithMany("Logs")
+                        .HasForeignKey("SlotId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Slot");
+                });
+
+            modelBuilder.Entity("HrmsApi.Models.TimetableSlot", b =>
+                {
+                    b.HasOne("HrmsApi.Models.SchoolClass", "Class")
+                        .WithMany()
+                        .HasForeignKey("ClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HrmsApi.Models.Employee", "Teacher")
+                        .WithMany()
+                        .HasForeignKey("TeacherEmployeeId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Class");
+
+                    b.Navigation("Teacher");
+                });
+
             modelBuilder.Entity("HrmsApi.Models.AttendancePeriod", b =>
                 {
                     b.Navigation("Days");
@@ -3243,9 +3539,19 @@ namespace HrmsApi.Migrations
                     b.Navigation("Teachers");
                 });
 
+            modelBuilder.Entity("HrmsApi.Models.Story", b =>
+                {
+                    b.Navigation("Media");
+                });
+
             modelBuilder.Entity("HrmsApi.Models.Student", b =>
                 {
                     b.Navigation("Parents");
+                });
+
+            modelBuilder.Entity("HrmsApi.Models.TimetableSlot", b =>
+                {
+                    b.Navigation("Logs");
                 });
 #pragma warning restore 612, 618
         }
